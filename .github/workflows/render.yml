@@ -1,0 +1,198 @@
+name: Render aset
+
+on:
+  workflow_dispatch:
+    inputs:
+      asset:
+        description: 'Path aset HTML'
+        default: 'assets/ghost-pack-4k.html'
+      config:
+        description: 'Config/preset JSON'
+        default: 'assets/ghost-pack-4k.render.json'
+      bg:
+        description: 'Latar Belakang (black | alpha)'
+        type: choice
+        options:
+          - black
+          - alpha
+        default: black
+      codec:
+        description: 'Codec (auto | h264 | prores | prores4444)'
+        type: choice
+        options:
+          - auto
+          - h264
+          - prores
+          - prores4444
+        default: auto
+      res:
+        description: 'Resolusi (mis. 3840x2160; kosongkan untuk ikuti config)'
+        default: ''
+      fps:
+        description: 'FPS (mis. 30; kosongkan untuk ikuti config)'
+        default: ''
+      chunks:
+        description: 'Jumlah job paralel (1 = direct single-job tanpa concat glitch)'
+        default: '1'
+
+jobs:
+  # Mode 1: Single Runner (Rekomendasi Utama untuk Stock Footage 5-30s: Zero Concat Hazard)
+  render-direct:
+    if: inputs.chunks == '1' || inputs.chunks == ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+
+      - name: Cache Node Modules
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+
+      - run: npm install
+
+      - name: Cache Playwright Browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Install Playwright & Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Ensure Playwright System Deps
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - run: command -v ffmpeg || (sudo apt-get update && sudo apt-get install -y ffmpeg)
+
+      - name: Render Video Final
+        run: |
+          mkdir -p out
+          CMD_ARGS=()
+          [ -n "${{ inputs.res }}" ] && CMD_ARGS+=(--res "${{ inputs.res }}")
+          [ -n "${{ inputs.fps }}" ] && CMD_ARGS+=(--fps "${{ inputs.fps }}")
+          [ -n "${{ inputs.bg }}" ] && CMD_ARGS+=(--bg "${{ inputs.bg }}")
+          [ "${{ inputs.codec }}" != "auto" ] && CMD_ARGS+=(--codec "${{ inputs.codec }}")
+
+          node core/render.mjs "${{ inputs.asset }}" \
+            --config "${{ inputs.config }}" \
+            "${CMD_ARGS[@]}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: final-video
+          path: out/
+          retention-days: 7
+
+  # Mode 2: Multi-Job Chunks (Untuk Durasi Panjang > 60s)
+  plan:
+    if: inputs.chunks != '1' && inputs.chunks != ''
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.m.outputs.matrix }}
+    steps:
+      - id: m
+        run: |
+          n=${{ inputs.chunks }}
+          echo "matrix=$(seq 0 $((n-1)) | paste -sd, | sed 's/^/[/;s/$/]/')" >> "$GITHUB_OUTPUT"
+
+  render-chunks:
+    needs: plan
+    if: inputs.chunks != '1' && inputs.chunks != ''
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        chunk: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm install
+
+      - name: Cache Playwright Browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Install Playwright & Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Ensure Playwright System Deps
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - run: command -v ffmpeg || (sudo apt-get update && sudo apt-get install -y ffmpeg)
+
+      - name: Render Potongan ${{ matrix.chunk }}
+        run: |
+          mkdir -p out
+          CMD_ARGS=()
+          [ -n "${{ inputs.res }}" ] && CMD_ARGS+=(--res "${{ inputs.res }}")
+          [ -n "${{ inputs.fps }}" ] && CMD_ARGS+=(--fps "${{ inputs.fps }}")
+          [ -n "${{ inputs.bg }}" ] && CMD_ARGS+=(--bg "${{ inputs.bg }}")
+          [ "${{ inputs.codec }}" != "auto" ] && CMD_ARGS+=(--codec "${{ inputs.codec }}")
+
+          # Tentukan ekstensi chunk sesuai latar/codec
+          IS_PRORES=false
+          if [ "${{ inputs.codec }}" = "prores" ] || [ "${{ inputs.codec }}" = "prores4444" ] || [ "${{ inputs.bg }}" = "alpha" ]; then
+            IS_PRORES=true
+          fi
+
+          if [ "$IS_PRORES" = "true" ]; then
+            EXT="mov"
+          else
+            EXT="ts" # Gunakan MPEG-TS untuk H.264 agar concat stream seamless tanpa merusak PTS/DTS
+          fi
+
+          node core/render.mjs "${{ inputs.asset }}" \
+            --config "${{ inputs.config }}" \
+            "${CMD_ARGS[@]}" \
+            --chunk ${{ matrix.chunk }}/${{ inputs.chunks }} \
+            --out "out/part-${{ matrix.chunk }}.$EXT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: part-${{ matrix.chunk }}
+          path: out/part-${{ matrix.chunk }}.*
+          retention-days: 1
+
+  merge:
+    needs: render-chunks
+    if: inputs.chunks != '1' && inputs.chunks != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { pattern: 'part-*', merge-multiple: true, path: parts }
+      - run: command -v ffmpeg || (sudo apt-get update && sudo apt-get install -y ffmpeg)
+      - name: Gabungkan Potongan secara Seamless
+        run: |
+          cd parts
+          FIRST_FILE=$(ls part-0.* | head -n 1)
+          EXT="${FIRST_FILE##*.}"
+
+          for i in $(seq 0 $((${{ inputs.chunks }}-1))); do
+            echo "file 'part-$i.$EXT'"
+          done > list.txt
+
+          if [ "$EXT" = "mov" ]; then
+            # ProRes QuickTime concat dengan koreksi timestamp dan tag colr
+            ffmpeg -y -f concat -safe 0 -i list.txt -c copy -movflags +write_colr -avoid_negative_ts make_zero -fflags +genpts ../final.mov
+          else
+            # MPEG-TS ke MP4 transmuxing (recalculate PTS/DTS & faststart moov)
+            ffmpeg -y -f concat -safe 0 -i list.txt -c copy -movflags +faststart -avoid_negative_ts make_zero -fflags +genpts ../final.mp4
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: final-video
+          path: final.*
+          retention-days: 7

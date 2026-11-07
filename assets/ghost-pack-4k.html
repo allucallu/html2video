@@ -1,0 +1,1986 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>15 Halloween Ghosts Pack (4K Stock Footage Asset)</title>
+  <style>
+    :root {
+      --bg-ui: rgba(14, 16, 22, 0.92);
+      --border-ui: rgba(255, 255, 255, 0.14);
+      --accent: #58a6ff;
+      --accent-ok: #2ea043;
+      --accent-err: #f85149;
+      --text-main: #e6edf3;
+      --text-dim: #8b949e;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      background-color: #000000;
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    #app {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #000000;
+    }
+
+    /* Wrapper menjaga rasio 16:9 persis seperti canvas agar overlay nomor UI sejajar sempurna */
+    #stage-wrap {
+      position: relative;
+      width: min(100vw, calc(100vh * 16 / 9));
+      height: min(100vh, calc(100vw * 9 / 16));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #000000;
+    }
+
+    #stage {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: contain;
+      background-color: #000000;
+    }
+
+    /* Overlay Nomor Galeri Bentuk di DOM UI (TIDAK digambar ke Canvas) */
+    #gallery-labels {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .ghost-badge {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      background: rgba(12, 16, 24, 0.78);
+      border: 1px solid rgba(180, 220, 255, 0.28);
+      color: #d8ecff;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 999px;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.65);
+    }
+
+    .ghost-badge .num {
+      color: #58a6ff;
+      font-weight: 700;
+      margin-right: 4px;
+    }
+
+    /* Panel Kontrol Utama (di luar canvas, bisa disembunyikan dengan tombol H) */
+    #ui-root {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 20;
+    }
+
+    body.ui-hidden #ui-root,
+    body.ui-hidden #gallery-labels {
+      display: none !important;
+    }
+
+    #top-bar {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      right: 310px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      pointer-events: auto;
+    }
+
+    .pill {
+      background: var(--bg-ui);
+      border: 1px solid var(--border-ui);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      backdrop-filter: blur(8px);
+    }
+
+    .badge-stage {
+      background: rgba(88, 166, 255, 0.18);
+      border: 1px solid rgba(88, 166, 255, 0.45);
+      color: #9ecbff;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+    }
+
+    #fps-display {
+      font-variant-numeric: tabular-nums;
+      font-weight: 700;
+      color: #7ee787;
+    }
+
+    #side-panel {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: 288px;
+      max-height: calc(100vh - 92px);
+      overflow-y: auto;
+      background: var(--bg-ui);
+      border: 1px solid var(--border-ui);
+      border-radius: 10px;
+      padding: 14px;
+      pointer-events: auto;
+      backdrop-filter: blur(10px);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .panel-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-dim);
+      border-bottom: 1px solid var(--border-ui);
+      padding-bottom: 6px;
+    }
+
+    .control-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 12px;
+    }
+
+    .control-header {
+      display: flex;
+      justify-content: space-between;
+      color: var(--text-main);
+    }
+
+    .control-val {
+      color: var(--accent);
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    select, input[type="number"] {
+      width: 100%;
+      background: rgba(0, 0, 0, 0.55);
+      border: 1px solid var(--border-ui);
+      color: var(--text-main);
+      padding: 5px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--border-ui);
+      color: var(--text-main);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: rgba(255, 255, 255, 0.16);
+    }
+
+    button.primary {
+      background: rgba(88, 166, 255, 0.22);
+      border-color: rgba(88, 166, 255, 0.55);
+      color: #cae8ff;
+    }
+
+    button.primary:hover {
+      background: rgba(88, 166, 255, 0.34);
+    }
+
+    #loop-result {
+      font-size: 11px;
+      line-height: 1.45;
+      padding: 8px;
+      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.45);
+      border: 1px solid var(--border-ui);
+      display: none;
+      font-variant-numeric: tabular-nums;
+    }
+
+    #loop-result.pass {
+      display: block;
+      border-color: var(--accent-ok);
+      color: #7ee787;
+    }
+
+    #loop-result.fail {
+      display: block;
+      border-color: var(--accent-err);
+      color: #ffa198;
+    }
+
+    #bottom-bar {
+      position: absolute;
+      bottom: 12px;
+      left: 12px;
+      right: 12px;
+      background: var(--bg-ui);
+      border: 1px solid var(--border-ui);
+      border-radius: 10px;
+      padding: 8px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      pointer-events: auto;
+      backdrop-filter: blur(10px);
+    }
+
+    #time-readout {
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+      min-width: 110px;
+      color: var(--text-dim);
+    }
+
+    #scrubber {
+      flex: 1;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="stage-wrap">
+      <canvas id="stage" width="3840" height="2160"></canvas>
+      <div id="gallery-labels"></div>
+    </div>
+  </div>
+
+  <div id="ui-root">
+    <div id="top-bar">
+      <div class="pill">
+        <span class="badge-stage" id="mode-badge">TAHAP 1: GALERI BENTUK</span>
+        <span>15 Halloween Ghosts Pack</span>
+      </div>
+      <div class="pill">
+        <span>FPS: <strong id="fps-display">--</strong></span>
+        <span>|</span>
+        <span>Res Internal: <strong id="res-display">1920x1080</strong></span>
+        <span>|</span>
+        <span>Tekan <strong>H</strong> sembunyikan UI</span>
+      </div>
+    </div>
+
+    <div id="side-panel">
+      <div class="panel-title">Mode & Kualitas Preview</div>
+
+      <div class="control-row">
+        <div class="control-header">
+          <label for="sel-quality">Skala Kualitas Preview</label>
+        </div>
+        <select id="sel-quality">
+          <option value="4k">4K UHD (3840 × 2160)</option>
+          <option value="1080p" selected>1080p Full HD (1920 × 1080)</option>
+          <option value="720p">720p HD (1280 × 720)</option>
+        </select>
+      </div>
+
+      <div class="control-row">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+          <input type="checkbox" id="chk-badges" checked />
+          <span>Tampilkan Nomor Bentuk di UI (1–15)</span>
+        </label>
+      </div>
+
+      <div class="panel-title">Preset Studio</div>
+      <div class="control-row">
+        <select id="sel-preset" style="width:100%;background:rgba(88,166,255,0.12);border-color:rgba(88,166,255,0.4);color:#d8ecff;">
+          <option value="">-- Parameter Kustom / Default --</option>
+        </select>
+      </div>
+
+      <div class="panel-title">Parameter Aset (asset.params)</div>
+      <div id="params-container" style="display:flex;flex-direction:column;gap:10px;"></div>
+
+      <div class="panel-title">Verifikasi & Ekspor Frame</div>
+      <div class="btn-group">
+        <button id="btn-check-loop" class="primary" style="flex:1;">Cek Loop (t=0 vs durasi)</button>
+        <button id="btn-save-png" style="flex:1;">Simpan Frame PNG (4K)</button>
+      </div>
+      <div id="loop-result"></div>
+    </div>
+
+    <div id="bottom-bar">
+      <button id="btn-play" class="primary" style="min-width:74px;">Play</button>
+      <input type="range" id="scrubber" min="0" max="12" step="0.001" value="0" />
+      <div id="time-readout">t = 0.00s / 12.00s</div>
+      <label for="sel-speed" style="font-size:12px;color:var(--text-dim);">Speed:</label>
+      <select id="sel-speed" style="width:74px;">
+        <option value="0.25">0.25x</option>
+        <option value="0.5">0.5x</option>
+        <option value="1" selected>1.0x</option>
+        <option value="1.5">1.5x</option>
+        <option value="2">2.0x</option>
+      </select>
+    </div>
+  </div>
+
+  <script>
+    "use strict";
+
+    /* =========================================================================
+     * [PARAMS] — Konstanta Desain & Konfigurasi Parameter Aset
+     * ========================================================================= */
+    const DESIGN_WIDTH = 1920;
+    const DESIGN_HEIGHT = 1080;
+    const INTERNAL_4K_WIDTH = 3840;
+    const INTERNAL_4K_HEIGHT = 2160;
+    const DEFAULT_FPS = 30;
+    const DEFAULT_DURATION = 12;
+    const TAU_FULL = Math.PI * 2;
+
+    const GRID_ROWS = 5;
+    const GRID_COLS = 3;
+    const GRID_MARGIN_X = 540;
+    const GRID_MARGIN_TOP = 112;
+    const GRID_MARGIN_BOTTOM = 112;
+
+    // 12-Layer Smooth Exponential Glow Falloff (Mencegah Color Banding & Halo Stepping pada Latar Gelap)
+    const GLOW_RING_FACTORS = [
+      { width: 2.5, alpha: 0.18 },
+      { width: 5.5, alpha: 0.14 },
+      { width: 9.0, alpha: 0.105 },
+      { width: 13.5, alpha: 0.078 },
+      { width: 19.0, alpha: 0.055 },
+      { width: 25.5, alpha: 0.038 },
+      { width: 33.0, alpha: 0.025 },
+      { width: 41.5, alpha: 0.016 },
+      { width: 51.0, alpha: 0.01 },
+      { width: 62.0, alpha: 0.006 },
+      { width: 74.0, alpha: 0.003 },
+      { width: 88.0, alpha: 0.001 },
+    ];
+
+    const COLOR_THEMES = {
+      "ghost-white": {
+        core: "#ffffff",
+        mid: "#e9f4ff",
+        edge: "#a9d1ff",
+        glowRgb: [145, 205, 255],
+        wispRgb: [200, 232, 255],
+      },
+      "toxic-green": {
+        core: "#f2ffe9",
+        mid: "#c8ff9e",
+        edge: "#52e552",
+        glowRgb: [80, 255, 95],
+        wispRgb: [165, 255, 140],
+      },
+      "witch-purple": {
+        core: "#fbf0ff",
+        mid: "#e5b8ff",
+        edge: "#a855f7",
+        glowRgb: [185, 95, 255],
+        wispRgb: [225, 175, 255],
+      },
+      "ember-orange": {
+        core: "#fff8eb",
+        mid: "#ffd28a",
+        edge: "#ff7b29",
+        glowRgb: [255, 128, 36],
+        wispRgb: [255, 195, 110],
+      },
+    };
+
+    const PARAM_SCHEMA = {
+      mode: {
+        label: "Mode Tampilan",
+        type: "select",
+        options: [
+          { value: "gallery", label: "Galeri Bentuk (Tahap 1 Statis)" },
+          { value: "animate", label: "Animasi Penuh (Tahap 2)" },
+        ],
+      },
+      layout: {
+        label: "Tata Letak (Layout)",
+        type: "select",
+        options: [
+          { value: "grid", label: "Grid 5×3 (Melayang di Tempat)" },
+          { value: "drift", label: "Drift (Melintas Layar Seamless)" },
+        ],
+      },
+      theme: {
+        label: "Tema Warna (Theme)",
+        type: "select",
+        options: [
+          { value: "ghost-white", label: "Ghost White (#e9f4ff)" },
+          { value: "toxic-green", label: "Toxic Green" },
+          { value: "witch-purple", label: "Witch Purple" },
+          { value: "ember-orange", label: "Ember Orange" },
+        ],
+      },
+      bg: {
+        label: "Latar Belakang",
+        type: "select",
+        options: [
+          { value: "black", label: "Black Solid (#000000)" },
+          { value: "alpha", label: "Transparan (Alpha)" },
+        ],
+      },
+      seed: { label: "Seed RNG", type: "number", min: 1, max: 999999, step: 1 },
+      duration: { label: "Durasi Siklus (detik)", type: "range", min: 4, max: 24, step: 1 },
+      ghostCount: { label: "Jumlah Hantu", type: "range", min: 1, max: 15, step: 1 },
+      glowIntensity: { label: "Intensitas Glow", type: "range", min: 0.2, max: 2.0, step: 0.05 },
+      wispCount: { label: "Jumlah Wisp per Hantu", type: "range", min: 0, max: 80, step: 5 },
+    };
+
+    /* =========================================================================
+     * [RNG] — Generator Angka Acak Deterministik (Mulberry32)
+     * ========================================================================= */
+    function mulberry32(seed) {
+      let a = (seed >>> 0) + 0x6d2b79f5;
+      return function nextRandom() {
+        a = (a + 0x6d2b79f5) >>> 0;
+        let t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    /* =========================================================================
+     * [GHOSTS DATA] — Data Murni 15 Siluet Hantu Halloween (5 Baris × 3 Kolom)
+     *
+     * Setiap bentuk direpresentasikan dengan poligon kontrol halus yang
+     * diinterpolasi menjadi kurva Cubic Bezier tertutup (Catmull-Rom ke Bezier
+     * dengan ketegangan terukur per simpul) atau segmen Bezier eksplisit.
+     * Properti tiap titik kontur:
+     *   [x, y, tension, tailWeight, phaseOffset]
+     *   - x, y        : koordinat lokal (pusat = 0,0; rentang sekitar -80..80)
+     *   - tension     : 0.0 = sudut lancip/runcing sengaja (gigi/ujung sayap/robekan),
+     *                   0.5..0.65 = kurva halus mulus tanpa sudut patah
+     *   - tailWeight  : 0.0 = bagian kepala/badan atas tetap stabil,
+     *                   0.2..1.0 = titik ekor/ujung kain yang bergelombang saat animasi
+     *   - phaseOffset : pergeseran fase gelombang lokal sepanjang tepi bawah/ekor
+     * ========================================================================= */
+    const GHOSTS = [
+      // BARIS 1, KOLOM 1 (#01): Hantu kepala bulat ekor bergelombang mulut O
+      {
+        id: 1,
+        name: "Kepala Bulat Ekor Bergelombang",
+        row: 0,
+        col: 0,
+        contour: [
+          [0, -76, 0.6, 0.0, 0.0],
+          [32, -66, 0.6, 0.0, 0.0],
+          [44, -36, 0.56, 0.0, 0.0],
+          [68, -14, 0.56, 0.25, 0.4],
+          [58, 8, 0.56, 0.3, 0.8],
+          [36, 4, 0.56, 0.2, 1.1],
+          [38, 32, 0.58, 0.55, 1.7],
+          [24, 56, 0.58, 0.8, 2.3],
+          [36, 74, 0.45, 1.0, 3.0],
+          [6, 78, 0.55, 0.95, 3.6],
+          [-18, 60, 0.58, 0.8, 4.2],
+          [-10, 40, 0.58, 0.6, 4.8],
+          [-34, 24, 0.58, 0.4, 5.3],
+          [-36, 4, 0.56, 0.2, 5.6],
+          [-58, 10, 0.56, 0.3, 5.9],
+          [-68, -12, 0.56, 0.25, 6.1],
+          [-44, -36, 0.56, 0.0, 0.0],
+          [-32, -66, 0.6, 0.0, 0.0],
+        ],
+        eyes: [
+          { type: "ellipse", x: -13, y: -40, rx: 7.5, ry: 11, rot: -0.06 },
+          { type: "ellipse", x: 13, y: -40, rx: 7.5, ry: 11, rot: 0.06 },
+        ],
+        mouth: { type: "ellipse", x: 0, y: -15, rx: 9.5, ry: 12.5, rot: 0 },
+      },
+
+      // BARIS 1, KOLOM 2 (#02): Blob bulat dua mata oval
+      {
+        id: 2,
+        name: "Blob Bulat Dua Mata Oval",
+        row: 0,
+        col: 1,
+        contour: [
+          [0, -72, 0.62, 0.0, 0.0],
+          [38, -62, 0.62, 0.0, 0.0],
+          [56, -24, 0.62, 0.05, 0.3],
+          [60, 22, 0.6, 0.35, 0.9],
+          [52, 58, 0.55, 0.75, 1.5],
+          [30, 48, 0.55, 0.7, 2.2],
+          [16, 66, 0.55, 0.9, 2.9],
+          [0, 52, 0.55, 0.85, 3.5],
+          [-16, 66, 0.55, 0.9, 4.1],
+          [-30, 48, 0.55, 0.7, 4.7],
+          [-52, 58, 0.55, 0.75, 5.3],
+          [-60, 22, 0.6, 0.35, 5.8],
+          [-56, -24, 0.62, 0.05, 6.1],
+          [-38, -62, 0.62, 0.0, 0.0],
+        ],
+        eyes: [
+          { type: "ellipse", x: -16, y: -22, rx: 9.5, ry: 15, rot: -0.04 },
+          { type: "ellipse", x: 16, y: -22, rx: 9.5, ry: 15, rot: 0.04 },
+        ],
+        mouth: null,
+      },
+
+      // BARIS 1, KOLOM 3 (#03): Hantu compang-camping ekor melayang
+      {
+        id: 3,
+        name: "Compang-Camping Ekor Melayang",
+        row: 0,
+        col: 2,
+        contour: [
+          [4, -74, 0.58, 0.0, 0.0],
+          [32, -62, 0.58, 0.0, 0.0],
+          [46, -34, 0.54, 0.1, 0.3],
+          [76, -14, 0.38, 0.45, 0.8],
+          [56, 4, 0.48, 0.35, 1.2],
+          [66, 26, 0.35, 0.65, 1.7],
+          [42, 16, 0.48, 0.4, 2.1],
+          [38, 48, 0.5, 0.75, 2.6],
+          [18, 72, 0.35, 0.95, 3.1],
+          [6, 50, 0.48, 0.75, 3.6],
+          [-14, 78, 0.35, 1.0, 4.1],
+          [-26, 52, 0.48, 0.8, 4.6],
+          [-56, 74, 0.35, 1.0, 5.1],
+          [-40, 34, 0.52, 0.65, 5.5],
+          [-38, 8, 0.48, 0.3, 5.8],
+          [-68, 20, 0.35, 0.55, 6.0],
+          [-54, -4, 0.48, 0.3, 6.2],
+          [-72, -18, 0.38, 0.4, 0.2],
+          [-42, -38, 0.55, 0.0, 0.0],
+          [-26, -64, 0.58, 0.0, 0.0],
+        ],
+        eyes: [
+          { type: "ellipse", x: -11, y: -38, rx: 7, ry: 10, rot: 0.16 },
+          { type: "ellipse", x: 15, y: -38, rx: 7, ry: 10, rot: -0.16 },
+        ],
+        mouth: {
+          type: "poly",
+          points: [
+            [-10, -16, 0.5],
+            [0, -22, 0.5],
+            [11, -15, 0.5],
+            [6, -4, 0.5],
+            [-6, -5, 0.5],
+          ],
+        },
+      },
+
+      // BARIS 2, KOLOM 1 (#04): Monster marah tepi bergerigi mulut bergigi bergaya sayap kelelawar
+      {
+        id: 4,
+        name: "Monster Marah Sayap Bergerigi",
+        row: 1,
+        col: 0,
+        contour: [
+          [0, -60, 0.48, 0.0, 0.0],
+          [20, -72, 0.25, 0.0, 0.0],
+          [32, -50, 0.45, 0.05, 0.0],
+          [68, -64, 0.3, 0.35, 0.5],
+          [94, -30, 0.25, 0.65, 1.0],
+          [70, -16, 0.35, 0.5, 1.4],
+          [86, 10, 0.25, 0.75, 1.9],
+          [56, 6, 0.35, 0.45, 2.3],
+          [60, 38, 0.25, 0.8, 2.8],
+          [36, 26, 0.35, 0.6, 3.2],
+          [28, 66, 0.25, 0.95, 3.6],
+          [10, 44, 0.35, 0.75, 4.0],
+          [0, 74, 0.25, 1.0, 4.4],
+          [-10, 44, 0.35, 0.75, 4.8],
+          [-28, 66, 0.25, 0.95, 5.2],
+          [-36, 26, 0.35, 0.6, 5.5],
+          [-60, 38, 0.25, 0.8, 5.8],
+          [-56, 6, 0.35, 0.45, 6.0],
+          [-86, 10, 0.25, 0.75, 6.2],
+          [-70, -16, 0.35, 0.5, 0.2],
+          [-94, -30, 0.25, 0.65, 0.4],
+          [-68, -64, 0.3, 0.35, 0.6],
+          [-32, -50, 0.45, 0.05, 0.0],
+          [-20, -72, 0.25, 0.0, 0.0],
+        ],
+        eyes: [
+          {
+            type: "poly",
+            points: [
+              [-26, -38, 0.2],
+              [-6, -28, 0.2],
+              [-10, -18, 0.3],
+              [-28, -26, 0.3],
+            ],
+          },
+          {
+            type: "poly",
+            points: [
+              [26, -38, 0.2],
+              [28, -26, 0.3],
+              [10, -18, 0.3],
+              [6, -28, 0.2],
+            ],
+          },
+        ],
+        mouth: {
+          type: "poly",
+          points: [
+            [-28, -4, 0.15],
+            [-18, 2, 0.1],
+            [-12, -6, 0.1],
+            [-6, 3, 0.1],
+            [0, -6, 0.1],
+            [6, 3, 0.1],
+            [12, -6, 0.1],
+            [18, 2, 0.1],
+            [28, -4, 0.15],
+            [22, 16, 0.25],
+            [12, 8, 0.1],
+            [6, 18, 0.1],
+            [0, 9, 0.1],
+            [-6, 18, 0.1],
+            [-12, 8, 0.1],
+            [-22, 16, 0.25],
+          ],
+        },
+      },
+
+      // BARIS 2, KOLOM 2 (#05): Hantu kecil terbang lengan seperti sayap
+      {
+        id: 5,
+        name: "Hantu Kecil Lengan Sayap",
+        row: 1,
+        col: 1,
+        contour: [
+          [0, -66, 0.58, 0.0, 0.0],
+          [26, -58, 0.56, 0.0, 0.0],
+          [36, -34, 0.5, 0.1, 0.2],
+          [76, -24, 0.45, 0.55, 0.8],
+          [84, -4, 0.35, 0.75, 1.3],
+          [58, 8, 0.5, 0.5, 1.8],
+          [34, 4, 0.5, 0.25, 2.2],
+          [28, 42, 0.55, 0.65, 2.8],
+          [14, 70, 0.3, 0.95, 3.4],
+          [-2, 52, 0.5, 0.85, 4.0],
+          [-18, 68, 0.3, 0.95, 4.6],
+          [-28, 38, 0.55, 0.65, 5.1],
+          [-34, 4, 0.5, 0.25, 5.5],
+          [-58, 8, 0.5, 0.5, 5.9],
+          [-84, -4, 0.35, 0.75, 6.1],
+          [-76, -24, 0.45, 0.55, 0.3],
+          [-36, -34, 0.5, 0.1, 0.1],
+          [-26, -58, 0.56, 0.0, 0.0],
+        ],
+        eyes: [
+          { type: "ellipse", x: -11, y: -34, rx: 6.5, ry: 9.5, rot: -0.05 },
+          { type: "ellipse", x: 11, y: -34, rx: 6.5, ry: 9.5, rot: 0.05 },
+        ],
+        mouth: { type: "ellipse", x: 0, y: -15, rx: 6.5, ry: 8, rot: 0 },
+      },
+
+      // BARIS 2, KOLOM 3 (#06): Hantu lengan lebar
+      {
+        id: 6,
+        name: "Hantu Lengan Lebar",
+        row: 1,
+        col: 2,
+        contour: [
+          [0, -72, 0.58, 0.0, 0.0],
+          [28, -62, 0.58, 0.0, 0.0],
+          [38, -36, 0.52, 0.05, 0.2],
+          [86, -20, 0.52, 0.5, 0.8],
+          [82, 6, 0.45, 0.65, 1.4],
+          [58, 16, 0.52, 0.5, 1.9],
+          [38, 8, 0.5, 0.3, 2.3],
+          [36, 46, 0.55, 0.7, 2.9],
+          [20, 72, 0.45, 0.95, 3.5],
+          [0, 58, 0.52, 0.85, 4.1],
+          [-20, 72, 0.45, 0.95, 4.7],
+          [-36, 46, 0.55, 0.7, 5.2],
+          [-38, 8, 0.5, 0.3, 5.6],
+          [-58, 16, 0.52, 0.5, 6.0],
+          [-82, 6, 0.45, 0.65, 6.2],
+          [-86, -20, 0.52, 0.5, 0.4],
+          [-38, -36, 0.52, 0.05, 0.1],
+          [-28, -62, 0.58, 0.0, 0.0],
+        ],
+        eyes: [
+          { type: "ellipse", x: -13, y: -38, rx: 7, ry: 10.5, rot: 0 },
+          { type: "ellipse", x: 13, y: -38, rx: 7, ry: 10.5, rot: 0 },
+        ],
+        mouth: { type: "ellipse", x: 0, y: -14, rx: 8.5, ry: 11, rot: 0 },
+      },
+
+      // BARIS 3, KOLOM 1 (#07): Hantu tangan terangkat ujung robek
+      {
+        id: 7,
+        name: "Tangan Terangkat Ujung Robek",
+        row: 2,
+        col: 0,
+        contour: [
+          [0, -68, 0.56, 0.0, 0.0],
+          [26, -58, 0.55, 0.0, 0.0],
+          [36, -34, 0.45, 0.05, 0.2],
+          [66, -64, 0.35, 0.45, 0.7],
+          [80, -44, 0.25, 0.6, 1.1],
+          [68, -10, 0.2, 0.7, 1.5],
+          [54, -22, 0.35, 0.5, 1.9],
+          [46, 8, 0.2, 0.75, 2.3],
+          [36, -6, 0.4, 0.35, 2.7],
+          [38, 42, 0.45, 0.7, 3.1],
+          [28, 76, 0.18, 1.0, 3.6],
+          [12, 50, 0.4, 0.8, 4.0],
+          [0, 78, 0.18, 1.0, 4.4],
+          [-12, 50, 0.4, 0.8, 4.8],
+          [-28, 76, 0.18, 1.0, 5.2],
+          [-38, 42, 0.45, 0.7, 5.6],
+          [-36, -6, 0.4, 0.35, 5.9],
+          [-46, 8, 0.2, 0.75, 6.1],
+          [-54, -22, 0.35, 0.5, 0.2],
+          [-68, -10, 0.2, 0.7, 0.5],
+          [-80, -44, 0.25, 0.6, 0.8],
+          [-66, -64, 0.35, 0.45, 1.1],
+          [-36, -34, 0.45, 0.05, 0.1],
+          [-26, -58, 0.55, 0.0, 0.0],
+        ],
+        eyes: [
+          { type: "ellipse", x: -12, y: -36, rx: 6.5, ry: 10.5, rot: -0.1 },
+          { type: "ellipse", x: 12, y: -36, rx: 6.5, ry: 10.5, rot: 0.1 },
+        ],
+        mouth: { type: "ellipse", x: 0, y: -11, rx: 8, ry: 13.5, rot: 0 },
+      },
+
+      // BARIS 3, KOLOM 2 (#08): Hantu bersayap compang-camping mata marah
+      {
+        id: 8,
+        name: "Bersayap Compang-Camping Marah",
+        row: 2,
+        col: 1,
+        contour: [
+          [0, -72, 0.52, 0.0, 0.0],
+          [26, -60, 0.5, 0.0, 0.0],
+          [38, -36, 0.4, 0.1, 0.3],
+          [78, -46, 0.22, 0.5, 0.8],
+          [88, -16, 0.18, 0.75, 1.3],
+          [66, -6, 0.3, 0.55, 1.7],
+          [72, 22, 0.18, 0.8, 2.1],
+          [48, 8, 0.35, 0.5, 2.5],
+          [42, 46, 0.35, 0.75, 2.9],
+          [28, 76, 0.16, 1.0, 3.4],
+          [12, 48, 0.35, 0.8, 3.8],
+          [0, 78, 0.16, 1.0, 4.2],
+          [-12, 48, 0.35, 0.8, 4.6],
+          [-28, 76, 0.16, 1.0, 5.0],
+          [-42, 46, 0.35, 0.75, 5.4],
+          [-48, 8, 0.35, 0.5, 5.8],
+          [-72, 22, 0.18, 0.8, 6.1],
+          [-66, -6, 0.3, 0.55, 0.2],
+          [-88, -16, 0.18, 0.75, 0.5],
+          [-78, -46, 0.22, 0.5, 0.8],
+          [-38, -36, 0.4, 0.1, 0.1],
+          [-26, -60, 0.5, 0.0, 0.0],
+        ],
+        eyes: [
+          {
+            type: "poly",
+            points: [
+              [-22, -40, 0.2],
+              [-5, -31, 0.2],
+              [-9, -22, 0.3],
+              [-24, -29, 0.3],
+            ],
+          },
+          {
+            type: "poly",
+            points: [
+              [22, -40, 0.2],
+              [24, -29, 0.3],
+              [9, -22, 0.3],
+              [5, -31, 0.2],
+            ],
+          },
+        ],
+        mouth: {
+          type: "poly",
+          points: [
+            [-18, -8, 0.25],
+            [-8, -13, 0.25],
+            [0, -7, 0.25],
+            [8, -13, 0.25],
+            [18, -8, 0.25],
+            [12, 4, 0.3],
+            [0, -1, 0.25],
+            [-12, 4, 0.3],
+          ],
+        },
+      },
+
+      // BARIS 3, KOLOM 3 (#09): Hantu gemuk bulat mulut O
+      {
+        id: 9,
+        name: "Hantu Gemuk Bulat Mulut O",
+        row: 2,
+        col: 2,
+        contour: [
+          [0, -74, 0.6, 0.0, 0.0],
+          [34, -64, 0.6, 0.0, 0.0],
+          [54, -32, 0.58, 0.05, 0.3],
+          [76, -12, 0.52, 0.25, 0.8],
+          [62, 12, 0.55, 0.25, 1.3],
+          [64, 40, 0.58, 0.45, 1.9],
+          [42, 66, 0.58, 0.75, 2.6],
+          [14, 78, 0.45, 1.0, 3.3],
+          [-6, 66, 0.55, 0.85, 4.0],
+          [-38, 64, 0.58, 0.75, 4.7],
+          [-62, 38, 0.58, 0.45, 5.3],
+          [-62, 12, 0.55, 0.25, 5.8],
+          [-76, -12, 0.52, 0.25, 6.1],
+          [-54, -32, 0.58, 0.05, 0.2],
+          [-34, -64, 0.6, 0.0, 0.0],
+        ],
+        eyes: [
+          { type: "ellipse", x: -15, y: -34, rx: 8, ry: 10.5, rot: 0 },
+          { type: "ellipse", x: 15, y: -34, rx: 8, ry: 10.5, rot: 0 },
+        ],
+        mouth: { type: "ellipse", x: 0, y: -8, rx: 11, ry: 13.5, rot: 0 },
+      },
+
+      // BARIS 4, KOLOM 1 (#10): Hantu melengkung menukik
+      {
+        id: 10,
+        name: "Hantu Melengkung Menukik",
+        row: 3,
+        col: 0,
+        contour: [
+          [-18, -72, 0.58, 0.0, 0.0],
+          [14, -66, 0.58, 0.0, 0.0],
+          [34, -40, 0.55, 0.1, 0.4],
+          [70, -26, 0.48, 0.45, 0.9],
+          [56, -4, 0.52, 0.35, 1.4],
+          [42, 26, 0.58, 0.6, 2.1],
+          [56, 58, 0.52, 0.9, 2.8],
+          [74, 76, 0.25, 1.0, 3.4],
+          [32, 72, 0.55, 0.9, 4.0],
+          [2, 48, 0.58, 0.65, 4.6],
+          [-24, 16, 0.58, 0.35, 5.2],
+          [-58, 22, 0.48, 0.45, 5.7],
+          [-68, 2, 0.48, 0.35, 6.0],
+          [-42, -24, 0.55, 0.05, 0.2],
+          [-38, -54, 0.58, 0.0, 0.0],
+        ],
+        eyes: [
+          { type: "ellipse", x: -20, y: -38, rx: 6.5, ry: 10, rot: -0.22 },
+          { type: "ellipse", x: 4, y: -42, rx: 6.5, ry: 10, rot: -0.22 },
+        ],
+        mouth: { type: "ellipse", x: -6, y: -18, rx: 8, ry: 10, rot: -0.2 },
+      },
+
+      // BARIS 4, KOLOM 2 (#11): Hantu seprai klasik tepi bawah bergelombang
+      {
+        id: 11,
+        name: "Seprai Klasik Tepi Bergelombang",
+        row: 3,
+        col: 1,
+        contour: [
+          [0, -76, 0.6, 0.0, 0.0],
+          [32, -66, 0.6, 0.0, 0.0],
+          [46, -32, 0.58, 0.05, 0.3],
+          [60, 12, 0.58, 0.35, 0.9],
+          [64, 58, 0.52, 0.85, 1.5],
+          [44, 44, 0.52, 0.75, 2.1],
+          [28, 68, 0.52, 0.95, 2.7],
+          [12, 48, 0.52, 0.8, 3.3],
+          [0, 72, 0.52, 1.0, 3.9],
+          [-12, 48, 0.52, 0.8, 4.5],
+          [-28, 68, 0.52, 0.95, 5.1],
+          [-44, 44, 0.52, 0.75, 5.6],
+          [-64, 58, 0.52, 0.85, 6.0],
+          [-60, 12, 0.58, 0.35, 0.2],
+          [-46, -32, 0.58, 0.05, 0.0],
+          [-32, -66, 0.6, 0.0, 0.0],
+        ],
+        eyes: [
+          { type: "ellipse", x: -13, y: -38, rx: 7, ry: 11.5, rot: 0 },
+          { type: "ellipse", x: 13, y: -38, rx: 7, ry: 11.5, rot: 0 },
+        ],
+        mouth: { type: "ellipse", x: 0, y: -12, rx: 7.5, ry: 10.5, rot: 0 },
+      },
+
+      // BARIS 4, KOLOM 3 (#12): Hantu berkerudung runcing menyeringai
+      {
+        id: 12,
+        name: "Berkerudung Runcing Menyeringai",
+        row: 3,
+        col: 2,
+        contour: [
+          [6, -82, 0.18, 0.05, 0.0],
+          [28, -56, 0.55, 0.0, 0.0],
+          [44, -26, 0.55, 0.1, 0.4],
+          [68, 4, 0.48, 0.4, 1.0],
+          [50, 20, 0.48, 0.45, 1.6],
+          [56, 58, 0.35, 0.85, 2.2],
+          [32, 46, 0.45, 0.75, 2.8],
+          [16, 74, 0.25, 0.95, 3.4],
+          [-2, 52, 0.45, 0.8, 4.0],
+          [-22, 74, 0.25, 0.95, 4.6],
+          [-36, 46, 0.45, 0.75, 5.2],
+          [-56, 58, 0.35, 0.85, 5.7],
+          [-50, 20, 0.48, 0.45, 6.0],
+          [-68, 4, 0.48, 0.4, 0.2],
+          [-42, -26, 0.55, 0.1, 0.0],
+          [-22, -58, 0.55, 0.0, 0.0],
+        ],
+        eyes: [
+          {
+            type: "poly",
+            points: [
+              [-22, -34, 0.3],
+              [-6, -28, 0.3],
+              [-10, -19, 0.3],
+              [-24, -24, 0.3],
+            ],
+          },
+          {
+            type: "poly",
+            points: [
+              [22, -34, 0.3],
+              [24, -24, 0.3],
+              [10, -19, 0.3],
+              [6, -28, 0.3],
+            ],
+          },
+        ],
+        mouth: {
+          type: "poly",
+          points: [
+            [-24, -8, 0.35],
+            [-10, -3, 0.35],
+            [0, -2, 0.35],
+            [10, -3, 0.35],
+            [24, -8, 0.35],
+            [18, 8, 0.4],
+            [0, 13, 0.4],
+            [-18, 8, 0.4],
+          ],
+        },
+      },
+
+      // BARIS 5, KOLOM 1 (#13): Hantu tetes / ekor tunggal
+      {
+        id: 13,
+        name: "Hantu Tetes Ekor Tunggal",
+        row: 4,
+        col: 0,
+        contour: [
+          [0, -74, 0.6, 0.0, 0.0],
+          [32, -62, 0.6, 0.0, 0.0],
+          [44, -30, 0.55, 0.05, 0.3],
+          [64, -8, 0.5, 0.3, 0.8],
+          [48, 12, 0.52, 0.3, 1.3],
+          [34, 34, 0.58, 0.6, 2.0],
+          [18, 62, 0.55, 0.85, 2.8],
+          [-10, 80, 0.25, 1.0, 3.5],
+          [-18, 54, 0.55, 0.8, 4.2],
+          [-34, 28, 0.58, 0.5, 4.9],
+          [-48, 12, 0.52, 0.3, 5.5],
+          [-64, -8, 0.5, 0.3, 6.0],
+          [-44, -30, 0.55, 0.05, 0.2],
+          [-32, -62, 0.6, 0.0, 0.0],
+        ],
+        eyes: [
+          { type: "ellipse", x: -13, y: -36, rx: 7, ry: 11, rot: 0 },
+          { type: "ellipse", x: 13, y: -36, rx: 7, ry: 11, rot: 0 },
+        ],
+        mouth: { type: "ellipse", x: 0, y: -12, rx: 7, ry: 9, rot: 0 },
+      },
+
+      // BARIS 5, KOLOM 2 (#14): Hantu bersayap kelelawar
+      {
+        id: 14,
+        name: "Hantu Bersayap Kelelawar",
+        row: 4,
+        col: 1,
+        contour: [
+          [0, -68, 0.55, 0.0, 0.0],
+          [24, -60, 0.52, 0.0, 0.0],
+          [34, -36, 0.4, 0.1, 0.2],
+          [66, -54, 0.35, 0.45, 0.7],
+          [90, -24, 0.2, 0.75, 1.2],
+          [70, -12, 0.35, 0.6, 1.6],
+          [62, 12, 0.2, 0.65, 2.0],
+          [42, 2, 0.4, 0.35, 2.4],
+          [32, 38, 0.55, 0.65, 3.0],
+          [16, 66, 0.5, 0.9, 3.5],
+          [0, 80, 0.22, 1.0, 4.0],
+          [-16, 66, 0.5, 0.9, 4.5],
+          [-32, 38, 0.55, 0.65, 5.0],
+          [-42, 2, 0.4, 0.35, 5.5],
+          [-62, 12, 0.2, 0.65, 5.9],
+          [-70, -12, 0.35, 0.6, 6.1],
+          [-90, -24, 0.2, 0.75, 0.3],
+          [-66, -54, 0.35, 0.45, 0.6],
+          [-34, -36, 0.4, 0.1, 0.1],
+          [-24, -60, 0.52, 0.0, 0.0],
+        ],
+        eyes: [
+          { type: "ellipse", x: -12, y: -36, rx: 6.5, ry: 9.5, rot: 0.16 },
+          { type: "ellipse", x: 12, y: -36, rx: 6.5, ry: 9.5, rot: -0.16 },
+        ],
+        mouth: {
+          type: "poly",
+          points: [
+            [-16, -14, 0.3],
+            [0, -10, 0.3],
+            [16, -14, 0.3],
+            [10, 0, 0.3],
+            [0, 3, 0.3],
+            [-10, 0, 0.3],
+          ],
+        },
+      },
+
+      // BARIS 5, KOLOM 3 (#15): Hantu kartun imut menyeringai
+      {
+        id: 15,
+        name: "Kartun Imut Menyeringai",
+        row: 4,
+        col: 2,
+        contour: [
+          [0, -72, 0.6, 0.0, 0.0],
+          [32, -62, 0.6, 0.0, 0.0],
+          [44, -34, 0.55, 0.05, 0.3],
+          [68, -22, 0.55, 0.3, 0.8],
+          [60, 4, 0.55, 0.3, 1.3],
+          [44, 10, 0.55, 0.25, 1.8],
+          [48, 48, 0.55, 0.75, 2.4],
+          [28, 68, 0.55, 0.95, 3.0],
+          [12, 52, 0.55, 0.8, 3.5],
+          [0, 70, 0.55, 1.0, 4.0],
+          [-12, 52, 0.55, 0.8, 4.5],
+          [-28, 68, 0.55, 0.95, 5.0],
+          [-48, 48, 0.55, 0.75, 5.6],
+          [-44, 10, 0.55, 0.25, 6.0],
+          [-60, 4, 0.55, 0.3, 6.2],
+          [-68, -22, 0.55, 0.3, 0.4],
+          [-44, -34, 0.55, 0.05, 0.1],
+          [-32, -62, 0.6, 0.0, 0.0],
+        ],
+        eyes: [
+          { type: "ellipse", x: -15, y: -36, rx: 7.5, ry: 10.5, rot: -0.05 },
+          { type: "ellipse", x: 15, y: -36, rx: 7.5, ry: 10.5, rot: 0.05 },
+        ],
+        mouth: {
+          type: "poly",
+          points: [
+            [-20, -14, 0.45],
+            [0, -10, 0.45],
+            [20, -14, 0.45],
+            [15, 4, 0.5],
+            [0, 9, 0.5],
+            [-15, 4, 0.5],
+          ],
+        },
+      },
+    ];
+
+    /* =========================================================================
+     * [DRAW HELPERS] — Interpolasi Kurva Cubic Bezier & Penggambaran Glow/Lubang
+     * ========================================================================= */
+
+    /**
+     * Menghitung koordinat pusat sel grid (5 baris × 3 kolom) dalam koordinat desain 1920×1080.
+     */
+    function getGridCellPosition(row, col) {
+      const usableW = DESIGN_WIDTH - GRID_MARGIN_X * 2;
+      const usableH = DESIGN_HEIGHT - GRID_MARGIN_TOP - GRID_MARGIN_BOTTOM;
+      const x = GRID_MARGIN_X + (col / (GRID_COLS - 1)) * usableW;
+      const y = GRID_MARGIN_TOP + (row / (GRID_ROWS - 1)) * usableH;
+      return { x, y };
+    }
+
+    /**
+     * Menggambar kurva tertutup Cubic Bezier yang halus dari array simpul [x, y, tension].
+     * Menggunakan konversi Catmull-Rom ke Cubic Bezier agar tidak ada sudut patah
+     * kecuali pada simpul dengan tension rendah (gigi, ujung robekan).
+     */
+    function traceSmoothClosedSpline(ctx, points) {
+      const n = points.length;
+      if (n < 3) return;
+
+      ctx.moveTo(points[0].x, points[0].y);
+      for (let i = 0; i < n; i++) {
+        const p0 = points[(i - 1 + n) % n];
+        const p1 = points[i];
+        const p2 = points[(i + 1) % n];
+        const p3 = points[(i + 2) % n];
+
+        const t1 = p1.tension !== undefined ? p1.tension : 0.5;
+        const t2 = p2.tension !== undefined ? p2.tension : 0.5;
+
+        const cp1x = p1.x + ((p2.x - p0.x) * t1) / 3;
+        const cp1y = p1.y + ((p2.y - p0.y) * t1) / 3;
+        const cp2x = p2.x - ((p3.x - p1.x) * t2) / 3;
+        const cp2y = p2.y - ((p3.y - p1.y) * t2) / 3;
+
+        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+      }
+      ctx.closePath();
+    }
+
+    /**
+     * Menambahkan subpath lubang mata atau mulut ke path aktif (untuk fill-rule evenodd).
+     */
+    function addCutoutSubpath(ctx, hole, blinkScaleY) {
+      if (!hole) return;
+      const sy = blinkScaleY !== undefined ? blinkScaleY : 1.0;
+
+      if (hole.type === "ellipse") {
+        const ry = Math.max(1.2, hole.ry * sy);
+        ctx.ellipse(hole.x, hole.y, hole.rx, ry, hole.rot || 0, 0, TAU_FULL);
+        ctx.closePath();
+      } else if (hole.type === "poly" && hole.points) {
+        let cy = 0;
+        for (let i = 0; i < hole.points.length; i++) {
+          cy += hole.points[i][1];
+        }
+        cy /= hole.points.length;
+
+        const pts = hole.points.map((pt) => ({
+          x: pt[0],
+          y: cy + (pt[1] - cy) * sy,
+          tension: pt[2] !== undefined ? pt[2] : 0.35,
+        }));
+        traceSmoothClosedSpline(ctx, pts);
+      }
+    }
+
+    /**
+     * Menggambar partikel wisp (asap/cahaya kecil) deterministik untuk satu hantu.
+     */
+    function drawGhostWisps(ctx, ghostSeedProps, p, wispCount, themeObj, glowIntensity) {
+      if (wispCount <= 0) return;
+      const [wr, wg, wb] = themeObj.wispRgb;
+
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+
+      for (let i = 0; i < wispCount; i++) {
+        const wispSpec = ghostSeedProps.wisps[i];
+        if (!wispSpec) break;
+
+        // Fase lokal partikel sepanjang siklus (integer speed agar 100% seamless loop)
+        const localPhase = (p * wispSpec.cycles + wispSpec.phaseOffset) % 1;
+        // Amplop muncul-memudar halus sin(pi * localPhase)^2 -> bernilai tepat 0 di 0 dan 1
+        const env = Math.sin(Math.PI * localPhase);
+        const alpha = env * env * wispSpec.maxAlpha * Math.min(1.4, glowIntensity);
+        if (alpha <= 0.003) continue;
+
+        const riseY = wispSpec.startY - localPhase * wispSpec.riseDistance;
+        const swayX =
+          wispSpec.startX +
+          Math.sin(localPhase * TAU_FULL * wispSpec.swayCycles + wispSpec.swayPhase) *
+            wispSpec.swayAmp;
+        const radius = wispSpec.baseRadius * (0.55 + 0.65 * env);
+
+        // Gambar titik wisp berlapis tanpa shadowBlur (2 lapis lingkaran konsentris)
+        ctx.fillStyle = `rgba(${wr}, ${wg}, ${wb}, ${(alpha * 0.32).toFixed(4)})`;
+        ctx.beginPath();
+        ctx.arc(swayX, riseY, radius * 2.1, 0, TAU_FULL);
+        ctx.fill();
+
+        ctx.fillStyle = `rgba(${wr}, ${wg}, ${wb}, ${alpha.toFixed(4)})`;
+        ctx.beginPath();
+        ctx.arc(swayX, riseY, radius, 0, TAU_FULL);
+        ctx.fill();
+      }
+
+      ctx.restore();
+    }
+
+    /**
+     * Menggambar satu hantu lengkap:
+     * 1. Clip lubang mata & mulut agar glow tidak mengotori bagian dalam mata/mulut (#000000 murni).
+     * 2. Glow berlapis dengan stroke membesar dan alpha mengecil dalam mode 'lighter'.
+     * 3. Isi tubuh hantu dengan gradasi radial halus (#ffffff -> #e9f4ff -> tepi) memakai fill("evenodd").
+     */
+    function drawSingleGhost(ctx, ghost, deformedPoints, animState, themeObj, glowIntensity) {
+      const [gr, gg, gb] = themeObj.glowRgb;
+      const totalGlow = glowIntensity * animState.glowPulse;
+
+      ctx.save();
+      ctx.translate(animState.x, animState.y);
+      ctx.rotate(animState.rotation);
+      ctx.scale(animState.scale, animState.scale);
+
+      // 1. Buat evenodd clip region di luar lubang mata & mulut agar lubang tetap #000000 murni
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(-180, -180, 360, 360);
+      for (let i = 0; i < ghost.eyes.length; i++) {
+        addCutoutSubpath(ctx, ghost.eyes[i], animState.blinkScaleY);
+      }
+      if (ghost.mouth) {
+        addCutoutSubpath(ctx, ghost.mouth, 1.0);
+      }
+      ctx.clip("evenodd");
+
+      // 2. Gambar Glow Berlapis (mode 'lighter', tanpa shadowBlur / ctx.filter)
+      ctx.globalCompositeOperation = "lighter";
+      ctx.lineJoin = "round";
+      ctx.lineCap = "round";
+
+      ctx.beginPath();
+      traceSmoothClosedSpline(ctx, deformedPoints);
+
+      for (let i = 0; i < GLOW_RING_FACTORS.length; i++) {
+        const ring = GLOW_RING_FACTORS[i];
+        const ringAlpha = Math.min(1, ring.alpha * totalGlow);
+        if (ringAlpha <= 0.001) continue;
+        ctx.lineWidth = ring.width;
+        ctx.strokeStyle = `rgba(${gr}, ${gg}, ${gb}, ${ringAlpha.toFixed(4)})`;
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      // 3. Gambar Tubuh Utama + Lubang Mata & Mulut (fill-rule: evenodd)
+      ctx.beginPath();
+      traceSmoothClosedSpline(ctx, deformedPoints);
+      for (let i = 0; i < ghost.eyes.length; i++) {
+        addCutoutSubpath(ctx, ghost.eyes[i], animState.blinkScaleY);
+      }
+      if (ghost.mouth) {
+        addCutoutSubpath(ctx, ghost.mouth, 1.0);
+      }
+
+      const bodyGrad = ctx.createRadialGradient(0, -24, 8, 0, 6, 92);
+      bodyGrad.addColorStop(0.0, themeObj.core);
+      bodyGrad.addColorStop(0.62, themeObj.mid);
+      bodyGrad.addColorStop(1.0, themeObj.edge);
+
+      ctx.fillStyle = bodyGrad;
+      ctx.fill("evenodd");
+
+      ctx.restore();
+    }
+
+    /* =========================================================================
+     * [ANIMATION] — Perhitungan Deterministik Posisi, Deformasi Ekor, Kedip, & Wisp
+     * ========================================================================= */
+
+    /**
+     * Membangun tabel parameter acak deterministik per hantu dari params.seed.
+     */
+    function buildDeterministicGhostTable(seed) {
+      const rand = mulberry32(seed);
+      const table = [];
+
+      for (let i = 0; i < GHOSTS.length; i++) {
+        const g = GHOSTS[i];
+        const basePos = getGridCellPosition(g.row, g.col);
+
+        // Frekuensi wajib INTEGER terhadap siklus agar t=0 dan t=duration 100% identik
+        const bobFreq = 1 + (i % 3); // 1, 2, atau 3 siklus per durasi
+        const bobAmp = 9 + rand() * 11; // 9..20 px desain
+        const bobPhase = rand() * TAU_FULL;
+
+        const swayFreq = 1 + ((i + 1) % 2); // 1 atau 2 siklus
+        const swayAmpX = 4 + rand() * 7;
+        const rotAmp = (1.6 + rand() * 1.4) * (Math.PI / 180); // ±3 derajat
+        const swayPhase = rand() * TAU_FULL;
+
+        const tailFreq = 2 + (i % 3); // 2, 3, atau 4 siklus gelombang ekor
+        const tailAmpX = 6 + rand() * 6;
+        const tailAmpY = 3.5 + rand() * 4;
+        const tailPhase = rand() * TAU_FULL;
+
+        const glowFreq = 1 + (i % 2);
+        const glowPhase = rand() * TAU_FULL;
+
+        // Waktu kedip 1 kali per siklus (0.08 .. 0.92 agar tidak tepat di batas sambungan 0/1)
+        const blinkCenterP = 0.08 + rand() * 0.84;
+
+        // Parameter mode "drift" (wrap-around horizontal mulus dengan kecepatan integer)
+        const driftCycles = 1 + (i % 2); // 1 atau 2 kali lintasan penuh per siklus
+        const driftDir = i % 2 === 0 ? 1 : -1;
+        const driftStartX = rand() * DESIGN_WIDTH;
+        const driftBaseY = 120 + ((i * 61 + rand() * 40) % (DESIGN_HEIGHT - 240));
+        const driftScale = 0.58 + rand() * 0.36;
+
+        // Data partikel wisp deterministik (maksimum 80 per hantu)
+        const wisps = [];
+        for (let w = 0; w < 80; w++) {
+          wisps.push({
+            startX: (rand() - 0.5) * 90,
+            startY: (rand() - 0.35) * 95,
+            riseDistance: 32 + rand() * 54,
+            cycles: 1 + Math.floor(rand() * 3), // Integer: 1, 2, atau 3
+            phaseOffset: rand(),
+            swayCycles: 1 + Math.floor(rand() * 2),
+            swayPhase: rand() * TAU_FULL,
+            swayAmp: 4 + rand() * 10,
+            baseRadius: 1.4 + rand() * 2.4,
+            maxAlpha: 0.28 + rand() * 0.45,
+          });
+        }
+
+        table.push({
+          gridX: basePos.x,
+          gridY: basePos.y,
+          bobFreq,
+          bobAmp,
+          bobPhase,
+          swayFreq,
+          swayAmpX,
+          rotAmp,
+          swayPhase,
+          tailFreq,
+          tailAmpX,
+          tailAmpY,
+          tailPhase,
+          glowFreq,
+          glowPhase,
+          blinkCenterP,
+          driftCycles,
+          driftDir,
+          driftStartX,
+          driftBaseY,
+          driftScale,
+          wisps,
+        });
+      }
+
+      return table;
+    }
+
+    /**
+     * Menghitung state transformasi dan deformasi titik kontur hantu ke-i pada fase loop p in [0, 1).
+     */
+    function evaluateGhostAtPhase(ghost, spec, p, params) {
+      const isGallery = params.mode === "gallery";
+      const tau = p * TAU_FULL;
+
+      if (isGallery) {
+        const pts = ghost.contour.map((c) => ({
+          x: c[0],
+          y: c[1],
+          tension: c[2],
+        }));
+        return {
+          animState: {
+            x: spec.gridX,
+            y: spec.gridY,
+            rotation: 0,
+            scale: 0.86,
+            blinkScaleY: 1.0,
+            glowPulse: 1.0,
+          },
+          deformedPoints: pts,
+        };
+      }
+
+      // 1. Posisi dasar berdasarkan layout ("grid" vs "drift")
+      let baseX = spec.gridX;
+      let baseY = spec.gridY;
+      let baseScale = 0.86;
+
+      if (params.layout === "drift") {
+        // Wrap-around dengan margin aman agar hantu tidak terpotong kasar saat melintas tepi
+        const loopSpan = DESIGN_WIDTH + 320;
+        const rawX =
+          spec.driftStartX + spec.driftDir * spec.driftCycles * p * loopSpan;
+        const wrappedX = ((rawX % loopSpan) + loopSpan) % loopSpan;
+        baseX = wrappedX - 160;
+        baseY = spec.driftBaseY;
+        baseScale = spec.driftScale;
+      }
+
+      // 2. Melayang vertikal & goyang rotasi/horizontal (frekuensi integer)
+      const dy = Math.sin(spec.bobFreq * tau + spec.bobPhase) * spec.bobAmp;
+      const dx = Math.cos(spec.swayFreq * tau + spec.swayPhase) * spec.swayAmpX;
+      const rotation = Math.sin(spec.swayFreq * tau + spec.swayPhase) * spec.rotAmp;
+
+      // 3. Kedip mata 1 kali per siklus
+      const blinkDist = Math.abs(p - spec.blinkCenterP);
+      const blinkWindow = 0.022;
+      let blinkScaleY = 1.0;
+      if (blinkDist < blinkWindow) {
+        const normB = blinkDist / blinkWindow;
+        const closeFactor = Math.cos(normB * (Math.PI / 2));
+        blinkScaleY = 1.0 - 0.88 * (closeFactor * closeFactor);
+      }
+
+      // 4. Denyut intensitas glow
+      const glowPulse =
+        0.86 + 0.22 * Math.sin(spec.glowFreq * tau + spec.glowPhase);
+
+      // 5. Deformasi titik ekor/ujung bawah
+      const deformedPoints = ghost.contour.map((c) => {
+        const cx = c[0];
+        const cy = c[1];
+        const tension = c[2];
+        const weight = c[3] || 0;
+        const localPhase = c[4] || 0;
+
+        if (weight <= 0.001) {
+          return { x: cx, y: cy, tension };
+        }
+
+        const waveAngle = spec.tailFreq * tau + spec.tailPhase + localPhase;
+        const ox = Math.sin(waveAngle) * spec.tailAmpX * weight;
+        const oy = Math.cos(waveAngle) * spec.tailAmpY * weight;
+
+        return {
+          x: cx + ox,
+          y: cy + oy,
+          tension,
+        };
+      });
+
+      return {
+        animState: {
+          x: baseX + dx,
+          y: baseY + dy,
+          rotation,
+          scale: baseScale,
+          blinkScaleY,
+          glowPulse,
+        },
+        deformedPoints,
+      };
+    }
+
+    /* =========================================================================
+     * [CONTRACT] — Kontrak Aset Utama (window.asset & window.__assetReady)
+     * ========================================================================= */
+    let activeCtx = null;
+    let cachedSeed = null;
+    let cachedGhostTable = null;
+
+    window.__assetReady = false;
+
+    window.asset = {
+      meta: {
+        width: INTERNAL_4K_WIDTH,
+        height: INTERNAL_4K_HEIGHT,
+        fps: DEFAULT_FPS,
+        duration: DEFAULT_DURATION,
+      },
+      params: {
+        mode: "gallery", // Default Tahap 1: "Galeri Bentuk" (ubah ke "animate" untuk Tahap 2)
+        layout: "grid",
+        theme: "ghost-white",
+        bg: "black", // "black" (solid #000000) atau "alpha" (transparan)
+        seed: 42026,
+        duration: DEFAULT_DURATION,
+        ghostCount: 15,
+        glowIntensity: 1.0,
+        wispCount: 48,
+      },
+      setup: async (ctx) => {
+        activeCtx = ctx;
+        if (typeof window !== "undefined" && window.__cliParams) {
+          Object.assign(window.asset.params, window.__cliParams);
+        }
+        cachedSeed = window.asset.params.seed;
+        cachedGhostTable = buildDeterministicGhostTable(cachedSeed);
+        window.__assetReady = true;
+      },
+      applyParams: () => {
+        cachedSeed = window.asset.params.seed;
+        cachedGhostTable = buildDeterministicGhostTable(cachedSeed);
+      },
+      render: (t) => {
+        if (!activeCtx) return;
+        const ctx = activeCtx;
+        const params = window.asset.params;
+
+        // Sinkronisasi durasi meta & tabel RNG jika seed berubah
+        const duration = Math.max(0.1, Number(params.duration) || DEFAULT_DURATION);
+        window.asset.meta.duration = duration;
+
+        if (cachedSeed !== params.seed || !cachedGhostTable) {
+          cachedSeed = params.seed;
+          cachedGhostTable = buildDeterministicGhostTable(cachedSeed);
+        }
+
+        const canvas = ctx.canvas;
+        const cw = canvas.width;
+        const ch = canvas.height;
+
+        // 1. Bersihkan frame sesuai mode latar belakang (black solid #000000 atau transparent alpha)
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.globalCompositeOperation = "source-over";
+        if (params.bg === "alpha") {
+          ctx.clearRect(0, 0, cw, ch);
+        } else {
+          ctx.globalAlpha = 1.0;
+          ctx.fillStyle = "#000000";
+          ctx.fillRect(0, 0, cw, ch);
+        }
+
+        // 2. Skala sistem koordinat desain (1920x1080) ke ukuran internal canvas (mis. 2x pada 3840x2160)
+        const scaleX = cw / DESIGN_WIDTH;
+        const scaleY = ch / DESIGN_HEIGHT;
+        ctx.scale(scaleX, scaleY);
+
+        // 3. Hitung fase loop p in [0, 1) secara deterministik; t=0 dan t=duration menghasilkan p=0
+        const rawMod = ((t % duration) + duration) % duration;
+        const p = rawMod / duration;
+
+        const themeObj = COLOR_THEMES[params.theme] || COLOR_THEMES["ghost-white"];
+        const count = Math.max(1, Math.min(GHOSTS.length, Math.floor(params.ghostCount)));
+        const glowIntensity = Number(params.glowIntensity) || 1.0;
+        const wispCount = params.mode === "gallery" ? 0 : Math.floor(params.wispCount || 0);
+
+        for (let i = 0; i < count; i++) {
+          const ghost = GHOSTS[i];
+          const spec = cachedGhostTable[i];
+          const { animState, deformedPoints } = evaluateGhostAtPhase(
+            ghost,
+            spec,
+            p,
+            params
+          );
+
+          // Gambar wisp di sekitar hantu (hanya pada mode animasi)
+          if (wispCount > 0) {
+            ctx.save();
+            ctx.translate(animState.x, animState.y);
+            ctx.scale(animState.scale, animState.scale);
+            drawGhostWisps(ctx, spec, p, wispCount, themeObj, glowIntensity);
+            ctx.restore();
+          }
+
+          // Gambar tubuh hantu + glow berlapis + lubang mata/mulut evenodd
+          drawSingleGhost(ctx, ghost, deformedPoints, animState, themeObj, glowIntensity);
+        }
+
+        ctx.restore();
+      },
+    };
+
+    /* =========================================================================
+     * [PREVIEW UI] — Pemutar Preview, Generator Panel Parameter, Cek Loop & Ekspor PNG
+     * ========================================================================= */
+    (async function initPreviewApp() {
+      const canvas = document.getElementById("stage");
+      const ctx = canvas.getContext("2d", { alpha: true });
+
+      const galleryLabelsEl = document.getElementById("gallery-labels");
+      const paramsContainer = document.getElementById("params-container");
+      const btnPlay = document.getElementById("btn-play");
+      const scrubber = document.getElementById("scrubber");
+      const timeReadout = document.getElementById("time-readout");
+      const selSpeed = document.getElementById("sel-speed");
+      const selQuality = document.getElementById("sel-quality");
+      const chkBadges = document.getElementById("chk-badges");
+      const fpsDisplay = document.getElementById("fps-display");
+      const resDisplay = document.getElementById("res-display");
+      const modeBadge = document.getElementById("mode-badge");
+      const btnCheckLoop = document.getElementById("btn-check-loop");
+      const btnSavePng = document.getElementById("btn-save-png");
+      const loopResultEl = document.getElementById("loop-result");
+      const stageWrap = document.getElementById("stage-wrap");
+
+      let isPlaying = true;
+      let currentTime = 0;
+      let playbackSpeed = 1.0;
+      let lastPerfNow = performance.now();
+      let fpsFrames = 0;
+      let fpsLastSample = performance.now();
+
+      function updateStageBackground() {
+        if (!stageWrap) return;
+        if (window.asset.params.bg === "alpha") {
+          stageWrap.style.background = "repeating-conic-gradient(#1c1f26 0% 25%, #0e1117 0% 50%) 50% / 24px 24px";
+        } else {
+          stageWrap.style.background = "#000000";
+        }
+      }
+
+      // Set default preview quality ke 1080p agar ringan di laptop biasa (4K dipakai saat dipilih / ekspor PNG)
+      function applyPreviewQuality(q) {
+        if (q === "4k") {
+          canvas.width = 3840;
+          canvas.height = 2160;
+        } else if (q === "720p") {
+          canvas.width = 1280;
+          canvas.height = 720;
+        } else {
+          canvas.width = 1920;
+          canvas.height = 1080;
+        }
+        resDisplay.textContent = `${canvas.width}×${canvas.height}`;
+        window.asset.render(currentTime);
+      }
+
+      // Buat badge nomor kecil di UI (bukan di kanvas) untuk ke-15 hantu
+      function renderGalleryBadges() {
+        galleryLabelsEl.innerHTML = "";
+        const showBadges =
+          chkBadges.checked &&
+          window.asset.params.layout === "grid";
+        galleryLabelsEl.style.display = showBadges ? "block" : "none";
+        if (!showBadges) return;
+
+        const count = Math.max(1, Math.min(GHOSTS.length, Math.floor(window.asset.params.ghostCount)));
+        for (let i = 0; i < count; i++) {
+          const g = GHOSTS[i];
+          const pos = getGridCellPosition(g.row, g.col);
+          // Tempatkan badge sedikit di bawah tiap siluet hantu
+          const leftPct = (pos.x / DESIGN_WIDTH) * 100;
+          const topPct = ((pos.y + 82) / DESIGN_HEIGHT) * 100;
+
+          const badge = document.createElement("div");
+          badge.className = "ghost-badge";
+          badge.style.left = `${leftPct.toFixed(2)}%`;
+          badge.style.top = `${topPct.toFixed(2)}%`;
+          badge.innerHTML = `<span class="num">#${String(g.id).padStart(2, "0")}</span>${g.name}`;
+          galleryLabelsEl.appendChild(badge);
+        }
+      }
+
+      function updateModeHeader() {
+        if (window.asset.params.mode === "gallery") {
+          modeBadge.textContent = "TAHAP 1: GALERI BENTUK";
+        } else {
+          modeBadge.textContent = "TAHAP 2: ANIMASI AKTIF";
+        }
+        renderGalleryBadges();
+      }
+
+      // Generate UI parameter otomatis dari window.asset.params & PARAM_SCHEMA
+      function buildParamsUI() {
+        paramsContainer.innerHTML = "";
+        const params = window.asset.params;
+
+        Object.keys(PARAM_SCHEMA).forEach((key) => {
+          const schema = PARAM_SCHEMA[key];
+          const row = document.createElement("div");
+          row.className = "control-row";
+
+          const header = document.createElement("div");
+          header.className = "control-header";
+
+          const lbl = document.createElement("label");
+          lbl.textContent = schema.label;
+          header.appendChild(lbl);
+
+          const valSpan = document.createElement("span");
+          valSpan.className = "control-val";
+          if (schema.type === "range") {
+            valSpan.textContent = params[key];
+            header.appendChild(valSpan);
+          }
+          row.appendChild(header);
+
+          if (schema.type === "select") {
+            const sel = document.createElement("select");
+            schema.options.forEach((opt) => {
+              const o = document.createElement("option");
+              o.value = opt.value;
+              o.textContent = opt.label;
+              if (String(params[key]) === String(opt.value)) o.selected = true;
+              sel.appendChild(o);
+            });
+            sel.addEventListener("change", () => {
+              params[key] = sel.value;
+              updateModeHeader();
+              if (key === "bg") updateStageBackground();
+              window.asset.render(currentTime);
+            });
+            row.appendChild(sel);
+          } else if (schema.type === "range") {
+            const inp = document.createElement("input");
+            inp.type = "range";
+            inp.min = schema.min;
+            inp.max = schema.max;
+            inp.step = schema.step;
+            inp.value = params[key];
+            inp.addEventListener("input", () => {
+              params[key] = Number(inp.value);
+              valSpan.textContent = params[key];
+              if (key === "duration") {
+                scrubber.max = params.duration;
+                if (currentTime > params.duration) currentTime = 0;
+              }
+              if (key === "ghostCount") {
+                renderGalleryBadges();
+              }
+              window.asset.render(currentTime);
+            });
+            row.appendChild(inp);
+          } else if (schema.type === "number") {
+            const inp = document.createElement("input");
+            inp.type = "number";
+            inp.min = schema.min;
+            inp.max = schema.max;
+            inp.step = schema.step;
+            inp.value = params[key];
+            inp.addEventListener("change", () => {
+              params[key] = Number(inp.value) || 1;
+              window.asset.render(currentTime);
+            });
+            row.appendChild(inp);
+          }
+
+          paramsContainer.appendChild(row);
+        });
+      }
+
+      // Verifikasi bawaan: Tombol "Cek Loop" (bandingkan piksel frame t=0 vs t=duration)
+      function runLoopVerification() {
+        const wasPlaying = isPlaying;
+        isPlaying = false;
+        btnPlay.textContent = "Play";
+
+        const dur = window.asset.params.duration;
+        const w = canvas.width;
+        const h = canvas.height;
+
+        window.asset.render(0);
+        const data0 = ctx.getImageData(0, 0, w, h).data;
+
+        window.asset.render(dur);
+        const dataEnd = ctx.getImageData(0, 0, w, h).data;
+
+        let diffPixels = 0;
+        let maxChannelDiff = 0;
+        let totalAbsDiff = 0;
+        const totalPixels = w * h;
+
+        for (let i = 0; i < data0.length; i += 4) {
+          const dr = Math.abs(data0[i] - dataEnd[i]);
+          const dg = Math.abs(data0[i + 1] - dataEnd[i + 1]);
+          const db = Math.abs(data0[i + 2] - dataEnd[i + 2]);
+          const m = Math.max(dr, dg, db);
+          if (m > 0) {
+            diffPixels++;
+            totalAbsDiff += dr + dg + db;
+            if (m > maxChannelDiff) maxChannelDiff = m;
+          }
+        }
+
+        // Cek kemurnian piksel sudut luar (harus tepat rgb(0,0,0) jika black solid, atau alpha 0 jika transparan)
+        const isAlpha = window.asset.params.bg === "alpha";
+        const cornerAlphaSum = data0[3] + data0[(w - 1) * 4 + 3];
+        const cornerRgbSum =
+          data0[0] + data0[1] + data0[2] +
+          data0[(w - 1) * 4] + data0[(w - 1) * 4 + 1] + data0[(w - 1) * 4 + 2];
+        const cornerClean = isAlpha ? cornerAlphaSum === 0 : cornerRgbSum === 0;
+
+        const meanDiff = totalAbsDiff / (totalPixels * 3);
+        const passed = diffPixels === 0 && cornerClean;
+
+        loopResultEl.className = passed ? "pass" : "fail";
+        loopResultEl.innerHTML =
+          `<strong>Status Cek Loop: ${passed ? "LULUS (100% Identik)" : "GAGAL"}</strong><br/>` +
+          `Latar: <strong>${isAlpha ? "Transparan (Alpha)" : "Black Solid (#000000)"}</strong><br/>` +
+          `Selisih Piksel (t=0 vs t=${dur}s): <strong>${diffPixels} px</strong> dari ${totalPixels.toLocaleString()} px<br/>` +
+          `Maks Selisih Kanal: <strong>${maxChannelDiff}</strong> | MAE: <strong>${meanDiff.toFixed(6)}</strong><br/>` +
+          `Piksel Tepi Luar: <strong>${isAlpha ? "Alpha " + data0[3] : "RGB(" + data0[0] + "," + data0[1] + "," + data0[2] + ")"}</strong>`;
+
+        window.asset.render(currentTime);
+        if (wasPlaying) {
+          isPlaying = true;
+          btnPlay.textContent = "Pause";
+          lastPerfNow = performance.now();
+        }
+      }
+
+      // Ekspor Frame PNG Ukuran Penuh 4K (3840x2160)
+      function saveFull4KFramePng() {
+        const prevW = canvas.width;
+        const prevH = canvas.height;
+
+        canvas.width = INTERNAL_4K_WIDTH;
+        canvas.height = INTERNAL_4K_HEIGHT;
+        window.asset.render(currentTime);
+
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `ghost-pack-4k-${window.asset.params.mode}-${window.asset.params.bg}-t${currentTime.toFixed(2)}s.png`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 2000);
+          }
+          canvas.width = prevW;
+          canvas.height = prevH;
+          window.asset.render(currentTime);
+        }, "image/png");
+      }
+
+      // Inisialisasi Kontrak Aset
+      await window.asset.setup(ctx);
+      buildParamsUI();
+      updateStageBackground();
+      applyPreviewQuality(selQuality.value);
+      updateModeHeader();
+
+      // Kontrol Preset Studio Terintegrasi
+      const selPreset = document.getElementById("sel-preset");
+      async function loadPresetFile(presetPath) {
+        if (!presetPath) return;
+        try {
+          const res = await fetch("/" + presetPath.replace(/^\/+/, ""));
+          if (!res.ok) return;
+          const data = await res.json();
+          const p = { ...(data.params || {}) };
+          if (data.bg) p.bg = data.bg;
+          Object.assign(window.asset.params, p);
+          if (typeof window.asset.applyParams === "function") {
+            window.asset.applyParams();
+          }
+          buildParamsUI();
+          updateStageBackground();
+          updateModeHeader();
+          window.asset.render(currentTime);
+        } catch (err) {
+          console.warn("[Preset] Gagal memuat:", err);
+        }
+      }
+
+      if (typeof fetch !== "undefined") {
+        fetch("/api/presets")
+          .then((r) => (r.ok ? r.json() : []))
+          .then((presetsList) => {
+            presetsList.forEach((pr) => {
+              const opt = document.createElement("option");
+              opt.value = pr.file;
+              opt.textContent = `${pr.name} (${pr.bg === "alpha" ? "Alpha" : "Black"})`;
+              selPreset.appendChild(opt);
+            });
+            const urlQueryPreset = new URLSearchParams(window.location.search).get("preset");
+            if (urlQueryPreset) selPreset.value = urlQueryPreset;
+          })
+          .catch(() => {});
+      }
+
+      const initialPreset = new URLSearchParams(window.location.search).get("preset");
+      if (initialPreset) {
+        await loadPresetFile(initialPreset);
+      }
+
+      selPreset.addEventListener("change", async () => {
+        if (selPreset.value) {
+          const newUrl = new URL(window.location);
+          newUrl.searchParams.set("preset", selPreset.value);
+          window.history.replaceState({}, "", newUrl);
+          await loadPresetFile(selPreset.value);
+        } else {
+          const newUrl = new URL(window.location);
+          newUrl.searchParams.delete("preset");
+          window.history.replaceState({}, "", newUrl);
+          location.reload();
+        }
+      });
+
+      // Event Listeners UI
+      btnPlay.addEventListener("click", () => {
+        isPlaying = !isPlaying;
+        btnPlay.textContent = isPlaying ? "Pause" : "Play";
+        lastPerfNow = performance.now();
+      });
+
+      scrubber.addEventListener("input", () => {
+        currentTime = Number(scrubber.value);
+        timeReadout.textContent = `t = ${currentTime.toFixed(2)}s / ${window.asset.params.duration.toFixed(2)}s`;
+        window.asset.render(currentTime);
+      });
+
+      selSpeed.addEventListener("change", () => {
+        playbackSpeed = Number(selSpeed.value) || 1.0;
+      });
+
+      selQuality.addEventListener("change", () => {
+        applyPreviewQuality(selQuality.value);
+      });
+
+      chkBadges.addEventListener("change", () => {
+        renderGalleryBadges();
+      });
+
+      btnCheckLoop.addEventListener("click", runLoopVerification);
+      btnSavePng.addEventListener("click", saveFull4KFramePng);
+
+      window.addEventListener("keydown", (e) => {
+        if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "SELECT")) return;
+        if (e.key === "h" || e.key === "H") {
+          document.body.classList.toggle("ui-hidden");
+        } else if (e.key === " ") {
+          e.preventDefault();
+          btnPlay.click();
+        }
+      });
+
+      // Loop Pemutar Preview (performance.now HANYA dipakai di sini untuk menggerakkan t)
+      btnPlay.textContent = "Pause";
+      function tick(now) {
+        fpsFrames++;
+        if (now - fpsLastSample >= 500) {
+          const fps = Math.round((fpsFrames * 1000) / (now - fpsLastSample));
+          fpsDisplay.textContent = String(fps);
+          fpsFrames = 0;
+          fpsLastSample = now;
+        }
+
+        if (isPlaying) {
+          const dt = (now - lastPerfNow) / 1000;
+          const dur = window.asset.params.duration;
+          currentTime = (currentTime + dt * playbackSpeed) % dur;
+          scrubber.value = currentTime.toFixed(3);
+          timeReadout.textContent = `t = ${currentTime.toFixed(2)}s / ${dur.toFixed(2)}s`;
+          window.asset.render(currentTime);
+        }
+        lastPerfNow = now;
+        requestAnimationFrame(tick);
+      }
+
+      requestAnimationFrame(tick);
+    })();
+  </script>
+</body>
+</html>

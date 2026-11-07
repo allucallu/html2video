@@ -1,0 +1,25 @@
+{
+  "bg": "alpha",
+  "codec": "prores4444",
+  "fps": 30,
+  "res": "3840x2160",
+  "meta": {
+    "title": "15 Halloween Ghosts Transparent Alpha Pack 4K Seamless Loop",
+    "description": "Seamless loop of 15 glowing stylized cartoon ghosts drifting across transparent background in 4K resolution. Apple ProRes 4444 with alpha channel for motion graphics and video editing.",
+    "tags": [
+      "halloween", "ghost", "phantom", "spooky", "cartoon", "cute ghost", "glow", 
+      "green glow", "toxic", "transparent", "alpha channel", "prores 4444", "4k", 
+      "seamless loop", "motion graphics", "overlay", "drifting", "asset pack"
+    ],
+    "author": "Stock Creator"
+  },
+  "params": {
+    "mode": "animate",
+    "layout": "drift",
+    "theme": "toxic-green",
+    "bg": "alpha",
+    "seed": 888,
+    "glowIntensity": 1.2,
+    "wispCount": 50
+  }
+}

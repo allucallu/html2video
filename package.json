@@ -1,0 +1,13 @@
+{
+  "name": "html-render-engine",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "preview": "node core/serve.mjs",
+    "info": "node core/render.mjs",
+    "render": "node core/render.mjs",
+    "poster": "node core/render.mjs --poster-only",
+    "batch": "node core/batch.mjs"
+  },
+  "dependencies": { "playwright": "^1.50.0" }
+}
