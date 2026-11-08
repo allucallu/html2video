@@ -1,15 +1,12 @@
-name: Render aset
+name: Render Video Aset
 
 on:
   workflow_dispatch:
     inputs:
       asset:
-        description: 'Path aset HTML (misal assets/nama_aset.html)'
-        required: true
-      config:
-        description: 'Config/preset JSON (opsional, biarkan kosong untuk default aset)'
+        description: 'Aset yang dirender (pilih "all" untuk SEMUA aset sekaligus, atau ketik path spesifik misal: assets/asset5.html)'
         required: false
-        default: ''
+        default: 'all'
       bg:
         description: 'Latar Belakang (black | alpha)'
         type: choice
@@ -27,20 +24,51 @@ on:
           - prores4444
         default: auto
       res:
-        description: 'Resolusi (mis. 3840x2160; kosongkan untuk ikuti config)'
+        description: 'Resolusi (mis. 3840x2160; kosongkan untuk default 4K)'
         default: ''
       fps:
-        description: 'FPS (mis. 30; kosongkan untuk ikuti config)'
+        description: 'FPS (mis. 30; kosongkan untuk default 30)'
         default: ''
-      chunks:
-        description: 'Jumlah job paralel (1 = direct single-job tanpa concat glitch)'
-        default: '1'
 
 jobs:
-  # Mode 1: Single Runner (Rekomendasi Utama untuk Stock Footage 5-30s: Zero Concat Hazard)
-  render-direct:
-    if: inputs.chunks == '1' || inputs.chunks == ''
+  # Tahap 1: Deteksi otomatis semua file HTML di assets/
+  discover:
+    name: Deteksi Daftar Aset
     runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      count: ${{ steps.set-matrix.outputs.count }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: set-matrix
+        run: |
+          ASSET_INPUT="${{ inputs.asset }}"
+          if [ -z "$ASSET_INPUT" ] || [ "$ASSET_INPUT" = "all" ]; then
+            # Ambil seluruh file .html di folder assets/
+            FILES=$(find assets -maxdepth 1 -name "*.html" -type f | sort)
+            COUNT=$(echo "$FILES" | grep -c . || true)
+            JSON_ARRAY=$(echo "$FILES" | jq -R -s -c 'split("\n")[:-1]')
+            echo "matrix=$JSON_ARRAY" >> "$GITHUB_OUTPUT"
+            echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+            echo "Menemukan $COUNT aset untuk dirender sekaligus secara paralel:"
+            echo "$FILES"
+          else
+            # Single asset mode jika user memilih file spesifik
+            JSON_ARRAY=$(jq -nc --arg asset "$ASSET_INPUT" '[$asset]')
+            echo "matrix=$JSON_ARRAY" >> "$GITHUB_OUTPUT"
+            echo "count=1" >> "$GITHUB_OUTPUT"
+            echo "Mode single asset: $ASSET_INPUT"
+          fi
+
+  # Tahap 2: Render seluruh aset secara paralel (Matrix)
+  render-matrix:
+    name: Render ${{ matrix.asset }}
+    needs: discover
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        asset: ${{ fromJSON(needs.discover.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -71,128 +99,55 @@ jobs:
 
       - run: command -v ffmpeg || (sudo apt-get update && sudo apt-get install -y ffmpeg)
 
-      - name: Render Video Final
+      - id: asset-name
         run: |
-          mkdir -p out
-          [ -n "${{ inputs.config }}" ] && CMD_ARGS+=(--config "${{ inputs.config }}")
-          [ -n "${{ inputs.res }}" ] && CMD_ARGS+=(--res "${{ inputs.res }}")
-          [ -n "${{ inputs.fps }}" ] && CMD_ARGS+=(--fps "${{ inputs.fps }}")
-          [ -n "${{ inputs.bg }}" ] && CMD_ARGS+=(--bg "${{ inputs.bg }}")
-          [ "${{ inputs.codec }}" != "auto" ] && CMD_ARGS+=(--codec "${{ inputs.codec }}")
+          BASENAME=$(basename "${{ matrix.asset }}" .html)
+          echo "basename=$BASENAME" >> "$GITHUB_OUTPUT"
 
-          node core/render.mjs "${{ inputs.asset }}" \
-            "${CMD_ARGS[@]}"
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: final-video
-          path: out/
-          retention-days: 7
-
-  # Mode 2: Multi-Job Chunks (Untuk Durasi Panjang > 60s)
-  plan:
-    if: inputs.chunks != '1' && inputs.chunks != ''
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.m.outputs.matrix }}
-    steps:
-      - id: m
-        run: |
-          n=${{ inputs.chunks }}
-          echo "matrix=$(seq 0 $((n-1)) | paste -sd, | sed 's/^/[/;s/$/]/')" >> "$GITHUB_OUTPUT"
-
-  render-chunks:
-    needs: plan
-    if: inputs.chunks != '1' && inputs.chunks != ''
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: true
-      matrix:
-        chunk: ${{ fromJSON(needs.plan.outputs.matrix) }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 22 }
-      - run: npm install
-
-      - name: Cache Playwright Browsers
-        uses: actions/cache@v4
-        id: playwright-cache
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
-
-      - name: Install Playwright & Chromium
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps chromium
-
-      - name: Ensure Playwright System Deps
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps chromium
-
-      - run: command -v ffmpeg || (sudo apt-get update && sudo apt-get install -y ffmpeg)
-
-      - name: Render Potongan ${{ matrix.chunk }}
+      - name: Render Video & Poster 4K
         run: |
           mkdir -p out
           CMD_ARGS=()
-          [ -n "${{ inputs.config }}" ] && CMD_ARGS+=(--config "${{ inputs.config }}")
           [ -n "${{ inputs.res }}" ] && CMD_ARGS+=(--res "${{ inputs.res }}")
           [ -n "${{ inputs.fps }}" ] && CMD_ARGS+=(--fps "${{ inputs.fps }}")
           [ -n "${{ inputs.bg }}" ] && CMD_ARGS+=(--bg "${{ inputs.bg }}")
           [ "${{ inputs.codec }}" != "auto" ] && CMD_ARGS+=(--codec "${{ inputs.codec }}")
 
-          # Tentukan ekstensi chunk sesuai latar/codec
-          IS_PRORES=false
-          if [ "${{ inputs.codec }}" = "prores" ] || [ "${{ inputs.codec }}" = "prores4444" ] || [ "${{ inputs.bg }}" = "alpha" ]; then
-            IS_PRORES=true
-          fi
+          node core/render.mjs "${{ matrix.asset }}" "${CMD_ARGS[@]}"
 
-          if [ "$IS_PRORES" = "true" ]; then
-            EXT="mov"
-          else
-            EXT="ts" # Gunakan MPEG-TS untuk H.264 agar concat stream seamless tanpa merusak PTS/DTS
-          fi
-
-          node core/render.mjs "${{ inputs.asset }}" \
-            "${CMD_ARGS[@]}" \
-            --chunk ${{ matrix.chunk }}/${{ inputs.chunks }} \
-            --out "out/part-${{ matrix.chunk }}.$EXT"
-
-      - uses: actions/upload-artifact@v4
+      - name: Upload Artefak Video (${{ steps.asset-name.outputs.basename }})
+        uses: actions/upload-artifact@v4
         with:
-          name: part-${{ matrix.chunk }}
-          path: out/part-${{ matrix.chunk }}.*
-          retention-days: 1
+          name: video-${{ steps.asset-name.outputs.basename }}
+          path: out/
+          retention-days: 7
 
-  merge:
-    needs: render-chunks
-    if: inputs.chunks != '1' && inputs.chunks != ''
+  # Tahap 3: Gabungkan semua hasil video ke satu artefak download sekaligus
+  bundle-all:
+    name: Paket Semua Video Sekaligus
+    needs: render-matrix
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
-        with: { pattern: 'part-*', merge-multiple: true, path: parts }
-      - run: command -v ffmpeg || (sudo apt-get update && sudo apt-get install -y ffmpeg)
-      - name: Gabungkan Potongan secara Seamless
-        run: |
-          cd parts
-          FIRST_FILE=$(ls part-0.* | head -n 1)
-          EXT="${FIRST_FILE##*.}"
+      - uses: actions/checkout@v4
 
-          for i in $(seq 0 $((${{ inputs.chunks }}-1))); do
-            echo "file 'part-$i.$EXT'"
-          done > list.txt
-
-          if [ "$EXT" = "mov" ]; then
-            # ProRes QuickTime concat dengan koreksi timestamp dan tag colr
-            ffmpeg -y -f concat -safe 0 -i list.txt -c copy -movflags +write_colr -avoid_negative_ts make_zero -fflags +genpts ../final.mov
-          else
-            # MPEG-TS ke MP4 transmuxing (recalculate PTS/DTS & faststart moov)
-            ffmpeg -y -f concat -safe 0 -i list.txt -c copy -movflags +faststart -avoid_negative_ts make_zero -fflags +genpts ../final.mp4
-          fi
-
-      - uses: actions/upload-artifact@v4
+      - name: Unduh Seluruh Video Hasil Render
+        uses: actions/download-artifact@v4
         with:
-          name: final-video
-          path: final.*
+          pattern: 'video-*'
+          merge-multiple: true
+          path: all-rendered-videos
+
+      - name: Sertakan Metadata Adobe Stock CSV
+        run: |
+          if [ -f "metadata/adobe_stock_metadata.csv" ]; then
+            cp metadata/adobe_stock_metadata.csv all-rendered-videos/
+          fi
+          echo "Isi paket all-rendered-videos yang siap diunduh:"
+          ls -la all-rendered-videos/
+
+      - name: Upload Artefak All-In-One (Download Semua Sekaligus)
+        uses: actions/upload-artifact@v4
+        with:
+          name: all-rendered-videos
+          path: all-rendered-videos/
           retention-days: 7

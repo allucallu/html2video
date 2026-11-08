@@ -1,0 +1,1338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Glowing Golden Crescent Moon</title>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  html, body {
+    width: 100%;
+    height: 100%;
+    background-color: #000000;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  canvas {
+    width: 100vw;
+    height: 100vh;
+    object-fit: contain;
+    display: block;
+    background-color: #000000;
+  }
+</style>
+</head>
+<body>
+<canvas id="canvas" width="3840" height="2160"></canvas>
+<script>
+(function() {
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const W = 3840;
+  const H = 2160;
+  const CX = W * 0.5;
+  const CY = H * 0.5;
+  const TAU = Math.PI * 2;
+
+  window.DURATION = 10;
+  window.FPS = 30;
+
+  // Deterministic PRNG (Mulberry32)
+  function mulberry32(seed) {
+    let a = seed >>> 0;
+    return function() {
+      a |= 0;
+      a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  const rand = mulberry32(20260509);
+
+  // Pre-generate deterministic sparkles and ambient dust
+  const sparkles = [];
+  const NUM_SPARKLES = 58;
+  for (let i = 0; i < NUM_SPARKLES; i++) {
+    // Distribute in a halo around the crescent & star, staying well within safe bounds
+    const ring = i < 18 ? 0 : (i < 42 ? 1 : 2);
+    let baseAngle, baseDist;
+    if (ring === 0) {
+      // Close to crescent curve and hanging star
+      baseAngle = rand() * TAU;
+      baseDist = 220 + rand() * 360;
+    } else if (ring === 1) {
+      // Mid halo
+      baseAngle = rand() * TAU;
+      baseDist = 480 + rand() * 270;
+    } else {
+      // Outer soft sparkles (still well inside 2160px height)
+      baseAngle = rand() * TAU;
+      baseDist = 660 + rand() * 160;
+    }
+
+    const bx = Math.cos(baseAngle) * baseDist * 1.08 - 30;
+    const by = Math.sin(baseAngle) * baseDist * 0.94;
+
+    const paletteRoll = rand();
+    let colorCore, colorMid, colorOuter;
+    if (paletteRoll < 0.52) {
+      // Warm Gold
+      colorCore = '#FFFFFF';
+      colorMid = '#FFE885';
+      colorOuter = 'rgba(255, 175, 30, 0)';
+    } else if (paletteRoll < 0.80) {
+      // Rich Amber Gold
+      colorCore = '#FFF8DC';
+      colorMid = '#FFB833';
+      colorOuter = 'rgba(217, 107, 0, 0)';
+    } else {
+      // Emerald-Tinted Celestial Gleam
+      colorCore = '#FFFFFF';
+      colorMid = '#78F5C2';
+      colorOuter = 'rgba(18, 184, 125, 0)';
+    }
+
+    sparkles.push({
+      bx,
+      by,
+      orbitRx: 14 + rand() * 28,
+      orbitRy: 14 + rand() * 28,
+      orbitFreqX: (rand() < 0.65 ? 1 : 2) * (rand() < 0.5 ? 1 : -1),
+      orbitFreqY: (rand() < 0.65 ? 1 : 2) * (rand() < 0.5 ? 1 : -1),
+      orbitPhaseX: rand() * TAU,
+      orbitPhaseY: rand() * TAU,
+      twinkleFreq: 1 + Math.floor(rand() * 3), // 1, 2, or 3 integer cycles
+      twinklePhase: rand() * TAU,
+      rotFreq: (rand() < 0.5 ? 1 : -1),
+      rotBase: rand() * Math.PI,
+      size: 16 + Math.pow(rand(), 1.5) * 44,
+      type: i % 4 === 0 ? 'eight' : (i % 3 === 0 ? 'orb' : 'four'),
+      colorCore,
+      colorMid,
+      colorOuter
+    });
+  }
+
+  // Pre-compute crescent geometry helper
+  function getCrescentData(R1, d, R2, theta0) {
+    const a = (R1 * R1 - R2 * R2 + d * d) / (2 * d);
+    const h = Math.sqrt(Math.max(0, R1 * R1 - a * a));
+    const ux = Math.cos(theta0);
+    const uy = Math.sin(theta0);
+    const px = -uy;
+    const py = ux;
+
+    // Horn 1 (Upper horn) and Horn 2 (Lower horn)
+    const x1 = a * ux - h * px;
+    const y1 = a * uy - h * py;
+    const x2 = a * ux + h * px;
+    const y2 = a * uy + h * py;
+
+    const cx = d * ux;
+    const cy = d * uy;
+
+    const a1_top = Math.atan2(y1, x1);
+    const a1_bot = Math.atan2(y2, x2);
+    const a2_top = Math.atan2(y1 - cy, x1 - cx);
+    const a2_bot = Math.atan2(y2 - cy, x2 - cx);
+
+    // Exact spine centerline circle passing through both horns and belly midpoint
+    const x_mid = -(R1 + R2 - d) * 0.5;
+    const cx_spine_local = (R1 * R1 - x_mid * x_mid) / (2 * (a - x_mid));
+    const R_spine = cx_spine_local - x_mid;
+    const spine_cx = cx_spine_local * ux;
+    const spine_cy = cx_spine_local * uy;
+    const alpha_spine = Math.atan2(h, cx_spine_local - a);
+    const bellyWidth = R1 + d - R2;
+
+    return {
+      R1, d, R2, theta0, a, h, ux, uy, px, py,
+      x1, y1, x2, y2, cx, cy,
+      a1_top, a1_bot, a2_top, a2_bot,
+      spine_cx, spine_cy, R_spine, alpha_spine, bellyWidth
+    };
+  }
+
+  function traceCrescentPath(ctx, c) {
+    ctx.beginPath();
+    ctx.arc(0, 0, c.R1, c.a1_bot, c.a1_top, false);
+    ctx.arc(c.cx, c.cy, c.R2, c.a2_top, c.a2_bot, true);
+    ctx.closePath();
+  }
+
+  // Evaluate point and local tangent/normal along the crescent spine for u in [-1, 1]
+  // u = -1 is upper horn, u = 0 is belly center, u = +1 is lower horn
+  function getSpinePoint(c, u) {
+    const localAngle = Math.PI - u * c.alpha_spine;
+    const globalAngle = c.theta0 + localAngle;
+    const x = c.spine_cx + c.R_spine * Math.cos(globalAngle);
+    const y = c.spine_cy + c.R_spine * Math.sin(globalAngle);
+    const nx = Math.cos(globalAngle);
+    const ny = Math.sin(globalAngle);
+    const tx = -ny;
+    const ty = nx;
+    const widthFactor = Math.max(0, 1 - u * u);
+    const halfWidth = c.bellyWidth * 0.5 * widthFactor;
+    return { x, y, nx, ny, tx, ty, globalAngle, widthFactor, halfWidth };
+  }
+
+  // Base crescent layers
+  const THETA0 = -0.18;
+  const crescentOuter   = getCrescentData(540, 228, 430, THETA0);
+  const crescentBevel1  = getCrescentData(522, 228, 448, THETA0);
+  const crescentRecess  = getCrescentData(510, 228, 460, THETA0);
+  const crescentGoldLip = getCrescentData(498, 228, 472, THETA0);
+  const crescentEmerald = getCrescentData(488, 228, 482, THETA0);
+
+  // Helper: Draw a 4-point or 8-point sparkle
+  function drawSparkleShape(ctx, x, y, radius, rot, type, colorCore, colorMid, colorOuter, alpha) {
+    if (alpha <= 0.005 || radius <= 0.5) return;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.globalAlpha = alpha;
+
+    // Soft contained glow
+    const glowRad = radius * (type === 'orb' ? 2.2 : 2.8);
+    const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, glowRad);
+    grad.addColorStop(0, colorCore);
+    grad.addColorStop(0.28, colorMid);
+    grad.addColorStop(1, colorOuter);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(0, 0, glowRad, 0, TAU);
+    ctx.fill();
+
+    if (type === 'orb') {
+      ctx.fillStyle = colorCore;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius * 0.35, 0, TAU);
+      ctx.fill();
+      ctx.restore();
+      return;
+    }
+
+    ctx.rotate(rot);
+
+    // Draw primary 4-point star
+    const drawFourStar = (rLong, rShort, fill) => {
+      ctx.fillStyle = fill;
+      ctx.beginPath();
+      for (let i = 0; i < 4; i++) {
+        const ang = i * Math.PI * 0.5;
+        const nextAng = (i + 1) * Math.PI * 0.5;
+        const midAng = ang + Math.PI * 0.25;
+        const px = Math.cos(ang) * rLong;
+        const py = Math.sin(ang) * rLong;
+        const cx = Math.cos(midAng) * rShort;
+        const cy = Math.sin(midAng) * rShort;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+        ctx.quadraticCurveTo(cx, cy, Math.cos(nextAng) * rLong, Math.sin(nextAng) * rLong);
+      }
+      ctx.closePath();
+      ctx.fill();
+    };
+
+    if (type === 'eight') {
+      ctx.save();
+      ctx.rotate(Math.PI * 0.25);
+      drawFourStar(radius * 0.68, radius * 0.11, colorMid);
+      ctx.restore();
+    }
+
+    drawFourStar(radius * 1.15, radius * 0.16, colorMid);
+    drawFourStar(radius * 0.72, radius * 0.09, colorCore);
+
+    // Crisp center dot
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * 0.14, 0, TAU);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  // Helper: Draw a glossy cabochon gem in an ornate gold bezel
+  function drawCabochonGem(ctx, x, y, radius, type, shimmerPhase) {
+    ctx.save();
+    ctx.translate(x, y);
+
+    // Drop shadow on gold surface
+    const dropGrad = ctx.createRadialGradient(radius * 0.15, radius * 0.2, radius * 0.2, 0, 0, radius * 1.45);
+    dropGrad.addColorStop(0, 'rgba(60, 20, 0, 0.75)');
+    dropGrad.addColorStop(1, 'rgba(60, 20, 0, 0)');
+    ctx.fillStyle = dropGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * 1.45, 0, TAU);
+    ctx.fill();
+
+    // Outer gold bezel setting
+    const bezelGrad = ctx.createLinearGradient(-radius, -radius, radius, radius);
+    bezelGrad.addColorStop(0, '#FFF6B8');
+    bezelGrad.addColorStop(0.35, '#FFD03B');
+    bezelGrad.addColorStop(0.7, '#B55B00');
+    bezelGrad.addColorStop(1, '#FFE278');
+    ctx.fillStyle = bezelGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * 1.22, 0, TAU);
+    ctx.fill();
+
+    // Tiny ornamental gold beads around bezel for larger gems
+    if (radius >= 16) {
+      const numBeads = 12;
+      for (let i = 0; i < numBeads; i++) {
+        const a = (i / numBeads) * TAU;
+        const bx = Math.cos(a) * radius * 1.24;
+        const by = Math.sin(a) * radius * 1.24;
+        ctx.fillStyle = i % 2 === 0 ? '#FFF4B0' : '#D98200';
+        ctx.beginPath();
+        ctx.arc(bx, by, radius * 0.12, 0, TAU);
+        ctx.fill();
+      }
+    }
+
+    // Inner bevel ring
+    const innerBezel = ctx.createLinearGradient(radius, radius, -radius, -radius);
+    innerBezel.addColorStop(0, '#FFF2A6');
+    innerBezel.addColorStop(0.5, '#9E4700');
+    innerBezel.addColorStop(1, '#592200');
+    ctx.fillStyle = innerBezel;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * 1.04, 0, TAU);
+    ctx.fill();
+
+    // Gemstone body
+    const gemGrad = ctx.createRadialGradient(
+      radius * 0.25, radius * 0.3, radius * 0.05,
+      0, 0, radius
+    );
+    if (type === 'emerald') {
+      gemGrad.addColorStop(0, '#6BFFCA');
+      gemGrad.addColorStop(0.35, '#12B87D');
+      gemGrad.addColorStop(0.72, '#065C3E');
+      gemGrad.addColorStop(1, '#022619');
+    } else {
+      // Warm Amber / Gold Citrine
+      gemGrad.addColorStop(0, '#FFF8C4');
+      gemGrad.addColorStop(0.35, '#FFAE19');
+      gemGrad.addColorStop(0.75, '#B84700');
+      gemGrad.addColorStop(1, '#4D1700');
+    }
+    ctx.fillStyle = gemGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, TAU);
+    ctx.fill();
+
+    // Subtle internal facet lines for emerald
+    if (type === 'emerald' && radius >= 14) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(150, 255, 215, 0.28)';
+      ctx.lineWidth = Math.max(1.5, radius * 0.07);
+      ctx.beginPath();
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * TAU;
+        ctx.moveTo(Math.cos(a) * radius * 0.45, Math.sin(a) * radius * 0.45);
+        ctx.lineTo(Math.cos(a) * radius * 0.92, Math.sin(a) * radius * 0.92);
+      }
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(0, 0, radius * 0.5, 0, TAU);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Glossy top-left crescent specular highlight
+    const specShift = Math.sin(shimmerPhase) * 0.08;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.78)';
+    ctx.beginPath();
+    ctx.ellipse(
+      -radius * (0.32 + specShift),
+      -radius * (0.34 - specShift),
+      radius * 0.38,
+      radius * 0.19,
+      -Math.PI * 0.25,
+      0,
+      TAU
+    );
+    ctx.fill();
+
+    // Tiny secondary pinpoint highlight
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+    ctx.beginPath();
+    ctx.arc(-radius * 0.1, -radius * 0.58, radius * 0.09, 0, TAU);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  // Helper: Draw S-scroll filigree curl
+  function drawFiligreeScroll(ctx, x, y, scale, angle, flip, shimmer) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    ctx.scale(scale, scale * (flip ? -1 : 1));
+
+    // Shadow
+    ctx.save();
+    ctx.translate(3, 5);
+    ctx.strokeStyle = 'rgba(2, 24, 15, 0.65)';
+    ctx.lineWidth = 8;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-45, 0);
+    ctx.bezierCurveTo(-25, -38, 15, -35, 28, -8);
+    ctx.bezierCurveTo(36, 10, 18, 26, 2, 20);
+    ctx.bezierCurveTo(-8, 15, -6, 2, 4, 4);
+    ctx.stroke();
+    ctx.restore();
+
+    // Metallic Gold Stroke
+    const grad = ctx.createLinearGradient(-45, -35, 35, 25);
+    const bright = 0.5 + 0.5 * Math.sin(shimmer);
+    grad.addColorStop(0, '#D98200');
+    grad.addColorStop(0.4 + bright * 0.2, '#FFF5B8');
+    grad.addColorStop(0.75, '#FFB82E');
+    grad.addColorStop(1, '#8F4200');
+
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = 6.5;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-45, 0);
+    ctx.bezierCurveTo(-25, -38, 15, -35, 28, -8);
+    ctx.bezierCurveTo(36, 10, 18, 26, 2, 20);
+    ctx.bezierCurveTo(-8, 15, -6, 2, 4, 4);
+    ctx.stroke();
+
+    // Secondary leaf branch
+    ctx.lineWidth = 4.5;
+    ctx.beginPath();
+    ctx.moveTo(-12, -24);
+    ctx.quadraticCurveTo(-28, -42, -44, -26);
+    ctx.stroke();
+
+    // Terminal gold bead
+    ctx.fillStyle = '#FFF5B5';
+    ctx.beginPath();
+    ctx.arc(4, 4, 4.8, 0, TAU);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(-44, -26, 4.2, 0, TAU);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  // Helper: Draw an ornate hanging teardrop charm
+  function drawTeardropCharm(ctx, length, width, shimmerPhase) {
+    ctx.save();
+
+    // Soft glow behind charm
+    const glow = ctx.createRadialGradient(0, length * 0.55, 0, 0, length * 0.55, length * 1.1);
+    glow.addColorStop(0, 'rgba(255, 195, 55, 0.32)');
+    glow.addColorStop(0.5, 'rgba(18, 184, 125, 0.10)');
+    glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(0, length * 0.55, length * 1.1, 0, TAU);
+    ctx.fill();
+
+    // Top ring
+    ctx.strokeStyle = '#FFE482';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(0, 4, 6, 0, TAU);
+    ctx.stroke();
+
+    // Outer Gold Teardrop Frame
+    const frameGrad = ctx.createLinearGradient(-width, 0, width, length);
+    frameGrad.addColorStop(0, '#FFF6B8');
+    frameGrad.addColorStop(0.35, '#FFCC33');
+    frameGrad.addColorStop(0.7, '#B85D00');
+    frameGrad.addColorStop(1, '#FFE47A');
+
+    ctx.fillStyle = frameGrad;
+    ctx.beginPath();
+    ctx.moveTo(0, 8);
+    ctx.bezierCurveTo(width * 0.9, length * 0.38, width * 1.15, length * 0.78, 0, length);
+    ctx.bezierCurveTo(-width * 1.15, length * 0.78, -width * 0.9, length * 0.38, 0, 8);
+    ctx.closePath();
+    ctx.fill();
+
+    // Inner Emerald Inlay Teardrop
+    const emGrad = ctx.createRadialGradient(-width * 0.15, length * 0.52, 2, 0, length * 0.6, width * 0.85);
+    emGrad.addColorStop(0, '#68F7B8');
+    emGrad.addColorStop(0.45, '#0F9E6B');
+    emGrad.addColorStop(1, '#032E1E');
+
+    ctx.fillStyle = emGrad;
+    ctx.beginPath();
+    ctx.moveTo(0, 17);
+    ctx.bezierCurveTo(width * 0.62, length * 0.42, width * 0.78, length * 0.74, 0, length - 9);
+    ctx.bezierCurveTo(-width * 0.78, length * 0.74, -width * 0.62, length * 0.42, 0, 17);
+    ctx.closePath();
+    ctx.fill();
+
+    // Gloss highlight
+    const shift = Math.sin(shimmerPhase) * 2;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+    ctx.beginPath();
+    ctx.ellipse(-width * 0.22 + shift, length * 0.52, width * 0.14, length * 0.14, -0.25, 0, TAU);
+    ctx.fill();
+
+    // Bottom finial bead
+    ctx.fillStyle = '#FFF2A6';
+    ctx.beginPath();
+    ctx.arc(0, length + 5, 4.5, 0, TAU);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  // Helper: Draw the ornate 8-pointed hanging star
+  function drawHangingStar(ctx, radius, phase, dropAngle) {
+    const p1 = phase * TAU;
+    const p2 = phase * TAU * 2;
+    const p3 = phase * TAU * 3;
+
+    ctx.save();
+
+    // 1. Contained Soft Glow behind the Hanging Star
+    const glowPulse = 1 + 0.08 * Math.sin(p2 + 0.7) + 0.04 * Math.cos(p3);
+    const glowRad = radius * 2.55 * glowPulse;
+    const starGlow = ctx.createRadialGradient(0, 0, 0, 0, 0, glowRad);
+    starGlow.addColorStop(0, 'rgba(255, 235, 140, 0.52)');
+    starGlow.addColorStop(0.28, 'rgba(255, 175, 35, 0.24)');
+    starGlow.addColorStop(0.58, 'rgba(18, 184, 125, 0.07)');
+    starGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = starGlow;
+    ctx.beginPath();
+    ctx.arc(0, 0, glowRad, 0, TAU);
+    ctx.fill();
+
+    // 2. Top Suspension Bail / Ornate Ring
+    ctx.strokeStyle = '#FFE885';
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.arc(0, -radius - 10, 10, 0, TAU);
+    ctx.stroke();
+
+    // 3. Secondary Diagonal Star Points (4 shorter emerald-and-gold points at 45 deg)
+    const rDiagOuter = radius * 0.72;
+    const rDiagInner = radius * 0.28;
+    for (let i = 0; i < 4; i++) {
+      ctx.save();
+      ctx.rotate(i * Math.PI * 0.5 + Math.PI * 0.25);
+
+      // Left bevel of diagonal point
+      const leftGrad = ctx.createLinearGradient(0, -rDiagOuter, -rDiagInner, 0);
+      leftGrad.addColorStop(0, '#FFF6B8');
+      leftGrad.addColorStop(0.5, '#FFC229');
+      leftGrad.addColorStop(1, '#9E4900');
+      ctx.fillStyle = leftGrad;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(0, -rDiagOuter);
+      ctx.quadraticCurveTo(-rDiagInner * 0.35, -rDiagInner * 0.9, -rDiagInner, 0);
+      ctx.closePath();
+      ctx.fill();
+
+      // Right bevel of diagonal point
+      const rightGrad = ctx.createLinearGradient(0, -rDiagOuter, rDiagInner, 0);
+      rightGrad.addColorStop(0, '#FFD447');
+      rightGrad.addColorStop(0.55, '#C46200');
+      rightGrad.addColorStop(1, '#6E2A00');
+      ctx.fillStyle = rightGrad;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(0, -rDiagOuter);
+      ctx.quadraticCurveTo(rDiagInner * 0.35, -rDiagInner * 0.9, rDiagInner, 0);
+      ctx.closePath();
+      ctx.fill();
+
+      // Emerald inlay diamond inside diagonal point
+      const emInlay = ctx.createLinearGradient(0, -rDiagOuter * 0.82, 0, -rDiagInner * 0.5);
+      emInlay.addColorStop(0, '#68F7B8');
+      emInlay.addColorStop(0.5, '#0D8A5E');
+      emInlay.addColorStop(1, '#022B1C');
+      ctx.fillStyle = emInlay;
+      ctx.beginPath();
+      ctx.moveTo(0, -rDiagOuter * 0.80);
+      ctx.lineTo(rDiagInner * 0.26, -rDiagInner * 0.95);
+      ctx.lineTo(0, -rDiagInner * 0.45);
+      ctx.lineTo(-rDiagInner * 0.26, -rDiagInner * 0.95);
+      ctx.closePath();
+      ctx.fill();
+
+      // Tip golden bead
+      ctx.fillStyle = '#FFF5B8';
+      ctx.beginPath();
+      ctx.arc(0, -rDiagOuter - 3, 4.2, 0, TAU);
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    // 4. Primary 4 Cardinal Star Points (Glossy Sculpted Gold & Warm Amber)
+    const rMainOuter = radius;
+    const rMainWaist = radius * 0.29;
+    const shimmerShift = Math.sin(p1) * 0.15;
+
+    for (let i = 0; i < 4; i++) {
+      ctx.save();
+      ctx.rotate(i * Math.PI * 0.5);
+
+      const isLitSide = (i === 0 || i === 3);
+
+      // Left facet of point
+      const gradL = ctx.createLinearGradient(-rMainWaist, -rMainOuter * 0.5, 0, -rMainOuter);
+      if (isLitSide) {
+        gradL.addColorStop(0, '#FFB824');
+        gradL.addColorStop(0.5 + shimmerShift, '#FFF9D2');
+        gradL.addColorStop(1, '#FFE066');
+      } else {
+        gradL.addColorStop(0, '#B85A00');
+        gradL.addColorStop(0.5, '#FFD64D');
+        gradL.addColorStop(1, '#FFF2A6');
+      }
+      ctx.fillStyle = gradL;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(0, -rMainOuter);
+      ctx.quadraticCurveTo(-rMainWaist * 0.42, -rMainOuter * 0.36, -rMainWaist * Math.SQRT1_2, -rMainWaist * Math.SQRT1_2);
+      ctx.closePath();
+      ctx.fill();
+
+      // Right facet of point
+      const gradR = ctx.createLinearGradient(0, -rMainOuter, rMainWaist, -rMainOuter * 0.3);
+      if (i === 0 || i === 1) {
+        gradR.addColorStop(0, '#FFE478');
+        gradR.addColorStop(0.45, '#D47200');
+        gradR.addColorStop(1, '#7A3000');
+      } else {
+        gradR.addColorStop(0, '#FFF6BD');
+        gradR.addColorStop(0.5, '#F5A300');
+        gradR.addColorStop(1, '#9E4500');
+      }
+      ctx.fillStyle = gradR;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(0, -rMainOuter);
+      ctx.quadraticCurveTo(rMainWaist * 0.42, -rMainOuter * 0.36, rMainWaist * Math.SQRT1_2, -rMainWaist * Math.SQRT1_2);
+      ctx.closePath();
+      ctx.fill();
+
+      // Recessed warm amber & emerald groove on each primary ray
+      const grooveGrad = ctx.createLinearGradient(0, -rMainOuter * 0.76, 0, -rMainOuter * 0.22);
+      grooveGrad.addColorStop(0, '#12B87D');
+      grooveGrad.addColorStop(0.6, '#054D33');
+      grooveGrad.addColorStop(1, '#022417');
+      ctx.fillStyle = grooveGrad;
+      ctx.beginPath();
+      ctx.moveTo(0, -rMainOuter * 0.75);
+      ctx.lineTo(rMainWaist * 0.19, -rMainOuter * 0.33);
+      ctx.lineTo(0, -rMainOuter * 0.20);
+      ctx.lineTo(-rMainWaist * 0.19, -rMainOuter * 0.33);
+      ctx.closePath();
+      ctx.fill();
+
+      // Gold rim highlight along groove
+      ctx.strokeStyle = 'rgba(255, 245, 190, 0.75)';
+      ctx.lineWidth = 2.2;
+      ctx.stroke();
+
+      // Crisp center ridge highlight
+      ctx.strokeStyle = 'rgba(255, 253, 230, 0.85)';
+      ctx.lineWidth = 2.8;
+      ctx.beginPath();
+      ctx.moveTo(0, -rMainOuter * 0.96);
+      ctx.lineTo(0, -rMainOuter * 0.76);
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    // 5. Central Sunburst Collar & Emerald Cabochon Jewel
+    ctx.fillStyle = '#8C3B00';
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * 0.27, 0, TAU);
+    ctx.fill();
+
+    drawCabochonGem(ctx, 0, 0, radius * 0.21, 'emerald', p2);
+
+    // 6. Dangling Teardrop Pendant below the bottom point of the Star
+    ctx.save();
+    ctx.translate(0, rMainOuter + 4);
+    ctx.rotate(dropAngle);
+    drawTeardropCharm(ctx, 56, 17, p2 + 1.2);
+    ctx.restore();
+
+    ctx.restore();
+  }
+
+  // Main Crescent Moon Drawing Function
+  function drawCrescentMoon(ctx, phase, lowerCharmAngle, bellyCharmAngle) {
+    const p1 = phase * TAU;
+    const p2 = phase * TAU * 2;
+    const p3 = phase * TAU * 3;
+    const shimmer = Math.sin(p1);
+
+    ctx.save();
+
+    // ----------------------------------------------------
+    // 1. CONTAINED MULTI-LAYERED AMBIENT GLOW ON BLACK
+    // ----------------------------------------------------
+    const pulse = 1 + 0.05 * Math.sin(p2) + 0.025 * Math.cos(p3);
+    const outerGlow = ctx.createRadialGradient(-90, 10, 40, -40, 0, 820 * pulse);
+    outerGlow.addColorStop(0, 'rgba(255, 195, 55, 0.30)');
+    outerGlow.addColorStop(0.32, 'rgba(217, 107, 0, 0.14)');
+    outerGlow.addColorStop(0.62, 'rgba(12, 130, 88, 0.045)');
+    outerGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = outerGlow;
+    ctx.beginPath();
+    ctx.arc(-40, 0, 820 * pulse, 0, TAU);
+    ctx.fill();
+
+    // Focused inner crescent halo
+    const bellyGlow = ctx.createRadialGradient(-280, -30, 20, -240, -10, 560 * pulse);
+    bellyGlow.addColorStop(0, 'rgba(255, 225, 110, 0.26)');
+    bellyGlow.addColorStop(0.5, 'rgba(245, 145, 15, 0.09)');
+    bellyGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = bellyGlow;
+    ctx.beginPath();
+    ctx.arc(-240, -10, 560 * pulse, 0, TAU);
+    ctx.fill();
+
+    // ----------------------------------------------------
+    // 2. SCALLOPED ORNAMENTAL OUTER LACE TRIM
+    // ----------------------------------------------------
+    ctx.save();
+    const numOuterScallops = 44;
+    for (let i = 1; i < numOuterScallops; i++) {
+      const u = -0.96 + (i / numOuterScallops) * 1.92;
+      const sp = getSpinePoint(crescentOuter, u);
+      const bx = sp.x + sp.nx * (sp.halfWidth + 2);
+      const by = sp.y + sp.ny * (sp.halfWidth + 2);
+      const beadR = (3.5 + 4.5 * sp.widthFactor);
+      ctx.fillStyle = i % 2 === 0 ? '#FFE885' : '#D97B00';
+      ctx.beginPath();
+      ctx.arc(bx, by, beadR, 0, TAU);
+      ctx.fill();
+    }
+    const numInnerScallops = 34;
+    for (let i = 2; i < numInnerScallops - 1; i++) {
+      const u = -0.92 + (i / numInnerScallops) * 1.84;
+      const sp = getSpinePoint(crescentOuter, u);
+      const bx = sp.x - sp.nx * (sp.halfWidth - 2);
+      const by = sp.y - sp.ny * (sp.halfWidth - 2);
+      const beadR = (3.0 + 3.8 * sp.widthFactor);
+      ctx.fillStyle = i % 2 === 0 ? '#FFF2A6' : '#C96B00';
+      ctx.beginPath();
+      ctx.arc(bx, by, beadR, 0, TAU);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // ----------------------------------------------------
+    // 3. LAYER A: OUTER SCULPTED GOLD CRESCENT BODY
+    // ----------------------------------------------------
+    ctx.save();
+    traceCrescentPath(ctx, crescentOuter);
+    ctx.clip();
+
+    // Base rich metallic gold gradient
+    const goldBodyGrad = ctx.createLinearGradient(-540, -480, 380, 460);
+    goldBodyGrad.addColorStop(0, '#FFF8C8');
+    goldBodyGrad.addColorStop(0.22, '#FFD84D');
+    goldBodyGrad.addColorStop(0.45 + shimmer * 0.06, '#FFF3A8');
+    goldBodyGrad.addColorStop(0.68, '#E08600');
+    goldBodyGrad.addColorStop(0.88, '#8C3B00');
+    goldBodyGrad.addColorStop(1, '#F5B027');
+    ctx.fillStyle = goldBodyGrad;
+    ctx.fillRect(-650, -650, 1300, 1300);
+
+    // Warm amber lower-right volumetric shading
+    const amberShade = ctx.createRadialGradient(80, 260, 40, -80, 120, 680);
+    amberShade.addColorStop(0, 'rgba(130, 45, 0, 0.72)');
+    amberShade.addColorStop(0.55, 'rgba(185, 78, 0, 0.25)');
+    amberShade.addColorStop(1, 'rgba(185, 78, 0, 0)');
+    ctx.fillStyle = amberShade;
+    ctx.fillRect(-650, -650, 1300, 1300);
+
+    // Travelling glossy specular sheen band across the gold rim
+    ctx.save();
+    const sheenAngle = -0.55 + 0.14 * Math.sin(p1);
+    const sheenPos = -160 + 110 * Math.cos(p1);
+    ctx.rotate(sheenAngle);
+    const sheenGrad = ctx.createLinearGradient(0, sheenPos - 180, 0, sheenPos + 180);
+    sheenGrad.addColorStop(0, 'rgba(255, 255, 240, 0)');
+    sheenGrad.addColorStop(0.35, 'rgba(255, 248, 200, 0.28)');
+    sheenGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.62)');
+    sheenGrad.addColorStop(0.65, 'rgba(255, 248, 200, 0.28)');
+    sheenGrad.addColorStop(1, 'rgba(255, 255, 240, 0)');
+    ctx.fillStyle = sheenGrad;
+    ctx.fillRect(-800, -800, 1600, 1600);
+    ctx.restore();
+
+    // Inner bevel step 1 (Warm Dark Amber Shadow Trench)
+    traceCrescentPath(ctx, crescentBevel1);
+    const bevel1Grad = ctx.createLinearGradient(300, 350, -520, -420);
+    bevel1Grad.addColorStop(0, '#FFF2A8');
+    bevel1Grad.addColorStop(0.35, '#C76500');
+    bevel1Grad.addColorStop(0.75, '#6B2600');
+    bevel1Grad.addColorStop(1, '#4A1800');
+    ctx.fillStyle = bevel1Grad;
+    ctx.fill();
+
+    // Inner bevel step 2 (Bright Sculpted Gold Frame)
+    traceCrescentPath(ctx, crescentRecess);
+    const recessGrad = ctx.createLinearGradient(-500, -400, 300, 380);
+    recessGrad.addColorStop(0, '#FFF7C2');
+    recessGrad.addColorStop(0.3, '#FFC933');
+    recessGrad.addColorStop(0.7, '#B55700');
+    recessGrad.addColorStop(1, '#FFE275');
+    ctx.fillStyle = recessGrad;
+    ctx.fill();
+
+    // Inner bevel step 3 (Deep Gold-Shadow Lip before Emerald Enamel)
+    traceCrescentPath(ctx, crescentGoldLip);
+    const lipGrad = ctx.createLinearGradient(250, 300, -480, -360);
+    lipGrad.addColorStop(0, '#FFE885');
+    lipGrad.addColorStop(0.5, '#8A3900');
+    lipGrad.addColorStop(1, '#3D1400');
+    ctx.fillStyle = lipGrad;
+    ctx.fill();
+
+    // ----------------------------------------------------
+    // 4. LAYER D: DEEP EMERALD GREEN GLOSSY ENAMEL PANEL
+    // ----------------------------------------------------
+    ctx.save();
+    traceCrescentPath(ctx, crescentEmerald);
+    ctx.clip();
+
+    // Rich Emerald Enamel Base
+    const emBaseGrad = ctx.createRadialGradient(-290, -80, 30, -200, 0, 560);
+    emBaseGrad.addColorStop(0, '#14C284');
+    emBaseGrad.addColorStop(0.35, '#077A50');
+    emBaseGrad.addColorStop(0.72, '#03422B');
+    emBaseGrad.addColorStop(1, '#011F13');
+    ctx.fillStyle = emBaseGrad;
+    ctx.fillRect(-650, -650, 1300, 1300);
+
+    // Subtle ornamental diamond lattice inside the emerald enamel
+    ctx.save();
+    ctx.strokeStyle = 'rgba(104, 247, 184, 0.11)';
+    ctx.lineWidth = 2.5;
+    const step = 44;
+    ctx.beginPath();
+    for (let dLine = -1200; dLine <= 1200; dLine += step) {
+      ctx.moveTo(dLine, -650);
+      ctx.lineTo(dLine + 650, 650);
+      ctx.moveTo(dLine, -650);
+      ctx.lineTo(dLine - 650, 650);
+    }
+    ctx.stroke();
+    ctx.restore();
+
+    // Sweeping emerald-white gloss reflection across the enamel
+    ctx.save();
+    ctx.rotate(-0.42 + 0.12 * Math.sin(p2));
+    const emGlossPos = -180 + 70 * Math.sin(p1 + 0.8);
+    const emGloss = ctx.createLinearGradient(0, emGlossPos - 140, 0, emGlossPos + 140);
+    emGloss.addColorStop(0, 'rgba(120, 255, 200, 0)');
+    emGloss.addColorStop(0.5, 'rgba(180, 255, 225, 0.24)');
+    emGloss.addColorStop(1, 'rgba(120, 255, 200, 0)');
+    ctx.fillStyle = emGloss;
+    ctx.fillRect(-800, -800, 1600, 1600);
+    ctx.restore();
+
+    // ----------------------------------------------------
+    // 5. GOLDEN FILIGREE VINES & SCROLLWORK INSIDE EMERALD
+    // ----------------------------------------------------
+    // Central spine golden vine
+    ctx.save();
+    ctx.strokeStyle = 'rgba(2, 24, 15, 0.7)';
+    ctx.lineWidth = 10;
+    ctx.beginPath();
+    for (let i = 0; i <= 60; i++) {
+      const u = -0.90 + (i / 60) * 1.80;
+      const sp = getSpinePoint(crescentEmerald, u);
+      const wave = Math.sin(u * Math.PI * 5) * sp.halfWidth * 0.28;
+      const vx = sp.x + sp.nx * wave;
+      const vy = sp.y + sp.ny * wave;
+      if (i === 0) ctx.moveTo(vx + 3, vy + 5);
+      else ctx.lineTo(vx + 3, vy + 5);
+    }
+    ctx.stroke();
+
+    const vineGrad = ctx.createLinearGradient(-500, -400, 200, 400);
+    vineGrad.addColorStop(0, '#FFF5B8');
+    vineGrad.addColorStop(0.35, '#FFC833');
+    vineGrad.addColorStop(0.7, '#D97B00');
+    vineGrad.addColorStop(1, '#FFE885');
+    ctx.strokeStyle = vineGrad;
+    ctx.lineWidth = 6.5;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    for (let i = 0; i <= 60; i++) {
+      const u = -0.90 + (i / 60) * 1.80;
+      const sp = getSpinePoint(crescentEmerald, u);
+      const wave = Math.sin(u * Math.PI * 5) * sp.halfWidth * 0.28;
+      const vx = sp.x + sp.nx * wave;
+      const vy = sp.y + sp.ny * wave;
+      if (i === 0) ctx.moveTo(vx, vy);
+      else ctx.lineTo(vx, vy);
+    }
+    ctx.stroke();
+
+    // Mirror counter-vine for royal arabesque weave
+    ctx.lineWidth = 4.5;
+    ctx.beginPath();
+    for (let i = 0; i <= 60; i++) {
+      const u = -0.90 + (i / 60) * 1.80;
+      const sp = getSpinePoint(crescentEmerald, u);
+      const wave = -Math.sin(u * Math.PI * 5) * sp.halfWidth * 0.28;
+      const vx = sp.x + sp.nx * wave;
+      const vy = sp.y + sp.ny * wave;
+      if (i === 0) ctx.moveTo(vx, vy);
+      else ctx.lineTo(vx, vy);
+    }
+    ctx.stroke();
+    ctx.restore();
+
+    // Ornate S-scrolls placed along the crescent spine
+    const scrollPositions = [-0.70, -0.52, -0.34, -0.17, 0.0, 0.17, 0.34, 0.52, 0.70];
+    for (let i = 0; i < scrollPositions.length; i++) {
+      const u = scrollPositions[i];
+      const sp = getSpinePoint(crescentEmerald, u);
+      const scScale = sp.widthFactor * 1.28;
+      if (scScale > 0.22) {
+        const tangAngle = Math.atan2(sp.ty, sp.tx);
+        drawFiligreeScroll(
+          ctx,
+          sp.x + sp.nx * (i % 2 === 0 ? 12 : -12) * sp.widthFactor,
+          sp.y + sp.ny * (i % 2 === 0 ? 12 : -12) * sp.widthFactor,
+          scScale,
+          tangAngle,
+          i % 2 === 1,
+          p2 + i * 0.6
+        );
+      }
+    }
+
+    // Inner shadow along the emerald panel border for deep 2D depth
+    ctx.strokeStyle = 'rgba(0, 15, 9, 0.78)';
+    ctx.lineWidth = 14;
+    traceCrescentPath(ctx, crescentEmerald);
+    ctx.stroke();
+
+    ctx.restore(); // End Emerald Panel clip
+
+    // Crisp gold wire trim framing the emerald panel
+    ctx.strokeStyle = '#FFF2A6';
+    ctx.lineWidth = 3.5;
+    traceCrescentPath(ctx, crescentEmerald);
+    ctx.stroke();
+
+    // ----------------------------------------------------
+    // 6. GLOSSY RIM HIGHLIGHTS ON THE OUTER CRESCENT
+    // ----------------------------------------------------
+    // Upper-left outer curve bright white-gold rim highlight
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255, 253, 230, 0.88)';
+    ctx.lineWidth = 7;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.arc(0, 0, crescentOuter.R1 - 5, Math.PI * 0.82, Math.PI * 1.48, false);
+    ctx.stroke();
+
+    // Soft secondary highlight on inner belly curve
+    ctx.strokeStyle = 'rgba(255, 245, 185, 0.72)';
+    ctx.lineWidth = 5.5;
+    ctx.beginPath();
+    ctx.arc(crescentOuter.cx, crescentOuter.cy, crescentOuter.R2 + 5, Math.PI * 0.78, Math.PI * 1.32, false);
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.restore(); // End Outer Crescent clip
+
+    // ----------------------------------------------------
+    // 7. BEZEL-SET CABOCHON GEMS & ROSETTES ON THE SPINE
+    // ----------------------------------------------------
+    const gemConfigs = [
+      { u: -0.78, r: 11, type: 'amber' },
+      { u: -0.60, r: 16, type: 'emerald' },
+      { u: -0.41, r: 21, type: 'amber' },
+      { u: -0.21, r: 26, type: 'emerald' },
+      { u:  0.00, r: 34, type: 'emerald' }, // Hero center emerald cabochon
+      { u:  0.21, r: 26, type: 'emerald' },
+      { u:  0.41, r: 21, type: 'amber' },
+      { u:  0.60, r: 16, type: 'emerald' },
+      { u:  0.78, r: 11, type: 'amber' }
+    ];
+
+    // Accent golden sunburst behind the hero center gem
+    const centerSp = getSpinePoint(crescentEmerald, 0.0);
+    ctx.save();
+    ctx.translate(centerSp.x, centerSp.y);
+    ctx.rotate(Math.atan2(centerSp.ny, centerSp.nx));
+    const numRays = 16;
+    for (let r = 0; r < numRays; r++) {
+      const a = (r / numRays) * TAU;
+      const rLen = r % 2 === 0 ? 64 : 48;
+      ctx.fillStyle = r % 2 === 0 ? '#FFE885' : '#D98200';
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(Math.cos(a - 0.08) * 32, Math.sin(a - 0.08) * 32);
+      ctx.lineTo(Math.cos(a) * rLen, Math.sin(a) * rLen);
+      ctx.lineTo(Math.cos(a + 0.08) * 32, Math.sin(a + 0.08) * 32);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+
+    for (let i = 0; i < gemConfigs.length; i++) {
+      const g = gemConfigs[i];
+      const sp = getSpinePoint(crescentEmerald, g.u);
+      drawCabochonGem(ctx, sp.x, sp.y, g.r, g.type, p2 + i * 0.7);
+    }
+
+    // Golden bead clusters along the outer gold frame border
+    const borderRosettes = [-0.65, -0.35, 0.0, 0.35, 0.65];
+    for (let i = 0; i < borderRosettes.length; i++) {
+      const sp = getSpinePoint(crescentOuter, borderRosettes[i]);
+      // Outer rim trio of gold pearls
+      const ox = sp.x + sp.nx * (sp.halfWidth - 18);
+      const oy = sp.y + sp.ny * (sp.halfWidth - 18);
+      ctx.fillStyle = '#FFF6B8';
+      ctx.beginPath();
+      ctx.arc(ox, oy, 5.5, 0, TAU);
+      ctx.arc(ox + sp.tx * 11, oy + sp.ty * 11, 3.8, 0, TAU);
+      ctx.arc(ox - sp.tx * 11, oy - sp.ty * 11, 3.8, 0, TAU);
+      ctx.fill();
+
+      // Inner rim trio of gold pearls
+      const ix = sp.x - sp.nx * (sp.halfWidth - 18);
+      const iy = sp.y - sp.ny * (sp.halfWidth - 18);
+      ctx.beginPath();
+      ctx.arc(ix, iy, 5.0, 0, TAU);
+      ctx.arc(ix + sp.tx * 10, iy + sp.ty * 10, 3.5, 0, TAU);
+      ctx.arc(ix - sp.tx * 10, iy - sp.ty * 10, 3.5, 0, TAU);
+      ctx.fill();
+    }
+
+    // ----------------------------------------------------
+    // 8. HORN FINIALS & SECONDARY DANGLING CHARMS
+    // ----------------------------------------------------
+    // Upper Horn Finial Sphere & Suspension Loop
+    const ux = crescentOuter.x1;
+    const uy = crescentOuter.y1;
+    const finGrad1 = ctx.createRadialGradient(ux - 5, uy - 5, 2, ux, uy, 16);
+    finGrad1.addColorStop(0, '#FFFFFF');
+    finGrad1.addColorStop(0.4, '#FFE270');
+    finGrad1.addColorStop(0.8, '#C96800');
+    finGrad1.addColorStop(1, '#6E2B00');
+    ctx.fillStyle = finGrad1;
+    ctx.beginPath();
+    ctx.arc(ux, uy, 15, 0, TAU);
+    ctx.fill();
+
+    // Lower Horn Finial Sphere & Dangling Emerald Teardrop Charm
+    const lx = crescentOuter.x2;
+    const ly = crescentOuter.y2;
+    const finGrad2 = ctx.createRadialGradient(lx - 5, ly - 5, 2, lx, ly, 15);
+    finGrad2.addColorStop(0, '#FFFFFF');
+    finGrad2.addColorStop(0.4, '#FFE270');
+    finGrad2.addColorStop(0.8, '#C96800');
+    finGrad2.addColorStop(1, '#6E2B00');
+    ctx.fillStyle = finGrad2;
+    ctx.beginPath();
+    ctx.arc(lx, ly, 14, 0, TAU);
+    ctx.fill();
+
+    // Dangling charm from lower horn (Secondary motion)
+    ctx.save();
+    ctx.translate(lx, ly + 12);
+    ctx.rotate(lowerCharmAngle);
+    // Tiny chain links
+    for (let k = 0; k < 3; k++) {
+      ctx.fillStyle = k % 2 === 0 ? '#FFF2A6' : '#E08A00';
+      ctx.beginPath();
+      ctx.arc(0, k * 10, 4, 0, TAU);
+      ctx.fill();
+    }
+    ctx.translate(0, 28);
+    drawTeardropCharm(ctx, 64, 19, p2 + 2.1);
+    ctx.restore();
+
+    // Small ornamental tassel charm on lower-left outer curve of crescent
+    const bellySp = getSpinePoint(crescentOuter, 0.54);
+    const bx = bellySp.x + bellySp.nx * (bellySp.halfWidth + 4);
+    const by = bellySp.y + bellySp.ny * (bellySp.halfWidth + 4);
+    ctx.save();
+    ctx.translate(bx, by);
+    ctx.fillStyle = '#FFE47A';
+    ctx.beginPath();
+    ctx.arc(0, 0, 8, 0, TAU);
+    ctx.fill();
+    ctx.rotate(bellyCharmAngle);
+    for (let k = 1; k <= 3; k++) {
+      ctx.fillStyle = k % 2 === 0 ? '#FFF5B8' : '#D97B00';
+      ctx.beginPath();
+      ctx.arc(0, k * 9, 3.6, 0, TAU);
+      ctx.fill();
+    }
+    ctx.translate(0, 30);
+    drawTeardropCharm(ctx, 50, 15, p1 + 0.5);
+    ctx.restore();
+
+    ctx.restore();
+  }
+
+  // Draw the multi-segment golden chain and hanging star from the upper horn
+  function drawHangingAssembly(ctx, hornX, hornY, phase, moonRot) {
+    const p1 = phase * TAU;
+    const p2 = phase * TAU * 2;
+    const p3 = phase * TAU * 3;
+
+    // Overlapping pendulum angles (compensated against moonRot with phase lag for true follow-through)
+    const swing1 = -moonRot * 0.85 + 0.14 * Math.sin(p1 - 0.65) + 0.035 * Math.cos(p2 - 0.4);
+    const swing2 = -moonRot * 0.95 + 0.19 * Math.sin(p1 - 1.15) + 0.055 * Math.sin(p2 - 0.9);
+    const starTilt = -moonRot * 1.0 + 0.23 * Math.sin(p1 - 1.55) + 0.065 * Math.cos(p2 - 1.3);
+    const bottomDropTilt = 0.26 * Math.sin(p1 - 2.05) + 0.08 * Math.sin(p3 - 0.8);
+
+    const seg1Len = 148;
+    const seg2Len = 148;
+    const starRadius = 152;
+
+    ctx.save();
+    ctx.translate(hornX, hornY + 12);
+
+    // --- CHAIN SEGMENT 1 (Upper Horn to Emerald Medallion Connector) ---
+    ctx.save();
+    ctx.rotate(swing1);
+
+    // Subtle golden line behind chain beads
+    ctx.strokeStyle = 'rgba(255, 200, 60, 0.55)';
+    ctx.lineWidth = 3.5;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(0, seg1Len);
+    ctx.stroke();
+
+    const numBeads1 = 9;
+    for (let i = 1; i < numBeads1; i++) {
+      const y = (i / numBeads1) * seg1Len;
+      const isLarge = i % 2 === 0;
+      const r = isLarge ? 6.2 : 4.2;
+      const bGrad = ctx.createRadialGradient(-r * 0.3, y - r * 0.3, 1, 0, y, r);
+      bGrad.addColorStop(0, '#FFFFFF');
+      bGrad.addColorStop(0.45, '#FFE478');
+      bGrad.addColorStop(1, '#A84E00');
+      ctx.fillStyle = bGrad;
+      ctx.beginPath();
+      ctx.arc(0, y, r, 0, TAU);
+      ctx.fill();
+    }
+
+    // Move to end of Segment 1 (Intermediate Medallion Connector)
+    ctx.translate(0, seg1Len);
+
+    // --- SEGMENT 2 (Medallion Connector to Hanging Star) ---
+    ctx.save();
+    ctx.rotate(swing2 - swing1);
+
+    ctx.strokeStyle = 'rgba(255, 200, 60, 0.55)';
+    ctx.lineWidth = 3.5;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(0, seg2Len);
+    ctx.stroke();
+
+    const numBeads2 = 9;
+    for (let i = 1; i < numBeads2; i++) {
+      const y = (i / numBeads2) * seg2Len;
+      const isLarge = i % 2 === 0;
+      const r = isLarge ? 6.2 : 4.2;
+      const bGrad = ctx.createRadialGradient(-r * 0.3, y - r * 0.3, 1, 0, y, r);
+      bGrad.addColorStop(0, '#FFFFFF');
+      bGrad.addColorStop(0.45, '#FFE478');
+      bGrad.addColorStop(1, '#A84E00');
+      ctx.fillStyle = bGrad;
+      ctx.beginPath();
+      ctx.arc(0, y, r, 0, TAU);
+      ctx.fill();
+    }
+
+    // Move to the Hanging Star attachment point
+    ctx.translate(0, seg2Len + starRadius + 8);
+    ctx.rotate(starTilt - swing2);
+
+    // Subtle breathing scale on the hanging star
+    const starScale = 1 + 0.03 * Math.sin(p2 - 0.5);
+    ctx.scale(starScale, starScale);
+
+    drawHangingStar(ctx, starRadius, phase, bottomDropTilt);
+
+    ctx.restore(); // End Segment 2
+
+    // Draw the Intermediate Diamond Emerald Connector over the joint
+    ctx.save();
+    ctx.rotate((swing2 - swing1) * 0.5);
+    // Gold diamond frame
+    const dSize = 20;
+    const dGrad = ctx.createLinearGradient(-dSize, -dSize, dSize, dSize);
+    dGrad.addColorStop(0, '#FFF6B8');
+    dGrad.addColorStop(0.5, '#FFB824');
+    dGrad.addColorStop(1, '#8C3B00');
+    ctx.fillStyle = dGrad;
+    ctx.beginPath();
+    ctx.moveTo(0, -dSize * 1.25);
+    ctx.lineTo(dSize, 0);
+    ctx.lineTo(0, dSize * 1.25);
+    ctx.lineTo(-dSize, 0);
+    ctx.closePath();
+    ctx.fill();
+    drawCabochonGem(ctx, 0, 0, 11, 'emerald', p2 + 1.5);
+    ctx.restore();
+
+    ctx.restore(); // End Segment 1
+    ctx.restore();
+  }
+
+  // Deterministic frame renderer
+  window.renderFrame = function(t) {
+    const DURATION = window.DURATION;
+    const phase = (((t % DURATION) + DURATION) % DURATION) / DURATION;
+    const p1 = phase * TAU;
+    const p2 = phase * TAU * 2;
+    const p3 = phase * TAU * 3;
+
+    // 1. Clear entire 4K frame to solid pure black #000000
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, W, H);
+
+    // 2. Primary Motion of the Crescent Moon (organic floating, rocking & subtle breathing)
+    const floatX = 18 * Math.sin(p1 + 0.4) + 6 * Math.cos(p2);
+    const floatY = -36 * Math.sin(p1) + 10 * Math.sin(p2 + 0.6);
+    const moonRot = 0.065 * Math.sin(p1 - 0.3) + 0.018 * Math.cos(p2 - 0.2);
+    const breatheX = 1 + 0.014 * Math.sin(p2) + 0.006 * Math.cos(p1);
+    const breatheY = 1 - 0.012 * Math.sin(p2) + 0.006 * Math.cos(p1);
+
+    // Secondary charm angles (with phase delay / overlapping action)
+    const lowerCharmAngle = -moonRot * 0.9 + 0.22 * Math.sin(p1 - 1.25) + 0.07 * Math.cos(p2 - 0.8);
+    const bellyCharmAngle = -moonRot * 0.9 + 0.19 * Math.sin(p1 - 0.95) + 0.06 * Math.sin(p2 - 0.4);
+
+    // 3. Draw Background Layer Sparkles (behind the moon)
+    ctx.save();
+    ctx.translate(CX, CY);
+    for (let i = 0; i < NUM_SPARKLES; i++) {
+      if (i % 2 !== 0) continue;
+      const s = sparkles[i];
+      const sx = s.bx + Math.cos(s.orbitFreqX * p1 + s.orbitPhaseX) * s.orbitRx;
+      const sy = s.by + Math.sin(s.orbitFreqY * p1 + s.orbitPhaseY) * s.orbitRy;
+      const tw = 0.5 + 0.5 * Math.sin(s.twinkleFreq * p1 + s.twinklePhase);
+      const pulseCurve = Math.pow(tw, 1.8);
+      const rad = s.size * (0.25 + 0.75 * pulseCurve);
+      const alpha = 0.12 + 0.88 * pulseCurve;
+      const rot = s.rotBase + s.rotFreq * p1 * 0.25;
+      drawSparkleShape(ctx, sx, sy, rad, rot, s.type, s.colorCore, s.colorMid, s.colorOuter, alpha);
+    }
+    ctx.restore();
+
+    // 4. Draw the Main Crescent Moon & Hanging Star Assembly
+    ctx.save();
+    ctx.translate(CX + floatX, CY + floatY);
+    ctx.rotate(moonRot);
+    ctx.scale(breatheX, breatheY);
+
+    // Draw the hanging chain & star from the upper horn (slightly behind the upper horn tip finial)
+    drawHangingAssembly(ctx, crescentOuter.x1, crescentOuter.y1, phase, moonRot);
+
+    // Draw the ornate glossy golden & emerald crescent moon
+    drawCrescentMoon(ctx, phase, lowerCharmAngle, bellyCharmAngle);
+
+    // Extra Hero Glints on key gemstones and tips of the moon (synchronized to light sweep)
+    const glint1 = Math.pow(0.5 + 0.5 * Math.sin(p2 + 0.4), 3.0);
+    drawSparkleShape(
+      ctx,
+      crescentOuter.x1 - 4,
+      crescentOuter.y1 - 4,
+      38 * glint1,
+      p1 * 0.5,
+      'four',
+      '#FFFFFF',
+      '#FFE885',
+      'rgba(255, 190, 40, 0)',
+      glint1 * 0.95
+    );
+
+    const glint2 = Math.pow(0.5 + 0.5 * Math.sin(p2 + 2.5), 3.0);
+    const centerGemPos = getSpinePoint(crescentEmerald, 0.0);
+    drawSparkleShape(
+      ctx,
+      centerGemPos.x - 12,
+      centerGemPos.y - 12,
+      44 * glint2,
+      -p1 * 0.5,
+      'eight',
+      '#FFFFFF',
+      '#80FFCC',
+      'rgba(18, 184, 125, 0)',
+      glint2 * 0.9
+    );
+
+    const glint3 = Math.pow(0.5 + 0.5 * Math.sin(p3 + 1.1), 3.2);
+    drawSparkleShape(
+      ctx,
+      crescentOuter.x2 - 2,
+      crescentOuter.y2 - 2,
+      34 * glint3,
+      p1 * 0.25,
+      'four',
+      '#FFFFFF',
+      '#FFE885',
+      'rgba(255, 180, 30, 0)',
+      glint3 * 0.9
+    );
+
+    ctx.restore();
+
+    // 5. Draw Foreground Layer Sparkles (in front of the moon and star)
+    ctx.save();
+    ctx.translate(CX, CY);
+    for (let i = 0; i < NUM_SPARKLES; i++) {
+      if (i % 2 === 0) continue;
+      const s = sparkles[i];
+      const sx = s.bx + Math.cos(s.orbitFreqX * p1 + s.orbitPhaseX) * s.orbitRx;
+      const sy = s.by + Math.sin(s.orbitFreqY * p1 + s.orbitPhaseY) * s.orbitRy;
+      const tw = 0.5 + 0.5 * Math.sin(s.twinkleFreq * p1 + s.twinklePhase);
+      const pulseCurve = Math.pow(tw, 1.7);
+      const rad = s.size * (0.28 + 0.72 * pulseCurve);
+      const alpha = 0.15 + 0.85 * pulseCurve;
+      const rot = s.rotBase + s.rotFreq * p1 * 0.25;
+      drawSparkleShape(ctx, sx, sy, rad, rot, s.type, s.colorCore, s.colorMid, s.colorOuter, alpha);
+    }
+    ctx.restore();
+  };
+
+  // Normal playback loop
+  function animate(now) {
+    window.renderFrame(now * 0.001);
+    requestAnimationFrame(animate);
+  }
+  requestAnimationFrame(animate);
+})();
+</script>
+</body>
+</html>

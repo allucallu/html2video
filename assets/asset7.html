@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ornamental Bedug Drum Animation</title>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: #000000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  canvas {
+    display: block;
+    width: 100vw;
+    height: 56.25vw;
+    max-height: 100vh;
+    max-width: 177.78vh;
+    margin: auto;
+    background-color: #000000;
+  }
+</style>
+</head>
+<body>
+<canvas id="canvas" width="3840" height="2160"></canvas>
+<script>
+window.DURATION = 10;
+window.FPS = 30;
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const CX = 1920;
+const CY = 1080;
+const TAU = Math.PI * 2;
+const BEATS = 5; // 5 rhythmic beats per 10-second seamless loop
+
+// Deterministic Seeded PRNG
+function createSeededPRNG(seed) {
+  let s = seed % 2147483647;
+  if (s <= 0) s += 2147483646;
+  return function() {
+    s = (s * 16807) % 2147483647;
+    return (s - 1) / 2147483646;
+  };
+}
+
+const rand = createSeededPRNG(918273);
+const SPARKLES = [];
+const NUM_SPARKLES = 68;
+
+for (let i = 0; i < NUM_SPARKLES; i++) {
+  const ang = rand() * TAU;
+  const rx = 220 + rand() * 780;
+  const ry = 160 + rand() * 580;
+  SPARKLES.push({
+    baseX: CX - 40 + Math.cos(ang) * rx,
+    baseY: CY - 20 + Math.sin(ang) * ry,
+    orbitRx: 16 + rand() * 38,
+    orbitRy: 16 + rand() * 42,
+    freqX: 1 + Math.floor(rand() * 2),
+    freqY: 1 + Math.floor(rand() * 2),
+    dir: rand() > 0.5 ? 1 : -1,
+    phaseOffset: rand(),
+    twinkleFreq: 1 + Math.floor(rand() * 3),
+    size: 5 + rand() * 13,
+    isStar: rand() > 0.35,
+    colorType: rand() > 0.32 ? 'gold' : (rand() > 0.45 ? 'amber' : 'emerald')
+  });
+}
+
+// Helper: Multi-pass glossy gold stroke
+function strokeGoldBevel(pathFn, width, glowAlpha = 0) {
+  if (glowAlpha > 0.01) {
+    ctx.save();
+    ctx.strokeStyle = `rgba(255, 195, 55, ${glowAlpha * 0.38})`;
+    ctx.lineWidth = width + 10;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    pathFn();
+    ctx.stroke();
+    ctx.restore();
+  }
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  ctx.strokeStyle = '#4A2B02';
+  ctx.lineWidth = width;
+  pathFn();
+  ctx.stroke();
+
+  ctx.strokeStyle = '#E8A827';
+  ctx.lineWidth = width * 0.66;
+  pathFn();
+  ctx.stroke();
+
+  ctx.strokeStyle = '#FFF5C4';
+  ctx.lineWidth = width * 0.26;
+  pathFn();
+  ctx.stroke();
+  ctx.restore();
+}
+
+// Helper: 4-point/8-point diamond sparkle star
+function drawSparkle(x, y, outerR, innerR, rot, alpha, glowColor, coreColor) {
+  if (alpha <= 0.01) return;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(rot);
+  ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+
+  const haloR = outerR * 2.1;
+  const halo = ctx.createRadialGradient(0, 0, 0, 0, 0, haloR);
+  halo.addColorStop(0, glowColor);
+  halo.addColorStop(0.4, glowColor.replace('1)', '0.32)'));
+  halo.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = halo;
+  ctx.beginPath();
+  ctx.arc(0, 0, haloR, 0, TAU);
+  ctx.fill();
+
+  ctx.fillStyle = coreColor;
+  ctx.beginPath();
+  for (let i = 0; i < 8; i++) {
+    const r = (i % 2 === 0) ? outerR : innerR;
+    const a = (i * Math.PI) / 4;
+    if (i === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+    else ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+  }
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.rotate(Math.PI / 4);
+  ctx.globalAlpha *= 0.6;
+  ctx.beginPath();
+  for (let i = 0; i < 8; i++) {
+    const r = (i % 2 === 0) ? outerR * 0.52 : innerR * 0.65;
+    const a = (i * Math.PI) / 4;
+    if (i === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+    else ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+// Helper: Hanging ornamental gold tassel
+function drawOrnamentalTassel(x, y, length, swingAngle, phase, seedOffset) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(swingAngle);
+
+  // Gold cord
+  ctx.strokeStyle = '#E8A827';
+  ctx.lineWidth = 4.5;
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(0, 24);
+  ctx.stroke();
+
+  // Fringe threads
+  const threads = 9;
+  for (let i = 0; i < threads; i++) {
+    const ratio = (i / (threads - 1)) - 0.5;
+    const spread = ratio * 32;
+    const wave = Math.sin(TAU * (phase * BEATS - 0.25) + i * 0.5 + seedOffset) * 9;
+    const tLen = length - Math.abs(ratio) * 18;
+    ctx.beginPath();
+    ctx.moveTo(ratio * 10, 32);
+    ctx.quadraticCurveTo(spread * 0.5 + wave * 0.4, 32 + tLen * 0.55, spread + wave, 32 + tLen);
+    ctx.strokeStyle = (i % 2 === 0) ? '#FFE485' : '#D98214';
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+  }
+
+  // Top cap bead
+  const capGrad = ctx.createRadialGradient(-3, 24, 1, 0, 26, 14);
+  capGrad.addColorStop(0, '#FFF8DC');
+  capGrad.addColorStop(0.45, '#FFB32C');
+  capGrad.addColorStop(1, '#612800');
+  ctx.fillStyle = capGrad;
+  ctx.beginPath();
+  ctx.arc(0, 26, 12, 0, TAU);
+  ctx.fill();
+  ctx.strokeStyle = '#FFF2BD';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+window.renderFrame = function(t) {
+  const phase = ((t % window.DURATION) + window.DURATION) % window.DURATION / window.DURATION;
+
+  // 0. Solid Pure Black Background
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(0, 0, 3840, 2160);
+
+  // Beat cycle math (5 integer beats per 10s loop)
+  // Strike occurs smoothly at beatTheta = PI/2 (i.e. localBeat = 0.25)
+  const beatTheta = TAU * BEATS * phase;
+  const sinBeat = Math.sin(beatTheta);
+  const cosBeat = Math.cos(beatTheta);
+
+  // Sharp periodic impact impulse peaking at sinBeat === 1 (localBeat = 0.25)
+  const impactRaw = Math.max(0, (sinBeat - 0.15) / 0.85);
+  const impactSpike = Math.pow(impactRaw, 4.0);
+
+  // Post-impact resonant vibration wave (strictly periodic over the beat cycle)
+  const localBeat = ((phase * BEATS) % 1 + 1) % 1;
+  // Smooth wrapped distance after the strike point (0.25)
+  const timeSinceStrike = (localBeat - 0.25 + 1) % 1;
+  // Periodic damping envelope that smoothly vanishes before the next strike and matches at 0/1
+  const ringEnvelope = Math.sin(Math.PI * timeSinceStrike) * Math.exp(-5.5 * timeSinceStrike);
+  const drumVibration = ringEnvelope * Math.sin(TAU * 4 * timeSinceStrike);
+
+  // Overall slow breathing & pendulum sway of the suspended Bedug
+  const slowSway = Math.sin(TAU * phase * 1);
+  const medSway = Math.sin(TAU * phase * 2);
+
+  // Recoil displacement of the Bedug barrel along the strike direction (-X, +Y slightly)
+  const recoilShiftX = -26 * impactSpike - 14 * drumVibration + 12 * slowSway;
+  const recoilShiftY = 8 * impactSpike + 5 * drumVibration + 6 * medSway;
+  const drumTilt = -0.028 * impactSpike - 0.015 * drumVibration + 0.018 * slowSway;
+
+  // Squash & Stretch of the drum barrel on impact
+  const drumSquashLen = 1.0 - 0.042 * impactSpike - 0.018 * drumVibration;
+  const drumPuffRad = 1.0 + 0.048 * impactSpike + 0.022 * drumVibration;
+
+  // Center of the Bedug drum
+  const drumCX = CX - 110 + recoilShiftX;
+  const drumCY = CY - 10 + recoilShiftY;
+
+  // Center of the front Drumhead (facing right-forward towards the mallet)
+  const headOffsetLen = 350 * drumSquashLen;
+  const headCenterX = drumCX + Math.cos(drumTilt) * headOffsetLen;
+  const headCenterY = drumCY + Math.sin(drumTilt) * headOffsetLen;
+
+  // 1. CONTAINED BACKGROUND AURA GLOW (Fades completely to #000000 inside canvas)
+  const auraRadius = 860 + 60 * impactSpike;
+  const auraGrad = ctx.createRadialGradient(CX - 30, CY, 40, CX - 30, CY, auraRadius);
+  auraGrad.addColorStop(0.0, `rgba(255, 185, 45, ${0.18 + 0.10 * impactSpike})`);
+  auraGrad.addColorStop(0.32, `rgba(12, 140, 70, ${0.11 + 0.04 * impactSpike})`);
+  auraGrad.addColorStop(0.62, `rgba(215, 95, 12, ${0.06 + 0.03 * impactSpike})`);
+  auraGrad.addColorStop(0.85, 'rgba(2, 40, 18, 0.015)');
+  auraGrad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = auraGrad;
+  ctx.beginPath();
+  ctx.arc(CX - 30, CY, auraRadius, 0, TAU);
+  ctx.fill();
+
+  // 2. ORNAMENTAL ROYAL ARCH STAND (Rear Pillars & Crossbeam)
+  const standCenterX = CX - 110;
+  const standTopY = 310;
+  const standBaseY = 1690;
+
+  ctx.save();
+  // Floating Ornamental Crescent & Lotus Plinth Base (at standBaseY, well above bottom edge 2160)
+  const plinthPath = () => {
+    ctx.beginPath();
+    ctx.moveTo(standCenterX - 680, standBaseY);
+    ctx.quadraticCurveTo(standCenterX, standBaseY + 75, standCenterX + 680, standBaseY);
+    ctx.quadraticCurveTo(standCenterX + 540, standBaseY + 125, standCenterX, standBaseY + 135);
+    ctx.quadraticCurveTo(standCenterX - 540, standBaseY + 125, standCenterX - 680, standBaseY);
+    ctx.closePath();
+  };
+  const plinthGrad = ctx.createLinearGradient(standCenterX - 680, standBaseY, standCenterX + 680, standBaseY);
+  plinthGrad.addColorStop(0.0, '#3D2202');
+  plinthGrad.addColorStop(0.25, '#076E38');
+  plinthGrad.addColorStop(0.5, '#19C96E');
+  plinthGrad.addColorStop(0.75, '#076E38');
+  plinthGrad.addColorStop(1.0, '#3D2202');
+  plinthPath();
+  ctx.fillStyle = plinthGrad;
+  ctx.fill();
+  strokeGoldBevel(plinthPath, 8, 0.45);
+
+  // Twin Crossed Royal Stand Pillars (Left & Right ornate curved columns)
+  [-1, 1].forEach((side) => {
+    const basePx = standCenterX + side * 490;
+    const topPx = standCenterX + side * 360;
+
+    const pillarPath = () => {
+      ctx.beginPath();
+      ctx.moveTo(basePx - 28, standBaseY + 25);
+      ctx.quadraticCurveTo(standCenterX + side * 450, CY, topPx - 22, standTopY);
+      ctx.lineTo(topPx + 22, standTopY);
+      ctx.quadraticCurveTo(standCenterX + side * 500, CY, basePx + 28, standBaseY + 25);
+      ctx.closePath();
+    };
+    const pilGrad = ctx.createLinearGradient(basePx - 30, standTopY, basePx + 30, standBaseY);
+    pilGrad.addColorStop(0, '#D98E16');
+    pilGrad.addColorStop(0.3, '#055E2F');
+    pilGrad.addColorStop(0.5, '#12A858');
+    pilGrad.addColorStop(0.7, '#044A24');
+    pilGrad.addColorStop(1, '#8C5205');
+    pillarPath();
+    ctx.fillStyle = pilGrad;
+    ctx.fill();
+    strokeGoldBevel(pillarPath, 6, 0.3);
+
+    // Finial lotus dome at top of each pillar
+    const finGrad = ctx.createRadialGradient(topPx - 6, standTopY - 18, 2, topPx, standTopY - 12, 34);
+    finGrad.addColorStop(0, '#FFF8D6');
+    finGrad.addColorStop(0.45, '#FFB32B');
+    finGrad.addColorStop(1, '#592400');
+    ctx.fillStyle = finGrad;
+    ctx.beginPath();
+    ctx.arc(topPx, standTopY - 12, 28, 0, TAU);
+    ctx.fill();
+    ctx.strokeStyle = '#FFF2BD';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+  });
+
+  // Top Ornate Crossbeam Arch
+  const beamPath = () => {
+    ctx.beginPath();
+    ctx.moveTo(standCenterX - 440, standTopY + 18);
+    ctx.quadraticCurveTo(standCenterX, standTopY - 68, standCenterX + 440, standTopY + 18);
+    ctx.lineTo(standCenterX + 420, standTopY + 62);
+    ctx.quadraticCurveTo(standCenterX, standTopY - 16, standCenterX - 420, standTopY + 62);
+    ctx.closePath();
+  };
+  const beamGrad = ctx.createLinearGradient(standCenterX - 440, standTopY, standCenterX + 440, standTopY);
+  beamGrad.addColorStop(0, '#5E3403');
+  beamGrad.addColorStop(0.25, '#D9941C');
+  beamGrad.addColorStop(0.5, '#FFE88A');
+  beamGrad.addColorStop(0.75, '#D9941C');
+  beamGrad.addColorStop(1, '#5E3403');
+  beamPath();
+  ctx.fillStyle = beamGrad;
+  ctx.fill();
+  strokeGoldBevel(beamPath, 7, 0.45);
+
+  // Center Star Medallion on Top Crossbeam
+  ctx.save();
+  ctx.translate(standCenterX, standTopY - 12);
+  ctx.beginPath();
+  for (let i = 0; i < 16; i++) {
+    const a = (i * TAU) / 16;
+    const r = (i % 2 === 0) ? 44 : 21;
+    if (i === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+    else ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+  }
+  ctx.closePath();
+  ctx.fillStyle = '#0B9E52';
+  ctx.fill();
+  ctx.strokeStyle = '#FFF0B5';
+  ctx.lineWidth = 4;
+  ctx.stroke();
+  ctx.restore();
+
+  // Golden Suspension Chains connecting Crossbeam to Bedug Barrel
+  [-210, 210].forEach((offsetX) => {
+    const chainTopX = standCenterX + offsetX;
+    const chainTopY = standTopY + 25;
+    const chainBotX = drumCX + offsetX * drumSquashLen;
+    const chainBotY = drumCY - 220 * drumPuffRad;
+
+    strokeGoldBevel(() => {
+      ctx.beginPath();
+      ctx.moveTo(chainTopX, chainTopY);
+      ctx.lineTo(chainBotX, chainBotY);
+    }, 9, 0.35);
+
+    // Ornamental chain ring in middle
+    const midX = (chainTopX + chainBotX) * 0.5;
+    const midY = (chainTopY + chainBotY) * 0.5;
+    ctx.fillStyle = '#FFAD24';
+    ctx.beginPath();
+    ctx.arc(midX, midY, 13, 0, TAU);
+    ctx.fill();
+    ctx.strokeStyle = '#FFF4C2';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+  });
+
+  // Hanging tassels under the crossbeam ends
+  const beamTasselSwing = 0.12 * Math.sin(TAU * (phase * 2 - 0.15)) + 0.08 * drumVibration;
+  drawOrnamentalTassel(standCenterX - 390, standTopY + 52, 115, beamTasselSwing, phase, 0.2);
+  drawOrnamentalTassel(standCenterX + 390, standTopY + 52, 115, -beamTasselSwing, phase, 1.7);
+  ctx.restore();
+
+  // 3. THE BEDUG DRUM BARREL & DRUMHEAD (Primary & Secondary Motion)
+  ctx.save();
+  ctx.translate(drumCX, drumCY);
+  ctx.rotate(drumTilt);
+
+  const halfL = 350 * drumSquashLen; // Half-length of barrel along X
+  const endRx = 148 * drumSquashLen; // Perspective horizontal radius of circular drumhead
+  const endRy = 275 * drumPuffRad;   // Vertical radius at drum ends
+  const bellyRy = 345 * drumPuffRad; // Bulging middle radius of barrel
+
+  // 3A. Rear Drum End Rim & Shadowed Cap (Left end at x = -halfL)
+  const rearCapPath = () => {
+    ctx.beginPath();
+    ctx.ellipse(-halfL, 0, endRx, endRy, 0, 0, TAU);
+  };
+  ctx.fillStyle = '#011C0D';
+  rearCapPath();
+  ctx.fill();
+  strokeGoldBevel(rearCapPath, 9, 0.3);
+
+  // Rear hanging tassel at back of drum
+  drawOrnamentalTassel(-halfL - endRx * 0.7, 40, 130, -drumTilt + 0.15 * slowSway + 0.12 * drumVibration, phase, 3.1);
+
+  // 3B. Main Barrel Body Silhouette (Deep Emerald & Warm Amber Lacquered Wooden Staves)
+  const barrelOutlinePath = () => {
+    ctx.beginPath();
+    ctx.moveTo(-halfL, -endRy);
+    ctx.bezierCurveTo(-halfL * 0.3, -bellyRy, halfL * 0.3, -bellyRy, halfL, -endRy);
+    ctx.ellipse(halfL, 0, endRx, endRy, 0, -Math.PI / 2, Math.PI / 2, false);
+    ctx.bezierCurveTo(halfL * 0.3, bellyRy, -halfL * 0.3, bellyRy, -halfL, endRy);
+    ctx.ellipse(-halfL, 0, endRx, endRy, 0, Math.PI / 2, -Math.PI / 2, false);
+    ctx.closePath();
+  };
+
+  // Clip to barrel silhouette to draw curved 3D wooden staves & ornamental bands
+  ctx.save();
+  barrelOutlinePath();
+  ctx.clip();
+
+  // Base vertical cylindrical shading across the barrel
+  const cylGrad = ctx.createLinearGradient(0, -bellyRy, 0, bellyRy);
+  cylGrad.addColorStop(0.0, '#011F0F');
+  cylGrad.addColorStop(0.18, '#076E38');
+  cylGrad.addColorStop(0.38, '#1AE078');
+  cylGrad.addColorStop(0.52, '#0A8F4A');
+  cylGrad.addColorStop(0.78, '#034220');
+  cylGrad.addColorStop(1.0, '#011409');
+  ctx.fillStyle = cylGrad;
+  ctx.fillRect(-halfL - endRx - 20, -bellyRy - 20, (halfL + endRx + 20) * 2, (bellyRy + 20) * 2);
+
+  // Horizontal curved wooden staves with alternating emerald & warm amber glaze
+  const numStaves = 9;
+  for (let s = 0; s < numStaves; s++) {
+    const v0 = -1 + (2 * s) / numStaves;
+    const v1 = -1 + (2 * (s + 1)) / numStaves;
+    const y0End = v0 * endRy;
+    const y0Belly = v0 * bellyRy;
+    const y1End = v1 * endRy;
+    const y1Belly = v1 * bellyRy;
+
+    ctx.beginPath();
+    ctx.moveTo(-halfL - endRx, y0End);
+    ctx.bezierCurveTo(-halfL * 0.3, y0Belly, halfL * 0.3, y0Belly, halfL + endRx, y0End);
+    ctx.lineTo(halfL + endRx, y1End);
+    ctx.bezierCurveTo(halfL * 0.3, y1Belly, -halfL * 0.3, y1Belly, -halfL - endRx, y1End);
+    ctx.closePath();
+
+    // Specular wave across staves when struck
+    const staveLight = Math.max(0, 1 - Math.abs((v0 + v1) * 0.5 + 0.22));
+    if (s % 2 === 1) {
+      ctx.fillStyle = `rgba(235, 145, 20, ${0.18 + 0.22 * staveLight + 0.15 * impactSpike})`;
+      ctx.fill();
+    }
+    ctx.strokeStyle = `rgba(255, 225, 130, ${0.28 + 0.25 * staveLight})`;
+    ctx.lineWidth = 3;
+    ctx.stroke();
+  }
+
+  // Ornamental Golden & Warm Amber Vertical Hoops / Brocade Bands around the barrel
+  const bandXPositions = [-0.62, -0.18, 0.18, 0.62];
+  bandXPositions.forEach((bxNorm, bIdx) => {
+    const bx = bxNorm * halfL;
+    const bScale = 1 - 0.18 * bxNorm * bxNorm;
+    const bRx = endRx * (1 + 0.12 * (1 - bxNorm * bxNorm));
+    const bRy = endRy + (bellyRy - endRy) * (1 - bxNorm * bxNorm);
+    const bandW = (bIdx === 1 || bIdx === 2) ? 46 : 36;
+
+    ctx.beginPath();
+    ctx.ellipse(bx - bandW * 0.5, 0, bRx, bRy, 0, -Math.PI / 2, Math.PI / 2, false);
+    ctx.ellipse(bx + bandW * 0.5, 0, bRx, bRy, 0, Math.PI / 2, -Math.PI / 2, true);
+    ctx.closePath();
+
+    const hoopGrad = ctx.createLinearGradient(0, -bRy, 0, bRy);
+    hoopGrad.addColorStop(0.0, '#4A2400');
+    hoopGrad.addColorStop(0.25, '#D98612');
+    hoopGrad.addColorStop(0.45, '#FFF2B2');
+    hoopGrad.addColorStop(0.65, '#E09019');
+    hoopGrad.addColorStop(1.0, '#3B1A00');
+    ctx.fillStyle = hoopGrad;
+    ctx.fill();
+
+    ctx.strokeStyle = '#FFF5C8';
+    ctx.lineWidth = 3.5;
+    ctx.stroke();
+  });
+
+  // Central Royal Islamic Geometric Star Crest on the side of the Bedug barrel
+  ctx.save();
+  ctx.translate(-35 * drumSquashLen, -15 * drumPuffRad);
+  ctx.scale(0.88, 1.0);
+  ctx.beginPath();
+  for (let i = 0; i < 16; i++) {
+    const a = (i * TAU) / 16;
+    const r = (i % 2 === 0) ? 95 : 48;
+    if (i === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+    else ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+  }
+  ctx.closePath();
+  const crestGrad = ctx.createRadialGradient(-10, -10, 4, 0, 0, 95);
+  crestGrad.addColorStop(0, '#FFF8DB');
+  crestGrad.addColorStop(0.4, '#FFB42B');
+  crestGrad.addColorStop(0.8, '#9E4500');
+  crestGrad.addColorStop(1, '#3D1400');
+  ctx.fillStyle = crestGrad;
+  ctx.fill();
+  ctx.strokeStyle = '#FFF3C4';
+  ctx.lineWidth = 4.5;
+  ctx.stroke();
+
+  // Inner emerald jewel in side crest
+  ctx.fillStyle = '#12D671';
+  ctx.beginPath();
+  ctx.arc(0, 0, 26, 0, TAU);
+  ctx.fill();
+  ctx.strokeStyle = '#FFFFFF';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  ctx.restore();
+
+  // Criss-Cross Golden Tension Ropes & Pegs along the barrel
+  const numRopes = 10;
+  ctx.strokeStyle = 'rgba(255, 228, 140, 0.72)';
+  ctx.lineWidth = 4.5;
+  ctx.beginPath();
+  for (let r = 0; r < numRopes; r++) {
+    const a1 = -Math.PI * 0.42 + (r / (numRopes - 1)) * Math.PI * 0.84;
+    const a2 = -Math.PI * 0.42 + ((r + 1) / (numRopes - 1)) * Math.PI * 0.84;
+    const xL = -halfL + Math.cos(a1) * endRx * 0.85;
+    const yL = Math.sin(a1) * endRy * 0.92;
+    const xR = halfL - Math.cos(a2) * endRx * 0.35;
+    const yR = Math.sin(a2) * endRy * 0.92;
+    if (r < numRopes - 1) {
+      ctx.moveTo(xL, yL);
+      ctx.lineTo(xR, yR);
+      ctx.moveTo(-halfL + Math.cos(a2) * endRx * 0.85, Math.sin(a2) * endRy * 0.92);
+      ctx.lineTo(halfL - Math.cos(a1) * endRx * 0.35, Math.sin(a1) * endRy * 0.92);
+    }
+  }
+  ctx.stroke();
+
+  ctx.restore(); // End barrel clip
+
+  // Glossy Gold Outer Rim of the Barrel
+  strokeGoldBevel(barrelOutlinePath, 9, 0.45 + 0.35 * impactSpike);
+
+  // 3C. FRONT DRUMHEAD MEMBRANE (Right end at x = +halfL, indented & glowing on strike)
+  const indentShift = -18 * impactSpike - 9 * drumVibration;
+  const headX = halfL;
+
+  // Molded Gold & Emerald Outer Drumhead Collar
+  const collarPath = () => {
+    ctx.beginPath();
+    ctx.ellipse(headX, 0, endRx + 12, endRy + 12, 0, 0, TAU);
+  };
+  const collarGrad = ctx.createLinearGradient(headX, -endRy, headX, endRy);
+  collarGrad.addColorStop(0, '#593202');
+  collarGrad.addColorStop(0.3, '#F5B536');
+  collarGrad.addColorStop(0.5, '#FFF8D6');
+  collarGrad.addColorStop(0.75, '#D48817');
+  collarGrad.addColorStop(1, '#472500');
+  collarPath();
+  ctx.fillStyle = collarGrad;
+  ctx.fill();
+  strokeGoldBevel(collarPath, 8, 0.5 + 0.4 * impactSpike);
+
+  // Drumhead Parchment Surface (Warm Amber-Gold & Luminous White-Gold on impact)
+  const membranePath = () => {
+    ctx.beginPath();
+    ctx.ellipse(headX, 0, endRx - 6, endRy - 8, 0, 0, TAU);
+  };
+  const memCenterX = headX + indentShift;
+  const memGrad = ctx.createRadialGradient(memCenterX, 0, 8, headX, 0, endRy);
+  memGrad.addColorStop(0.0, '#FFFFFF');
+  memGrad.addColorStop(0.22, `rgb(255, ${Math.floor(235 + 20 * impactSpike)}, ${Math.floor(175 + 75 * impactSpike)})`);
+  memGrad.addColorStop(0.55, '#F5A623');
+  memGrad.addColorStop(0.85, '#9E4B04');
+  memGrad.addColorStop(1.0, '#421900');
+
+  ctx.save();
+  membranePath();
+  ctx.fillStyle = memGrad;
+  ctx.fill();
+  ctx.clip();
+
+  // Ornate Islamic 8-Pointed Star Mandala Painted on the Drumhead Membrane
+  ctx.save();
+  ctx.translate(memCenterX, 0);
+  ctx.scale(endRx / endRy, 1.0); // Foreshorten to match the elliptical drumhead plane
+
+  // Concentric geometric rings on the drumhead that ripple with standing waves
+  for (let ring = 1; ring <= 3; ring++) {
+    const rWave = ring * 72 + 10 * drumVibration * ring;
+    ctx.strokeStyle = ring === 2 ? 'rgba(6, 125, 62, 0.7)' : 'rgba(140, 65, 5, 0.65)';
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.arc(0, 0, rWave, 0, TAU);
+    ctx.stroke();
+  }
+
+  // 8-Point Emerald & Gold Rosette at the bullseye of the drumhead
+  const starScale = 1.0 + 0.08 * impactSpike + 0.04 * drumVibration;
+  ctx.scale(starScale, starScale);
+  ctx.beginPath();
+  for (let i = 0; i < 16; i++) {
+    const a = (i * TAU) / 16;
+    const r = (i % 2 === 0) ? 135 : 64;
+    if (i === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+    else ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+  }
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(7, 130, 65, 0.85)';
+  ctx.fill();
+  ctx.strokeStyle = '#FFE485';
+  ctx.lineWidth = 6;
+  ctx.stroke();
+
+  // Inner golden star at strike point
+  ctx.beginPath();
+  for (let i = 0; i < 16; i++) {
+    const a = (i * TAU) / 16 + Math.PI / 16;
+    const r = (i % 2 === 0) ? 72 : 32;
+    if (i === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+    else ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+  }
+  ctx.closePath();
+  ctx.fillStyle = '#FFB72B';
+  ctx.fill();
+  ctx.strokeStyle = '#FFFFFF';
+  ctx.lineWidth = 4;
+  ctx.stroke();
+  ctx.restore();
+
+  // Internal Surface Ripple Rings on the Drumhead
+  for (let w = 0; w < 2; w++) {
+    const wProg = (timeSinceStrike + w * 0.5) % 1;
+    const wRad = wProg * endRy * 0.95;
+    const wAlpha = Math.sin(Math.PI * wProg) * Math.exp(-2.2 * wProg) * 0.85;
+    if (wAlpha > 0.02) {
+      ctx.save();
+      ctx.translate(memCenterX, 0);
+      ctx.scale(endRx / endRy, 1.0);
+      ctx.strokeStyle = `rgba(255, 255, 255, ${wAlpha})`;
+      ctx.lineWidth = 8 * (1 - wProg * 0.6);
+      ctx.beginPath();
+      ctx.arc(0, 0, wRad, 0, TAU);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+  ctx.restore(); // End drumhead clip
+
+  // 16 Golden Tension Pegs (Pasak Bedug) around the front drumhead rim
+  for (let i = 0; i < 16; i++) {
+    const a = (i * TAU) / 16;
+    const px = headX + Math.cos(a) * (endRx + 10);
+    const py = Math.sin(a) * (endRy + 10);
+    ctx.fillStyle = '#FFE482';
+    ctx.beginPath();
+    ctx.arc(px, py, 9, 0, TAU);
+    ctx.fill();
+    ctx.strokeStyle = '#593000';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+  }
+
+  ctx.restore(); // End Bedug Drum transform
+
+  // 4. RHYTHMIC EXPANDING PULSE RINGS (Secondary Acoustic Shockwaves)
+  // Emit concentric ornamental pulse rings from the drumhead center upon each beat
+  const strikeWorldX = headCenterX - 12 * impactSpike;
+  const strikeWorldY = headCenterY;
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+
+  // Flash burst at the exact strike point during impact
+  if (impactSpike > 0.02) {
+    const burstR = 260 * impactSpike;
+    const burstGrad = ctx.createRadialGradient(strikeWorldX, strikeWorldY, 2, strikeWorldX, strikeWorldY, burstR);
+    burstGrad.addColorStop(0.0, `rgba(255, 255, 255, ${0.95 * impactSpike})`);
+    burstGrad.addColorStop(0.35, `rgba(255, 215, 80, ${0.75 * impactSpike})`);
+    burstGrad.addColorStop(0.7, `rgba(255, 130, 15, ${0.35 * impactSpike})`);
+    burstGrad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = burstGrad;
+    ctx.beginPath();
+    ctx.arc(strikeWorldX, strikeWorldY, burstR, 0, TAU);
+    ctx.fill();
+
+    drawSparkle(
+      strikeWorldX, strikeWorldY,
+      145 * impactSpike, 26 * impactSpike,
+      phase * TAU, impactSpike * 0.95,
+      'rgba(255, 215, 75, 1)', '#FFFFFF'
+    );
+  }
+
+  // 3 Staggered Harmonic Pulse Rings wrapping seamlessly across the beat cycle
+  const NUM_RINGS = 3;
+  for (let rIdx = 0; rIdx < NUM_RINGS; rIdx++) {
+    // Each ring spans 3 beats of life, staggered by 1 beat so at any beat all 3 states are present identically
+    const ringAge = (timeSinceStrike + rIdx) / NUM_RINGS; // in [0, 1)
+    const easeOut = 1 - Math.pow(1 - ringAge, 2.1);
+
+    // Ring expands outward and slightly right along the acoustic normal of the tilted drumhead
+    const ringCenterX = strikeWorldX + easeOut * 210;
+    const ringCenterY = strikeWorldY - easeOut * 15;
+    const ringRx = 85 + easeOut * 310;
+    const ringRy = 155 + easeOut * 520;
+
+    // Fade in smoothly at birth (ringAge = 0) and fade out completely to 0 before ringAge = 1
+    const fadeIn = Math.min(1, ringAge * 14);
+    const fadeOut = Math.pow(1 - ringAge, 2.4);
+    const ringAlpha = fadeIn * fadeOut;
+
+    if (ringAlpha > 0.01) {
+      ctx.save();
+      ctx.translate(ringCenterX, ringCenterY);
+      ctx.rotate(drumTilt * 0.5);
+
+      // Soft outer golden-emerald glow band
+      ctx.strokeStyle = (rIdx % 2 === 0)
+        ? `rgba(255, 195, 50, ${ringAlpha * 0.45})`
+        : `rgba(25, 235, 125, ${ringAlpha * 0.40})`;
+      ctx.lineWidth = 22 * (1 - ringAge * 0.65);
+      ctx.beginPath();
+      ctx.ellipse(0, 0, ringRx, ringRy, 0, 0, TAU);
+      ctx.stroke();
+
+      // Crisp inner white-gold core ring
+      ctx.strokeStyle = `rgba(255, 248, 210, ${ringAlpha * 0.9})`;
+      ctx.lineWidth = 5.5 * (1 - ringAge * 0.5);
+      ctx.beginPath();
+      ctx.ellipse(0, 0, ringRx, ringRy, 0, 0, TAU);
+      ctx.stroke();
+
+      // 12 Ornamental Geometric Star Nodes riding on the expanding pulse ring
+      const numNodes = 12;
+      for (let k = 0; k < numNodes; k++) {
+        const na = (k * TAU) / numNodes + ringAge * 0.6;
+        const nx = Math.cos(na) * ringRx;
+        const ny = Math.sin(na) * ringRy;
+        const nodeSize = (10 - 6 * ringAge);
+
+        ctx.fillStyle = `rgba(255, 250, 220, ${ringAlpha * 0.95})`;
+        ctx.beginPath();
+        ctx.arc(nx, ny, nodeSize * 0.55, 0, TAU);
+        ctx.fill();
+      }
+
+      ctx.restore();
+    }
+  }
+  ctx.restore();
+
+  // 5. ORNAMENTAL MALLET (PEMUKUL BEDUG) WITH ANTICIPATION, STRIKE SNAP & FOLLOW-THROUGH
+  // Pivot located to the lower-right of the drumhead so the mallet swings in an expressive arc
+  const pivotX = CX + 640;
+  const pivotY = CY + 410;
+
+  // Periodic angular trajectory crafted from Fourier harmonics of beatTheta:
+  // At sinBeat === 1 (localBeat = 0.25), mallet reaches exact contact angle with the drumhead center.
+  // Before contact: winds back (anticipation). After contact: rebounds briskly and eases into next windup.
+  const contactAngle = -0.835; // Angle from pivot pointing to strikeWorldX, strikeWorldY
+  const swingWave = (1 - sinBeat) * 0.46 - 0.14 * cosBeat + 0.06 * Math.sin(2 * beatTheta);
+  const malletAngle = contactAngle + swingWave;
+
+  // Compute mallet head position to attach handle tassel with overlapping follow-through
+  ctx.save();
+  ctx.translate(pivotX, pivotY);
+  ctx.rotate(malletAngle);
+
+  const handleLength = 540;
+
+  // Flexible handle bend (whip follow-through on fast swing)
+  const whipBend = -22 * impactSpike + 18 * cosBeat;
+
+  // Ornamental Tassel hanging from the bottom pommel of the mallet handle
+  const pommelTasselAngle = -malletAngle + 0.35 * Math.sin(beatTheta - 0.65);
+  drawOrnamentalTassel(0, 20, 125, pommelTasselAngle, phase, 4.4);
+
+  // Turned Gold & Emerald Lacquered Mallet Handle Shaft
+  const shaftPath = () => {
+    ctx.beginPath();
+    ctx.moveTo(-16, 15);
+    ctx.quadraticCurveTo(-14 + whipBend * 0.5, -handleLength * 0.5, -13 + whipBend, -handleLength);
+    ctx.lineTo(13 + whipBend, -handleLength);
+    ctx.quadraticCurveTo(14 + whipBend * 0.5, -handleLength * 0.5, 16, 15);
+    ctx.closePath();
+  };
+  const shaftGrad = ctx.createLinearGradient(-18, 0, 18, 0);
+  shaftGrad.addColorStop(0.0, '#022B15');
+  shaftGrad.addColorStop(0.3, '#0B994E');
+  shaftGrad.addColorStop(0.55, '#42F59B');
+  shaftGrad.addColorStop(0.8, '#066633');
+  shaftGrad.addColorStop(1.0, '#011C0D');
+
+  ctx.save();
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+  ctx.shadowBlur = 18;
+  shaftPath();
+  ctx.fillStyle = shaftGrad;
+  ctx.fill();
+  ctx.restore();
+  strokeGoldBevel(shaftPath, 5.5, 0.4);
+
+  // Decorative Gold Grip Rings along the Mallet Handle
+  [0, -110, -240, -380].forEach((gy, idx) => {
+    const frac = Math.abs(gy) / handleLength;
+    const gx = whipBend * frac * frac;
+    const ringR = idx === 0 ? 26 : 19;
+    const rGrad = ctx.createRadialGradient(gx - 5, gy - 4, 2, gx, gy, ringR);
+    rGrad.addColorStop(0, '#FFF9DE');
+    rGrad.addColorStop(0.45, '#FFB52E');
+    rGrad.addColorStop(1, '#5C2600');
+    ctx.fillStyle = rGrad;
+    ctx.beginPath();
+    ctx.ellipse(gx, gy, ringR, 11, 0, 0, TAU);
+    ctx.fill();
+    ctx.strokeStyle = '#FFF2BD';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+  });
+
+  // Mallet Striker Head at (whipBend, -handleLength)
+  // Squash & stretch on impact with the drumhead
+  ctx.save();
+  ctx.translate(whipBend, -handleLength);
+  const headSquashX = 1.0 - 0.14 * impactSpike;
+  const headStretchY = 1.0 + 0.12 * impactSpike;
+  ctx.scale(headSquashX, headStretchY);
+
+  // Golden Lotus Collar under the Striker Head
+  const lotusPath = () => {
+    ctx.beginPath();
+    ctx.moveTo(-36, 42);
+    ctx.quadraticCurveTo(0, 62, 36, 42);
+    ctx.lineTo(48, 12);
+    ctx.quadraticCurveTo(0, 26, -48, 12);
+    ctx.closePath();
+  };
+  lotusPath();
+  ctx.fillStyle = '#E8A21D';
+  ctx.fill();
+  strokeGoldBevel(lotusPath, 5, 0.4);
+
+  // Padded Royal Amber & Gold Striker Sphere/Barrel
+  const strikerRx = 72;
+  const strikerRy = 58;
+  const strikerPath = () => {
+    ctx.beginPath();
+    ctx.ellipse(0, -18, strikerRx, strikerRy, 0, 0, TAU);
+  };
+  const strikerGrad = ctx.createRadialGradient(-22, -32, 6, 0, -18, strikerRx);
+  strikerGrad.addColorStop(0.0, '#FFFFFF');
+  strikerGrad.addColorStop(0.28, '#FFE484');
+  strikerGrad.addColorStop(0.62, '#F08C12');
+  strikerGrad.addColorStop(0.88, '#963A00');
+  strikerGrad.addColorStop(1.0, '#421400');
+
+  ctx.save();
+  ctx.shadowColor = `rgba(255, 190, 50, ${0.45 + 0.5 * impactSpike})`;
+  ctx.shadowBlur = 28;
+  strikerPath();
+  ctx.fillStyle = strikerGrad;
+  ctx.fill();
+  ctx.restore();
+  strokeGoldBevel(strikerPath, 6.5, 0.6 + 0.4 * impactSpike);
+
+  // Ornamental Emerald & Gold Crown Cap on top of the Mallet Head
+  const crownCapPath = () => {
+    ctx.beginPath();
+    ctx.moveTo(-32, -68);
+    ctx.quadraticCurveTo(0, -108, 32, -68);
+    ctx.closePath();
+  };
+  crownCapPath();
+  ctx.fillStyle = '#0D9E52';
+  ctx.fill();
+  strokeGoldBevel(crownCapPath, 5, 0.4);
+
+  ctx.restore(); // End striker head
+  ctx.restore(); // End mallet transform
+
+  // 6. AMBIENT GOLDEN SPARKLES & RHYTHMIC SOUND MOTES (Seamless 10s Loop)
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+
+  for (let i = 0; i < NUM_SPARKLES; i++) {
+    const s = SPARKLES[i];
+
+    // Closed periodic orbital drift with integer frequencies
+    const px = s.baseX + Math.cos(TAU * (phase * s.freqX * s.dir + s.phaseOffset)) * s.orbitRx;
+    const py = s.baseY + Math.sin(TAU * (phase * s.freqY + s.phaseOffset)) * s.orbitRy;
+
+    // Combine individual integer twinkle with a subtle boost on the 5-beat rhythm
+    const baseTwinkle = 0.5 + 0.5 * Math.sin(TAU * (phase * s.twinkleFreq + s.phaseOffset));
+    const beatBoost = 0.78 + 0.22 * Math.sin(beatTheta - s.phaseOffset * TAU);
+    const alpha = Math.pow(baseTwinkle, 2.0) * beatBoost;
+    const rot = TAU * phase * s.dir + s.phaseOffset * TAU;
+
+    let glowCol, coreCol;
+    if (s.colorType === 'gold') {
+      glowCol = 'rgba(255, 205, 65, 1)';
+      coreCol = '#FFFDF2';
+    } else if (s.colorType === 'amber') {
+      glowCol = 'rgba(255, 135, 25, 1)';
+      coreCol = '#FFEAC2';
+    } else {
+      glowCol = 'rgba(35, 235, 130, 1)';
+      coreCol = '#E5FFF0';
+    }
+
+    if (s.isStar) {
+      drawSparkle(px, py, s.size * (0.65 + 0.65 * alpha), s.size * 0.16, rot, alpha * 0.95, glowCol, coreCol);
+    } else {
+      const rMote = s.size * 1.15;
+      const g = ctx.createRadialGradient(px, py, 0, px, py, rMote);
+      g.addColorStop(0, coreCol);
+      g.addColorStop(0.38, glowCol.replace('1)', `${alpha * 0.85})`));
+      g.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(px, py, rMote, 0, TAU);
+      ctx.fill();
+    }
+  }
+
+  ctx.restore();
+};
+
+// Interactive playback loop
+function animate(now) {
+  requestAnimationFrame(animate);
+  window.renderFrame(now / 1000);
+}
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>

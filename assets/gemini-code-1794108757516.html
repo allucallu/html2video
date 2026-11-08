@@ -1,0 +1,1653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ramadan Fanous Lantern</title>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  html, body {
+    width: 100%;
+    height: 100%;
+    background-color: #000000;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  canvas {
+    width: 100vw;
+    height: 100vh;
+    object-fit: contain;
+    display: block;
+    background-color: #000000;
+  }
+</style>
+</head>
+<body>
+<canvas id="canvas" width="3840" height="2160"></canvas>
+<script>
+(function() {
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const W = 3840;
+  const H = 2160;
+  const CX = W * 0.5;
+  const CY = H * 0.5;
+  const TAU = Math.PI * 2;
+
+  window.DURATION = 10;
+  window.FPS = 30;
+
+  // Deterministic PRNG (Mulberry32)
+  function mulberry32(seed) {
+    let a = seed >>> 0;
+    return function() {
+      a |= 0;
+      a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  const rand = mulberry32(20261108);
+
+  // Pre-generate deterministic ambient sparkles around the lantern
+  const sparkles = [];
+  const NUM_SPARKLES = 64;
+  for (let i = 0; i < NUM_SPARKLES; i++) {
+    const band = i < 24 ? 0 : (i < 48 ? 1 : 2);
+    let angle, rx, ry;
+    if (band === 0) {
+      // Inner halo around the lantern chamber & crown
+      angle = rand() * TAU;
+      rx = 290 + rand() * 190;
+      ry = 340 + rand() * 260;
+    } else if (band === 1) {
+      // Mid halo
+      angle = rand() * TAU;
+      rx = 460 + rand() * 220;
+      ry = 520 + rand() * 210;
+    } else {
+      // Outer soft sparkles (strictly inside safe margin)
+      angle = rand() * TAU;
+      rx = 640 + rand() * 160;
+      ry = 660 + rand() * 110;
+    }
+
+    const bx = Math.cos(angle) * rx;
+    const by = Math.sin(angle) * ry - 20;
+
+    const pRoll = rand();
+    let colorCore, colorMid, colorOuter;
+    if (pRoll < 0.50) {
+      // Radiant Gold
+      colorCore = '#FFFFFF';
+      colorMid = '#FFE885';
+      colorOuter = 'rgba(255, 180, 30, 0)';
+    } else if (pRoll < 0.80) {
+      // Warm Amber
+      colorCore = '#FFF9E2';
+      colorMid = '#FFB228';
+      colorOuter = 'rgba(220, 100, 0, 0)';
+    } else {
+      // Emerald Celestial Gleam
+      colorCore = '#FFFFFF';
+      colorMid = '#72F7C2';
+      colorOuter = 'rgba(16, 185, 125, 0)';
+    }
+
+    sparkles.push({
+      bx,
+      by,
+      driftRx: 14 + rand() * 26,
+      driftRy: 14 + rand() * 26,
+      freqX: (rand() < 0.65 ? 1 : 2) * (rand() < 0.5 ? 1 : -1),
+      freqY: (rand() < 0.65 ? 1 : 2) * (rand() < 0.5 ? 1 : -1),
+      phaseX: rand() * TAU,
+      phaseY: rand() * TAU,
+      twinkleFreq: 1 + Math.floor(rand() * 3), // 1, 2, or 3 integer cycles
+      twinklePhase: rand() * TAU,
+      rotFreq: rand() < 0.5 ? 1 : -1,
+      rotBase: rand() * Math.PI,
+      size: 15 + Math.pow(rand(), 1.55) * 42,
+      type: i % 4 === 0 ? 'eight' : (i % 3 === 0 ? 'orb' : 'four'),
+      layer: i % 2, // 0 = behind lantern, 1 = in front of lantern
+      colorCore,
+      colorMid,
+      colorOuter
+    });
+  }
+
+  // Pre-generate deterministic inner chamber rising light motes
+  const innerMotes = [];
+  const NUM_MOTES = 22;
+  for (let i = 0; i < NUM_MOTES; i++) {
+    innerMotes.push({
+      xNorm: (rand() - 0.5) * 1.55,
+      wobbleAmp: 8 + rand() * 18,
+      wobbleFreq: 1 + Math.floor(rand() * 2),
+      wobblePhase: rand() * TAU,
+      lifeOffset: rand(),
+      lifeCycles: 1 + Math.floor(rand() * 2), // 1 or 2 integer cycles per 10s loop
+      size: 5 + rand() * 11,
+      isEmerald: rand() < 0.22
+    });
+  }
+
+  // Helper: Draw a 4-point, 8-point, or orb sparkle with contained glow
+  function drawSparkleShape(ctx, x, y, radius, rot, type, colorCore, colorMid, colorOuter, alpha) {
+    if (alpha <= 0.005 || radius <= 0.5) return;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.globalAlpha = alpha;
+
+    const glowRad = radius * (type === 'orb' ? 2.2 : 2.75);
+    const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, glowRad);
+    grad.addColorStop(0, colorCore);
+    grad.addColorStop(0.28, colorMid);
+    grad.addColorStop(1, colorOuter);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(0, 0, glowRad, 0, TAU);
+    ctx.fill();
+
+    if (type === 'orb') {
+      ctx.fillStyle = colorCore;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius * 0.34, 0, TAU);
+      ctx.fill();
+      ctx.restore();
+      return;
+    }
+
+    ctx.rotate(rot);
+
+    const drawFourStar = (rLong, rShort, fill) => {
+      ctx.fillStyle = fill;
+      ctx.beginPath();
+      for (let i = 0; i < 4; i++) {
+        const ang = i * Math.PI * 0.5;
+        const nextAng = (i + 1) * Math.PI * 0.5;
+        const midAng = ang + Math.PI * 0.25;
+        const px = Math.cos(ang) * rLong;
+        const py = Math.sin(ang) * rLong;
+        const cx = Math.cos(midAng) * rShort;
+        const cy = Math.sin(midAng) * rShort;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+        ctx.quadraticCurveTo(cx, cy, Math.cos(nextAng) * rLong, Math.sin(nextAng) * rLong);
+      }
+      ctx.closePath();
+      ctx.fill();
+    };
+
+    if (type === 'eight') {
+      ctx.save();
+      ctx.rotate(Math.PI * 0.25);
+      drawFourStar(radius * 0.68, radius * 0.11, colorMid);
+      ctx.restore();
+    }
+
+    drawFourStar(radius * 1.15, radius * 0.15, colorMid);
+    drawFourStar(radius * 0.70, radius * 0.08, colorCore);
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * 0.14, 0, TAU);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  // Helper: Draw a glossy cabochon gem in an ornate gold bezel
+  function drawCabochonGem(ctx, x, y, radius, type, shimmerPhase) {
+    ctx.save();
+    ctx.translate(x, y);
+
+    // Subtle drop shadow
+    const dropGrad = ctx.createRadialGradient(radius * 0.12, radius * 0.2, radius * 0.1, 0, 0, radius * 1.45);
+    dropGrad.addColorStop(0, 'rgba(35, 12, 0, 0.78)');
+    dropGrad.addColorStop(1, 'rgba(35, 12, 0, 0)');
+    ctx.fillStyle = dropGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * 1.45, 0, TAU);
+    ctx.fill();
+
+    // Outer gold bezel
+    const bezelGrad = ctx.createLinearGradient(-radius, -radius, radius, radius);
+    bezelGrad.addColorStop(0, '#FFF7C2');
+    bezelGrad.addColorStop(0.35, '#FFD03B');
+    bezelGrad.addColorStop(0.72, '#B35600');
+    bezelGrad.addColorStop(1, '#FFE47A');
+    ctx.fillStyle = bezelGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * 1.22, 0, TAU);
+    ctx.fill();
+
+    // Inner bevel lip
+    ctx.fillStyle = '#592000';
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * 1.03, 0, TAU);
+    ctx.fill();
+
+    // Gemstone body
+    const gemGrad = ctx.createRadialGradient(
+      radius * 0.22, radius * 0.28, radius * 0.05,
+      0, 0, radius
+    );
+    if (type === 'emerald') {
+      gemGrad.addColorStop(0, '#78FFD0');
+      gemGrad.addColorStop(0.35, '#12B87D');
+      gemGrad.addColorStop(0.75, '#05593B');
+      gemGrad.addColorStop(1, '#022417');
+    } else {
+      // Warm Amber / Citrine
+      gemGrad.addColorStop(0, '#FFFAD6');
+      gemGrad.addColorStop(0.35, '#FFB319');
+      gemGrad.addColorStop(0.75, '#B84500');
+      gemGrad.addColorStop(1, '#4A1500');
+    }
+    ctx.fillStyle = gemGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, TAU);
+    ctx.fill();
+
+    // Glossy top-left specular crescent highlight
+    const shift = Math.sin(shimmerPhase) * 0.07;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.80)';
+    ctx.beginPath();
+    ctx.ellipse(
+      -radius * (0.30 + shift),
+      -radius * (0.32 - shift),
+      radius * 0.36,
+      radius * 0.18,
+      -Math.PI * 0.25,
+      0,
+      TAU
+    );
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  // Helper: Draw an ornate hanging teardrop charm (for eaves & lower bowl)
+  function drawTeardropCharm(ctx, length, width, type, shimmerPhase) {
+    ctx.save();
+
+    // Soft glow behind charm
+    const glow = ctx.createRadialGradient(0, length * 0.55, 0, 0, length * 0.55, length * 1.15);
+    glow.addColorStop(0, 'rgba(255, 195, 50, 0.30)');
+    glow.addColorStop(0.55, 'rgba(18, 184, 125, 0.08)');
+    glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(0, length * 0.55, length * 1.15, 0, TAU);
+    ctx.fill();
+
+    // Small suspension ring
+    ctx.strokeStyle = '#FFE885';
+    ctx.lineWidth = 3.5;
+    ctx.beginPath();
+    ctx.arc(0, 4, 5, 0, TAU);
+    ctx.stroke();
+
+    // Gold teardrop frame
+    const frameGrad = ctx.createLinearGradient(-width, 0, width, length);
+    frameGrad.addColorStop(0, '#FFF7C0');
+    frameGrad.addColorStop(0.35, '#FFCC33');
+    frameGrad.addColorStop(0.72, '#B55800');
+    frameGrad.addColorStop(1, '#FFE47A');
+    ctx.fillStyle = frameGrad;
+    ctx.beginPath();
+    ctx.moveTo(0, 8);
+    ctx.bezierCurveTo(width * 0.92, length * 0.38, width * 1.15, length * 0.78, 0, length);
+    ctx.bezierCurveTo(-width * 1.15, length * 0.78, -width * 0.92, length * 0.38, 0, 8);
+    ctx.closePath();
+    ctx.fill();
+
+    // Inner Gemstone Inlay
+    const inGrad = ctx.createRadialGradient(-width * 0.15, length * 0.55, 2, 0, length * 0.6, width * 0.85);
+    if (type === 'emerald') {
+      inGrad.addColorStop(0, '#72F7C2');
+      inGrad.addColorStop(0.45, '#0E9E6A');
+      inGrad.addColorStop(1, '#032B1C');
+    } else {
+      inGrad.addColorStop(0, '#FFF8D6');
+      inGrad.addColorStop(0.45, '#FF9E00');
+      inGrad.addColorStop(1, '#5E2000');
+    }
+    ctx.fillStyle = inGrad;
+    ctx.beginPath();
+    ctx.moveTo(0, 16);
+    ctx.bezierCurveTo(width * 0.62, length * 0.42, width * 0.78, length * 0.74, 0, length - 8);
+    ctx.bezierCurveTo(-width * 0.78, length * 0.74, -width * 0.62, length * 0.42, 0, 16);
+    ctx.closePath();
+    ctx.fill();
+
+    // Gloss highlight
+    const shift = Math.sin(shimmerPhase) * 1.5;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.76)';
+    ctx.beginPath();
+    ctx.ellipse(-width * 0.2 + shift, length * 0.52, width * 0.13, length * 0.13, -0.22, 0, TAU);
+    ctx.fill();
+
+    // Bottom gold bead
+    ctx.fillStyle = '#FFF3A8';
+    ctx.beginPath();
+    ctx.arc(0, length + 4.5, 4, 0, TAU);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  // Helper: Draw an 8-pointed Islamic geometric rosette cutout/ornament
+  function drawGeometricRosette(ctx, cx, cy, outerR, innerR, rot, fillStyle, strokeStyle, lineWidth) {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(rot);
+    ctx.beginPath();
+    const pts = 16;
+    for (let i = 0; i < pts; i++) {
+      const a = (i / pts) * TAU;
+      const r = i % 2 === 0 ? outerR : innerR;
+      const x = Math.cos(a) * r;
+      const y = Math.sin(a) * r;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    if (fillStyle) {
+      ctx.fillStyle = fillStyle;
+      ctx.fill();
+    }
+    if (strokeStyle) {
+      ctx.strokeStyle = strokeStyle;
+      ctx.lineWidth = lineWidth || 3;
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // Helper: Draw a double-bevelled ornate gold bar segment
+  function drawGoldStrut(ctx, x1, y1, x2, y2, width) {
+    // Dark amber shadow offset
+    ctx.strokeStyle = 'rgba(65, 22, 0, 0.80)';
+    ctx.lineWidth = width + 3;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x1 + 2, y1 + 3);
+    ctx.lineTo(x2 + 2, y2 + 3);
+    ctx.stroke();
+
+    // Rich gold core
+    ctx.strokeStyle = '#F5B022';
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+
+    // Specular highlight ridge
+    ctx.strokeStyle = '#FFF5B8';
+    ctx.lineWidth = Math.max(1.5, width * 0.38);
+    ctx.beginPath();
+    ctx.moveTo(x1 - 1, y1 - 1);
+    ctx.lineTo(x2 - 1, y2 - 1);
+    ctx.stroke();
+  }
+
+  // Helper: Draw intricate Islamic Girih geometric lattice inside a clipped glass panel
+  function drawPanelGirihLattice(ctx, panelCenterX, panelTopY, panelBotY, panelHalfW, shimmerPhase) {
+    const midY = (panelTopY + panelBotY) * 0.5 + 15;
+    const hSpan = panelBotY - panelTopY;
+
+    ctx.save();
+    ctx.translate(panelCenterX, 0);
+
+    // 1. Pointed Mamluk Arch Frame inside the panel
+    const archTop = panelTopY + 26;
+    const archSpring = panelTopY + 155;
+    const archBot = panelBotY - 18;
+    const archW = panelHalfW - 16;
+
+    // Emerald enamel spandrel background at the top corners of the panel
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(-panelHalfW - 10, panelTopY - 10, (panelHalfW + 10) * 2, archSpring - panelTopY + 20);
+    // Cut out the inside of the pointed arch
+    ctx.moveTo(-archW, archSpring);
+    ctx.quadraticCurveTo(-archW * 0.85, archTop + 32, 0, archTop);
+    ctx.quadraticCurveTo(archW * 0.85, archTop + 32, archW, archSpring);
+    ctx.closePath();
+
+    const spandrelGrad = ctx.createLinearGradient(0, panelTopY, 0, archSpring);
+    spandrelGrad.addColorStop(0, '#043824');
+    spandrelGrad.addColorStop(0.6, '#0A7049');
+    spandrelGrad.addColorStop(1, '#03291A');
+    ctx.fillStyle = spandrelGrad;
+    ctx.fill('evenodd');
+    ctx.restore();
+
+    // 2. Intricate Geometric Lattice Lines (Radial Star + Interlocking Polygons)
+    const centersY = [midY - hSpan * 0.21, midY + hSpan * 0.16];
+    for (let cIdx = 0; cIdx < centersY.length; cIdx++) {
+      const cy = centersY[cIdx];
+      const rad = archW * 0.92;
+
+      // 8-fold star chords
+      for (let i = 0; i < 8; i++) {
+        const a1 = (i / 8) * TAU;
+        const a2 = ((i + 3) / 8) * TAU;
+        const x1 = Math.cos(a1) * rad;
+        const y1 = cy + Math.sin(a1) * rad;
+        const x2 = Math.cos(a2) * rad;
+        const y2 = cy + Math.sin(a2) * rad;
+        drawGoldStrut(ctx, x1, y1, x2, y2, 6.5);
+      }
+
+      // Octagonal ring around center
+      const octR = rad * 0.56;
+      for (let i = 0; i < 8; i++) {
+        const a1 = (i / 8) * TAU + Math.PI / 8;
+        const a2 = ((i + 1) / 8) * TAU + Math.PI / 8;
+        drawGoldStrut(
+          ctx,
+          Math.cos(a1) * octR, cy + Math.sin(a1) * octR,
+          Math.cos(a2) * octR, cy + Math.sin(a2) * octR,
+          5.5
+        );
+      }
+
+      // Central 8-pointed gold & emerald rosette boss
+      drawGeometricRosette(ctx, 0, cy, rad * 0.25, rad * 0.14, 0, '#9E4500', '#FFF3A8', 3);
+      drawCabochonGem(ctx, 0, cy, rad * 0.10, cIdx === 0 ? 'emerald' : 'amber', shimmerPhase + cIdx);
+    }
+
+    // Connecting diamond lattice between the two main star medallions
+    const bridgeY = (centersY[0] + centersY[1]) * 0.5;
+    drawGoldStrut(ctx, -archW * 0.85, bridgeY, 0, bridgeY - 58, 6);
+    drawGoldStrut(ctx, 0, bridgeY - 58, archW * 0.85, bridgeY, 6);
+    drawGoldStrut(ctx, archW * 0.85, bridgeY, 0, bridgeY + 58, 6);
+    drawGoldStrut(ctx, 0, bridgeY + 58, -archW * 0.85, bridgeY, 6);
+    drawCabochonGem(ctx, 0, bridgeY, 10, 'emerald', shimmerPhase + 2.2);
+
+    // 3. Sculpted Pointed Arch Gold Molding
+    ctx.strokeStyle = '#6B2400';
+    ctx.lineWidth = 14;
+    ctx.beginPath();
+    ctx.moveTo(-archW, archBot);
+    ctx.lineTo(-archW, archSpring);
+    ctx.quadraticCurveTo(-archW * 0.85, archTop + 32, 0, archTop);
+    ctx.quadraticCurveTo(archW * 0.85, archTop + 32, archW, archSpring);
+    ctx.lineTo(archW, archBot);
+    ctx.stroke();
+
+    const archGold = ctx.createLinearGradient(-archW, archTop, archW, archBot);
+    archGold.addColorStop(0, '#FFF6BD');
+    archGold.addColorStop(0.35, '#FFCC33');
+    archGold.addColorStop(0.7, '#C46200');
+    archGold.addColorStop(1, '#FFE47A');
+    ctx.strokeStyle = archGold;
+    ctx.lineWidth = 9;
+    ctx.stroke();
+
+    ctx.strokeStyle = '#FFF9D6';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  // Draw the Top Celestial Suspension Medallion & Chain
+  function drawTopSuspension(ctx, anchorX, anchorY, chainSwing1, chainSwing2, segLen, phase) {
+    const p1 = phase * TAU;
+    const p2 = phase * TAU * 2;
+
+    ctx.save();
+    ctx.translate(anchorX, anchorY);
+
+    // 1. Contained glow behind top celestial clasp
+    const topGlow = ctx.createRadialGradient(0, 0, 5, 0, 0, 150);
+    topGlow.addColorStop(0, 'rgba(255, 215, 90, 0.35)');
+    topGlow.addColorStop(0.5, 'rgba(18, 184, 125, 0.09)');
+    topGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = topGlow;
+    ctx.beginPath();
+    ctx.arc(0, 0, 150, 0, TAU);
+    ctx.fill();
+
+    // 2. Ornate Arabesque Wing Bracket at the top
+    const wingGrad = ctx.createLinearGradient(-95, -25, 95, 25);
+    wingGrad.addColorStop(0, '#D47800');
+    wingGrad.addColorStop(0.3, '#FFF5B8');
+    wingGrad.addColorStop(0.5, '#FFB824');
+    wingGrad.addColorStop(0.7, '#FFF5B8');
+    wingGrad.addColorStop(1, '#B35800');
+
+    for (let side = -1; side <= 1; side += 2) {
+      ctx.save();
+      ctx.scale(side, 1);
+      // Decorative S-scroll wing
+      ctx.strokeStyle = wingGrad;
+      ctx.lineWidth = 7.5;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(18, 0);
+      ctx.bezierCurveTo(42, -26, 76, -20, 86, 4);
+      ctx.bezierCurveTo(92, 18, 76, 30, 62, 22);
+      ctx.bezierCurveTo(52, 16, 56, 4, 66, 6);
+      ctx.stroke();
+
+      // Gold finial bead on wing tip
+      ctx.fillStyle = '#FFF5B8';
+      ctx.beginPath();
+      ctx.arc(66, 6, 5, 0, TAU);
+      ctx.arc(48, -18, 4.5, 0, TAU);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // 8-pointed Star Rosette Clasp
+    drawGeometricRosette(ctx, 0, 0, 44, 24, 0, '#9E4500', '#FFE885', 4);
+    drawGeometricRosette(ctx, 0, 0, 36, 19, Math.PI / 8, '#076B46', '#FFF5B8', 2.5);
+    drawCabochonGem(ctx, 0, 0, 15, 'emerald', p2);
+
+    // 3. Articulated Golden Suspension Chain (2 segments)
+    ctx.save();
+    ctx.translate(0, 34);
+    ctx.rotate(chainSwing1);
+
+    // Segment 1 links
+    const drawChainSegment = (len) => {
+      ctx.strokeStyle = 'rgba(255, 200, 60, 0.6)';
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(0, len);
+      ctx.stroke();
+
+      const steps = 6;
+      for (let i = 1; i < steps; i++) {
+        const y = (i / steps) * len;
+        const r = i % 2 === 0 ? 7.5 : 5.2;
+        const bGrad = ctx.createRadialGradient(-r * 0.3, y - r * 0.3, 1, 0, y, r);
+        bGrad.addColorStop(0, '#FFFFFF');
+        bGrad.addColorStop(0.45, '#FFE478');
+        bGrad.addColorStop(1, '#9E4500');
+        ctx.fillStyle = bGrad;
+        ctx.beginPath();
+        ctx.arc(0, y, r, 0, TAU);
+        ctx.fill();
+      }
+    };
+
+    drawChainSegment(segLen);
+
+    // Move to Joint between Segment 1 and Segment 2
+    ctx.translate(0, segLen);
+    ctx.save();
+    ctx.rotate(chainSwing2 - chainSwing1);
+    drawChainSegment(segLen);
+    ctx.restore();
+
+    // Intermediate Emerald Diamond Link at the chain midpoint
+    ctx.save();
+    ctx.rotate((chainSwing2 - chainSwing1) * 0.5);
+    const dSize = 18;
+    const dGrad = ctx.createLinearGradient(-dSize, -dSize, dSize, dSize);
+    dGrad.addColorStop(0, '#FFF6B8');
+    dGrad.addColorStop(0.5, '#FFC229');
+    dGrad.addColorStop(1, '#8C3B00');
+    ctx.fillStyle = dGrad;
+    ctx.beginPath();
+    ctx.moveTo(0, -dSize * 1.25);
+    ctx.lineTo(dSize, 0);
+    ctx.lineTo(0, dSize * 1.25);
+    ctx.lineTo(-dSize, 0);
+    ctx.closePath();
+    ctx.fill();
+    drawCabochonGem(ctx, 0, 0, 10, 'emerald', p1 + 1.1);
+    ctx.restore();
+
+    ctx.restore();
+    ctx.restore();
+  }
+
+  // Draw the Inner Sacred Flame & Rising Light Motes inside the Glass Chamber
+  function drawInnerSacredFlame(ctx, flameX, flameBaseY, flameLean, phase) {
+    const p1 = phase * TAU;
+    const p2 = phase * TAU * 2;
+    const p3 = phase * TAU * 3;
+    const p4 = phase * TAU * 4;
+
+    ctx.save();
+    ctx.translate(flameX, flameBaseY);
+
+    // 1. Ornate Golden Lamp Burner Pedestal at bottom of chamber
+    const pedGrad = ctx.createLinearGradient(-75, 0, 75, 0);
+    pedGrad.addColorStop(0, '#6E2800');
+    pedGrad.addColorStop(0.28, '#FFD24C');
+    pedGrad.addColorStop(0.5, '#FFF8CC');
+    pedGrad.addColorStop(0.72, '#E08600');
+    pedGrad.addColorStop(1, '#591E00');
+
+    ctx.fillStyle = pedGrad;
+    ctx.beginPath();
+    ctx.moveTo(-48, 0);
+    ctx.bezierCurveTo(-55, -24, -26, -38, -22, -54);
+    ctx.lineTo(22, -54);
+    ctx.bezierCurveTo(26, -38, 55, -24, 48, 0);
+    ctx.closePath();
+    ctx.fill();
+
+    // Burner rim collar
+    ctx.fillStyle = '#FFF5B8';
+    ctx.beginPath();
+    ctx.ellipse(0, -54, 25, 6, 0, 0, TAU);
+    ctx.fill();
+
+    // 2. Intense Radiant Halo around the Flame
+    ctx.save();
+    ctx.translate(0, -145);
+    const pulse = 1 + 0.07 * Math.sin(p2) + 0.04 * Math.cos(p3);
+    const halo = ctx.createRadialGradient(0, 0, 10, 0, 0, 290 * pulse);
+    halo.addColorStop(0, 'rgba(255, 255, 240, 0.95)');
+    halo.addColorStop(0.22, 'rgba(255, 225, 110, 0.72)');
+    halo.addColorStop(0.52, 'rgba(255, 150, 20, 0.35)');
+    halo.addColorStop(1, 'rgba(255, 110, 0, 0)');
+    ctx.fillStyle = halo;
+    ctx.beginPath();
+    ctx.arc(0, 0, 290 * pulse, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+
+    // 3. Multi-layered Dancing Flame with Squash, Stretch & Follow-Through
+    ctx.save();
+    ctx.translate(0, -56);
+    ctx.rotate(flameLean);
+
+    const stretchY = 1 + 0.08 * Math.sin(p3) + 0.04 * Math.cos(p4);
+    const squashX = 1 - 0.05 * Math.sin(p3);
+    ctx.scale(squashX, stretchY);
+
+    const tipWave1 = 14 * Math.sin(p2 - 0.4) + 7 * Math.cos(p4);
+    const tipWave2 = 9 * Math.sin(p3 + 0.5);
+
+    // Outer Warm Amber Flame
+    const outerFlameGrad = ctx.createLinearGradient(0, 0, 0, -210);
+    outerFlameGrad.addColorStop(0, 'rgba(255, 120, 0, 0.85)');
+    outerFlameGrad.addColorStop(0.5, 'rgba(255, 185, 35, 0.92)');
+    outerFlameGrad.addColorStop(1, 'rgba(255, 235, 130, 0.2)');
+    ctx.fillStyle = outerFlameGrad;
+    ctx.beginPath();
+    ctx.moveTo(0, 4);
+    ctx.bezierCurveTo(64, -22, 68, -115, tipWave1, -205);
+    ctx.bezierCurveTo(-68, -115, -64, -22, 0, 4);
+    ctx.closePath();
+    ctx.fill();
+
+    // Mid Golden Flame
+    const midFlameGrad = ctx.createLinearGradient(0, 0, 0, -168);
+    midFlameGrad.addColorStop(0, '#FFAE19');
+    midFlameGrad.addColorStop(0.5, '#FFE875');
+    midFlameGrad.addColorStop(1, '#FFFCE6');
+    ctx.fillStyle = midFlameGrad;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.bezierCurveTo(44, -18, 46, -95, tipWave2, -168);
+    ctx.bezierCurveTo(-46, -95, -44, -18, 0, 0);
+    ctx.closePath();
+    ctx.fill();
+
+    // Inner Brilliant White-Gold Core
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.moveTo(0, -4);
+    ctx.bezierCurveTo(24, -15, 25, -68, tipWave2 * 0.5, -122);
+    ctx.bezierCurveTo(-25, -68, -24, -15, 0, -4);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
+    ctx.restore();
+  }
+
+  // Draw the Multi-Jointed Hanging Royal Tassel at the bottom of the lantern
+  function drawRoyalTassel(ctx, baseX, baseY, tAngle1, tAngle2, tAngle3, phase) {
+    const p1 = phase * TAU;
+    const p2 = phase * TAU * 2;
+    const p3 = phase * TAU * 3;
+
+    ctx.save();
+    ctx.translate(baseX, baseY);
+
+    // --- JOINT 1: Upper Tassel Chain & Emerald Bead ---
+    ctx.rotate(tAngle1);
+    const link1Len = 68;
+
+    ctx.strokeStyle = '#FFE47A';
+    ctx.lineWidth = 4.5;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(0, link1Len);
+    ctx.stroke();
+
+    for (let i = 1; i <= 4; i++) {
+      const y = (i / 5) * link1Len;
+      ctx.fillStyle = i % 2 === 0 ? '#FFF6B8' : '#D98200';
+      ctx.beginPath();
+      ctx.arc(0, y, i === 2 ? 7 : 4.5, 0, TAU);
+      ctx.fill();
+    }
+
+    // Move to Joint 2 (Tassel Bell Cap)
+    ctx.translate(0, link1Len);
+    ctx.rotate(tAngle2 - tAngle1);
+
+    // Soft glow around the tassel
+    const tasselGlow = ctx.createRadialGradient(0, 85, 5, 0, 85, 165);
+    tasselGlow.addColorStop(0, 'rgba(255, 190, 45, 0.28)');
+    tasselGlow.addColorStop(0.55, 'rgba(18, 184, 125, 0.08)');
+    tasselGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = tasselGlow;
+    ctx.beginPath();
+    ctx.arc(0, 85, 165, 0, TAU);
+    ctx.fill();
+
+    // --- JOINT 3: Flowing Golden Silk Strands (drawn behind the cap collar) ---
+    ctx.save();
+    ctx.translate(0, 42);
+    ctx.rotate(tAngle3 - tAngle2);
+
+    const skirtLen = 148;
+    const skirtFlare = 1 + 0.08 * Math.sin(p2 - 0.8);
+
+    // Deep amber-gold backing body of the tassel skirt
+    const skirtGrad = ctx.createLinearGradient(-38, 0, 38, skirtLen);
+    skirtGrad.addColorStop(0, '#9E4200');
+    skirtGrad.addColorStop(0.3, '#FFCC33');
+    skirtGrad.addColorStop(0.55, '#FFF5B8');
+    skirtGrad.addColorStop(0.8, '#C96500');
+    skirtGrad.addColorStop(1, '#5E2000');
+
+    ctx.fillStyle = skirtGrad;
+    ctx.beginPath();
+    ctx.moveTo(-18, 0);
+    ctx.bezierCurveTo(-30 * skirtFlare, skirtLen * 0.45, -42 * skirtFlare, skirtLen * 0.82, -32 * skirtFlare, skirtLen);
+    ctx.quadraticCurveTo(0, skirtLen + 14, 32 * skirtFlare, skirtLen);
+    ctx.bezierCurveTo(42 * skirtFlare, skirtLen * 0.82, 30 * skirtFlare, skirtLen * 0.45, 18, 0);
+    ctx.closePath();
+    ctx.fill();
+
+    // Individual swaying golden & emerald silk threads
+    const numStrands = 15;
+    for (let i = 0; i < numStrands; i++) {
+      const u = (i / (numStrands - 1)) * 2 - 1; // [-1, 1]
+      const topX = u * 16;
+      const botX = u * 31 * skirtFlare + Math.sin(p2 + i * 0.4) * 3.5;
+      const botY = skirtLen + (1 - u * u) * 9;
+
+      if (i % 3 === 0) {
+        ctx.strokeStyle = '#12B87D';
+        ctx.lineWidth = 2.6;
+      } else if (i % 2 === 0) {
+        ctx.strokeStyle = '#FFF7C2';
+        ctx.lineWidth = 2.8;
+      } else {
+        ctx.strokeStyle = '#B85400';
+        ctx.lineWidth = 2.4;
+      }
+
+      ctx.beginPath();
+      ctx.moveTo(topX, 0);
+      ctx.bezierCurveTo(
+        topX * 1.3,
+        skirtLen * 0.4,
+        botX * 1.05,
+        skirtLen * 0.75,
+        botX,
+        botY
+      );
+      ctx.stroke();
+
+      // Tiny golden seed pearl at the tip of every second strand
+      if (i % 2 === 0) {
+        ctx.fillStyle = '#FFF5B8';
+        ctx.beginPath();
+        ctx.arc(botX, botY + 2, 2.8, 0, TAU);
+        ctx.fill();
+      }
+    }
+
+    // Central dangling emerald drop below the tassel skirt
+    ctx.save();
+    ctx.translate(0, skirtLen + 6);
+    ctx.rotate(0.12 * Math.sin(p3 - 1.2));
+    drawTeardropCharm(ctx, 44, 14, 'emerald', p2);
+    ctx.restore();
+
+    ctx.restore(); // End Joint 3 strands
+
+    // Ornate Sculpted Gold & Emerald Bell Cap of the Tassel
+    const capGrad = ctx.createLinearGradient(-28, 0, 28, 45);
+    capGrad.addColorStop(0, '#FFF6B8');
+    capGrad.addColorStop(0.4, '#FFC82E');
+    capGrad.addColorStop(0.75, '#B35300');
+    capGrad.addColorStop(1, '#FFE47A');
+    ctx.fillStyle = capGrad;
+    ctx.beginPath();
+    ctx.moveTo(0, -4);
+    ctx.bezierCurveTo(22, 2, 28, 24, 24, 42);
+    ctx.quadraticCurveTo(0, 48, -24, 42);
+    ctx.bezierCurveTo(-28, 24, -22, 2, 0, -4);
+    ctx.closePath();
+    ctx.fill();
+
+    // Emerald enamel band on the tassel cap
+    ctx.fillStyle = '#09754D';
+    ctx.beginPath();
+    ctx.ellipse(0, 36, 23, 6, 0, 0, TAU);
+    ctx.fill();
+
+    // Beaded gold collar rim
+    for (let i = -4; i <= 4; i++) {
+      ctx.fillStyle = i % 2 === 0 ? '#FFF6C0' : '#D47800';
+      ctx.beginPath();
+      ctx.arc(i * 5.2, 42, 3.4, 0, TAU);
+      ctx.fill();
+    }
+
+    drawCabochonGem(ctx, 0, 18, 10, 'emerald', p1 + 0.5);
+
+    ctx.restore();
+  }
+
+  // Main Fanous Lantern Body Renderer (Local origin `(0, 0)` at top bail pivot)
+  function drawFanousLantern(ctx, phase, lanternAngle, parallaxShift, flameLean) {
+    const p1 = phase * TAU;
+    const p2 = phase * TAU * 2;
+    const p3 = phase * TAU * 3;
+    const shimmer = Math.sin(p1);
+
+    ctx.save();
+
+    // =========================================================================
+    // 1. MULTI-LAYERED CONTAINED AMBIENT GLOW AROUND THE LANTERN CHAMBER
+    // =========================================================================
+    const pulse = 1 + 0.055 * Math.sin(p2) + 0.028 * Math.cos(p3);
+
+    // Large outer warm golden halo (fades to 0 at r = 820, well inside 4K edges)
+    const outerHalo = ctx.createRadialGradient(0, 620, 40, 0, 620, 820 * pulse);
+    outerHalo.addColorStop(0, 'rgba(255, 215, 95, 0.42)');
+    outerHalo.addColorStop(0.28, 'rgba(255, 160, 25, 0.22)');
+    outerHalo.addColorStop(0.58, 'rgba(16, 150, 98, 0.055)');
+    outerHalo.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = outerHalo;
+    ctx.beginPath();
+    ctx.arc(0, 620, 820 * pulse, 0, TAU);
+    ctx.fill();
+
+    // Soft volumetric light beams radiating through the geometric lattice
+    ctx.save();
+    ctx.translate(0, 635);
+    const numRays = 12;
+    for (let i = 0; i < numRays; i++) {
+      const baseA = (i / numRays) * TAU + 0.08 * Math.sin(p1 + i);
+      const rayPulse = 0.65 + 0.35 * Math.sin(p2 + i * 1.3);
+      const rayLen = (520 + (i % 2) * 110) * rayPulse;
+      const raySpread = 0.09 + (i % 2) * 0.03;
+
+      const rGrad = ctx.createRadialGradient(0, 0, 60, 0, 0, rayLen);
+      rGrad.addColorStop(0, 'rgba(255, 230, 130, 0.16)');
+      rGrad.addColorStop(0.45, 'rgba(255, 175, 40, 0.07)');
+      rGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+      ctx.fillStyle = rGrad;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.arc(0, 0, rayLen, baseA - raySpread, baseA + raySpread, false);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // =========================================================================
+    // 2. TOP BAIL RING & CRESCENT FINIAL (y: -25 to 85)
+    // =========================================================================
+    // Top bail ring
+    ctx.strokeStyle = '#7A2E00';
+    ctx.lineWidth = 16;
+    ctx.beginPath();
+    ctx.arc(0, 0, 24, 0, TAU);
+    ctx.stroke();
+
+    const bailGrad = ctx.createLinearGradient(-26, -26, 26, 26);
+    bailGrad.addColorStop(0, '#FFF7C2');
+    bailGrad.addColorStop(0.5, '#FFCC33');
+    bailGrad.addColorStop(1, '#9E4500');
+    ctx.strokeStyle = bailGrad;
+    ctx.lineWidth = 10;
+    ctx.beginPath();
+    ctx.arc(0, 0, 24, 0, TAU);
+    ctx.stroke();
+
+    // Upward-facing Ornamental Crescent Finial at (0, 52)
+    ctx.save();
+    ctx.translate(0, 52);
+    const finGrad = ctx.createLinearGradient(-45, -35, 45, 35);
+    finGrad.addColorStop(0, '#FFF7C2');
+    finGrad.addColorStop(0.4, '#FFD03B');
+    finGrad.addColorStop(0.8, '#B85800');
+    finGrad.addColorStop(1, '#FFE47A');
+    ctx.fillStyle = finGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, 38, 0.15 * Math.PI, 0.85 * Math.PI, false);
+    ctx.arc(0, -12, 30, 0.82 * Math.PI, 0.18 * Math.PI, true);
+    ctx.closePath();
+    ctx.fill();
+    drawCabochonGem(ctx, 0, 18, 11, 'emerald', p2);
+    ctx.restore();
+
+    // =========================================================================
+    // 3. CENTRAL GLOWING GLASS CHAMBER & INNER FLAME (y: 340 to 915)
+    // =========================================================================
+    const topY = 342;
+    const botY = 912;
+    const topHalfW = 244;
+    const botHalfW = 166;
+    const midPillarTopX = 116 + parallaxShift * 8;
+    const midPillarBotX = 78 + parallaxShift * 6;
+
+    // Chamber silhouette helper path
+    const traceChamberSilhouette = () => {
+      ctx.beginPath();
+      ctx.moveTo(-topHalfW, topY);
+      ctx.lineTo(topHalfW, topY);
+      ctx.bezierCurveTo(topHalfW + 10, topY + 180, botHalfW + 22, botY - 160, botHalfW, botY);
+      ctx.lineTo(-botHalfW, botY);
+      ctx.bezierCurveTo(-botHalfW - 22, botY - 160, -topHalfW - 10, topY + 180, -topHalfW, topY);
+      ctx.closePath();
+    };
+
+    ctx.save();
+    traceChamberSilhouette();
+    ctx.clip();
+
+    // 3A. Warm Golden & Emerald-Tinted Glass Background
+    const glassBase = ctx.createRadialGradient(
+      parallaxShift * 12,
+      645,
+      20,
+      0,
+      635,
+      360
+    );
+    glassBase.addColorStop(0, '#FFFFFF');
+    glassBase.addColorStop(0.18, '#FFF4B8');
+    glassBase.addColorStop(0.45, '#FFC233');
+    glassBase.addColorStop(0.74, '#D96B00');
+    glassBase.addColorStop(0.92, '#5E2200');
+    glassBase.addColorStop(1, '#063B27');
+    ctx.fillStyle = glassBase;
+    ctx.fillRect(-300, topY - 20, 600, botY - topY + 40);
+
+    // Subtle background lattice (back wall of lantern seen dimly through the glow)
+    ctx.save();
+    ctx.globalAlpha = 0.22;
+    ctx.translate(-parallaxShift * 18, 0);
+    ctx.strokeStyle = '#6E2400';
+    ctx.lineWidth = 4;
+    const step = 48;
+    ctx.beginPath();
+    for (let d = -500; d <= 500; d += step) {
+      ctx.moveTo(d, topY);
+      ctx.lineTo(d + 350, botY);
+      ctx.moveTo(d, topY);
+      ctx.lineTo(d - 350, botY);
+    }
+    ctx.stroke();
+    ctx.restore();
+
+    // 3B. Inner Sacred Flame & Burner at the bottom of the chamber
+    drawInnerSacredFlame(ctx, parallaxShift * 6, botY - 4, flameLean, phase);
+
+    // 3C. Rising Golden Light Motes inside the Chamber (Seamless Wrapped Lifecycle)
+    for (let i = 0; i < NUM_MOTES; i++) {
+      const m = innerMotes[i];
+      const u = (phase * m.lifeCycles + m.lifeOffset) % 1;
+      const my = (botY - 70) - u * (botY - topY - 110);
+      const widthAtY = botHalfW + (topHalfW - botHalfW) * (1 - (my - topY) / (botY - topY));
+      const mx = m.xNorm * (widthAtY * 0.52) + Math.sin(u * TAU * m.wobbleFreq + m.wobblePhase) * m.wobbleAmp;
+      const mAlpha = Math.sin(u * Math.PI) * 0.85;
+      const mRad = m.size * (0.6 + 0.4 * Math.sin(u * Math.PI));
+
+      drawSparkleShape(
+        ctx,
+        mx,
+        my,
+        mRad,
+        u * TAU,
+        'orb',
+        '#FFFFFF',
+        m.isEmerald ? '#78FFD0' : '#FFE885',
+        m.isEmerald ? 'rgba(18, 184, 125, 0)' : 'rgba(255, 175, 30, 0)',
+        mAlpha
+      );
+    }
+
+    // 3D. Left, Center, and Right Faceted Panel Girih Lattices
+    // Center Panel Lattice
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(-midPillarTopX, topY);
+    ctx.lineTo(midPillarTopX, topY);
+    ctx.lineTo(midPillarBotX, botY);
+    ctx.lineTo(-midPillarBotX, botY);
+    ctx.closePath();
+    ctx.clip();
+    drawPanelGirihLattice(ctx, parallaxShift * 5, topY, botY, midPillarTopX * 0.92, p2);
+    ctx.restore();
+
+    // Left Side Panel Lattice
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(-topHalfW, topY);
+    ctx.lineTo(-midPillarTopX, topY);
+    ctx.lineTo(-midPillarBotX, botY);
+    ctx.lineTo(-botHalfW, botY);
+    ctx.closePath();
+    ctx.clip();
+    const leftCenterX = (-topHalfW - midPillarTopX + -botHalfW - midPillarBotX) * 0.25;
+    drawPanelGirihLattice(ctx, leftCenterX, topY + 10, botY - 10, (topHalfW - midPillarTopX) * 0.52, p2 + 1.0);
+    // Side panel subtle glass vignette for 2D faceted depth
+    ctx.fillStyle = 'rgba(8, 35, 22, 0.22)';
+    ctx.fillRect(-topHalfW - 20, topY, 200, botY - topY);
+    ctx.restore();
+
+    // Right Side Panel Lattice
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(midPillarTopX, topY);
+    ctx.lineTo(topHalfW, topY);
+    ctx.lineTo(botHalfW, botY);
+    ctx.lineTo(midPillarBotX, botY);
+    ctx.closePath();
+    ctx.clip();
+    const rightCenterX = (topHalfW + midPillarTopX + botHalfW + midPillarBotX) * 0.25;
+    drawPanelGirihLattice(ctx, rightCenterX, topY + 10, botY - 10, (topHalfW - midPillarTopX) * 0.52, p2 + 2.0);
+    ctx.fillStyle = 'rgba(60, 20, 0, 0.22)';
+    ctx.fillRect(midPillarBotX, topY, 200, botY - topY);
+    ctx.restore();
+
+    // 3E. Travelling Diagonal Glass Specular Reflection Band
+    ctx.save();
+    const sheenShift = -80 + 160 * Math.sin(p1);
+    ctx.translate(sheenShift, (topY + botY) * 0.5);
+    ctx.rotate(-0.38);
+    const glassSheen = ctx.createLinearGradient(-90, 0, 90, 0);
+    glassSheen.addColorStop(0, 'rgba(255, 255, 255, 0)');
+    glassSheen.addColorStop(0.5, 'rgba(255, 252, 230, 0.26)');
+    glassSheen.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    ctx.fillStyle = glassSheen;
+    ctx.fillRect(-90, -400, 180, 800);
+    ctx.restore();
+
+    // Inner chamber shadow border
+    ctx.strokeStyle = 'rgba(45, 14, 0, 0.85)';
+    ctx.lineWidth = 18;
+    traceChamberSilhouette();
+    ctx.stroke();
+
+    ctx.restore(); // End Chamber Clip
+
+    // =========================================================================
+    // 4. SCULPTED STRUCTURAL PILLARS & JEWEL COLUMNS (y: 342 to 912)
+    // =========================================================================
+    const drawLanternPillar = (tx, bx, width, isOuter) => {
+      // Pillar shadow
+      ctx.strokeStyle = 'rgba(30, 10, 0, 0.75)';
+      ctx.lineWidth = width + 6;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(tx, topY);
+      ctx.lineTo(bx, botY);
+      ctx.stroke();
+
+      // Sculpted Gold Pillar Body
+      const pGrad = ctx.createLinearGradient(tx - width, topY, bx + width, botY);
+      pGrad.addColorStop(0, '#FFF7C2');
+      pGrad.addColorStop(0.3, '#FFD03B');
+      pGrad.addColorStop(0.65, '#B85A00');
+      pGrad.addColorStop(1, '#FFE47A');
+      ctx.strokeStyle = pGrad;
+      ctx.lineWidth = width;
+      ctx.beginPath();
+      ctx.moveTo(tx, topY);
+      ctx.lineTo(bx, botY);
+      ctx.stroke();
+
+      // Recessed Emerald Enamel Channel inside the pillar
+      if (width >= 14) {
+        ctx.strokeStyle = '#076B46';
+        ctx.lineWidth = width * 0.36;
+        ctx.beginPath();
+        ctx.moveTo((tx * 0.88 + bx * 0.12), topY + 60);
+        ctx.lineTo((tx * 0.12 + bx * 0.88), botY - 60);
+        ctx.stroke();
+      }
+
+      // Bright white-gold specular edge
+      ctx.strokeStyle = 'rgba(255, 253, 230, 0.85)';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(tx - width * 0.25, topY);
+      ctx.lineTo(bx - width * 0.25, botY);
+      ctx.stroke();
+
+      // Ornamental Capital, Mid-Band, and Base Knobs on each pillar
+      const midX = (tx + bx) * 0.5;
+      const midY = (topY + botY) * 0.5;
+      drawCabochonGem(ctx, midX, midY, width * 0.68, isOuter ? 'amber' : 'emerald', p2 + tx * 0.01);
+      drawCabochonGem(ctx, tx * 0.75 + bx * 0.25, topY * 0.75 + botY * 0.25, width * 0.48, 'emerald', p1);
+      drawCabochonGem(ctx, tx * 0.25 + bx * 0.75, topY * 0.25 + botY * 0.75, width * 0.48, 'emerald', p1 + 1.5);
+    };
+
+    // Draw outer curved corner pillars & inner dividing pillars
+    drawLanternPillar(-topHalfW, -botHalfW, 18, true);
+    drawLanternPillar(topHalfW, botHalfW, 18, true);
+    drawLanternPillar(-midPillarTopX, -midPillarBotX, 16, false);
+    drawLanternPillar(midPillarTopX, midPillarBotX, 16, false);
+
+    // =========================================================================
+    // 5. UPPER ROYAL DOME, FLUTED CUPOLA & CORNICE EAVES (y: 78 to 352)
+    // =========================================================================
+    // 5A. Tier 1 Fluted Cupola Neck (y: 78 to 145)
+    const neckGrad = ctx.createLinearGradient(-95, 78, 95, 145);
+    neckGrad.addColorStop(0, '#FFF6B8');
+    neckGrad.addColorStop(0.35, '#FFC933');
+    neckGrad.addColorStop(0.75, '#9E4500');
+    neckGrad.addColorStop(1, '#FFE278');
+    ctx.fillStyle = neckGrad;
+    ctx.beginPath();
+    ctx.moveTo(-36, 78);
+    ctx.lineTo(36, 78);
+    ctx.bezierCurveTo(62, 95, 88, 120, 74, 145);
+    ctx.lineTo(-74, 145);
+    ctx.bezierCurveTo(-88, 120, -62, 95, -36, 78);
+    ctx.closePath();
+    ctx.fill();
+
+    // Emerald flutes on cupola neck
+    for (let i = -2; i <= 2; i++) {
+      ctx.fillStyle = i % 2 === 0 ? '#0A7D52' : '#054D32';
+      ctx.beginPath();
+      ctx.ellipse(i * 22, 115, 7, 20, i * 0.12, 0, TAU);
+      ctx.fill();
+    }
+
+    // Gold torus collar at y = 145
+    ctx.fillStyle = '#FFE478';
+    ctx.beginPath();
+    ctx.roundRect(-84, 138, 168, 15, 8);
+    ctx.fill();
+
+    // 5B. Tier 2 Main Ogee Royal Dome (y: 150 to 296)
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(-76, 150);
+    ctx.lineTo(76, 150);
+    ctx.bezierCurveTo(135, 172, 238, 222, 232, 296);
+    ctx.lineTo(-232, 296);
+    ctx.bezierCurveTo(-238, 222, -135, 172, -76, 150);
+    ctx.closePath();
+    ctx.clip();
+
+    // Base Deep Emerald Green Enamel Dome
+    const domeEmGrad = ctx.createRadialGradient(-65 + parallaxShift * 15, 210, 15, 0, 230, 260);
+    domeEmGrad.addColorStop(0, '#1AD18E');
+    domeEmGrad.addColorStop(0.4, '#098054');
+    domeEmGrad.addColorStop(0.78, '#03422B');
+    domeEmGrad.addColorStop(1, '#011F13');
+    ctx.fillStyle = domeEmGrad;
+    ctx.fillRect(-260, 140, 520, 170);
+
+    // Ornate Gold Ribs dividing the dome into 7 fluted segments
+    const ribOffsets = [-0.88, -0.58, -0.28, 0.0, 0.28, 0.58, 0.88];
+    for (let i = 0; i < ribOffsets.length; i++) {
+      const u = ribOffsets[i] + parallaxShift * 0.03;
+      const topX = u * 74;
+      const botX = u * 228;
+      const ctrlX = u * 215;
+
+      // Rib shadow
+      ctx.strokeStyle = 'rgba(0, 18, 10, 0.75)';
+      ctx.lineWidth = 14;
+      ctx.beginPath();
+      ctx.moveTo(topX, 150);
+      ctx.quadraticCurveTo(ctrlX, 220, botX, 296);
+      ctx.stroke();
+
+      // Rib metallic gold
+      const rGrad = ctx.createLinearGradient(topX, 150, botX, 296);
+      rGrad.addColorStop(0, '#FFF7C2');
+      rGrad.addColorStop(0.5, '#FFCC33');
+      rGrad.addColorStop(1, '#B35300');
+      ctx.strokeStyle = rGrad;
+      ctx.lineWidth = 8.5;
+      ctx.stroke();
+    }
+
+    // Glowing Pierced Geometric Cutouts inside the dome panels (warm inner light shining through)
+    const cutoutOffsets = [-0.73, -0.43, -0.14, 0.14, 0.43, 0.73];
+    for (let i = 0; i < cutoutOffsets.length; i++) {
+      const u = cutoutOffsets[i] + parallaxShift * 0.03;
+      const cx = u * 165;
+      const cy = 232;
+      const scaleX = Math.max(0.45, 1 - Math.abs(u) * 0.55);
+
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.scale(scaleX, 1);
+
+      // Warm glowing amber-gold interior light inside cutout
+      const cutGlow = ctx.createRadialGradient(0, 0, 2, 0, 0, 24);
+      cutGlow.addColorStop(0, '#FFFFFF');
+      cutGlow.addColorStop(0.45, '#FFE066');
+      cutGlow.addColorStop(0.85, '#FF9900');
+      cutGlow.addColorStop(1, '#8C3800');
+      drawGeometricRosette(ctx, 0, 0, 21, 11, 0, cutGlow, '#FFF4B0', 2.8);
+      ctx.restore();
+    }
+
+    // Travelling gloss highlight on the dome
+    ctx.save();
+    const domeSheenX = -70 + 90 * shimmer;
+    const domeSheen = ctx.createRadialGradient(domeSheenX, 195, 5, domeSheenX, 210, 120);
+    domeSheen.addColorStop(0, 'rgba(255, 255, 255, 0.42)');
+    domeSheen.addColorStop(0.5, 'rgba(160, 255, 220, 0.15)');
+    domeSheen.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    ctx.fillStyle = domeSheen;
+    ctx.fillRect(-260, 140, 520, 170);
+    ctx.restore();
+
+    ctx.restore(); // End Dome Clip
+
+    // Gold outer outline of the dome
+    ctx.strokeStyle = '#FFE885';
+    ctx.lineWidth = 4.5;
+    ctx.beginPath();
+    ctx.moveTo(-76, 150);
+    ctx.lineTo(76, 150);
+    ctx.bezierCurveTo(135, 172, 238, 222, 232, 296);
+    ctx.lineTo(-232, 296);
+    ctx.bezierCurveTo(-238, 222, -135, 172, -76, 150);
+    ctx.closePath();
+    ctx.stroke();
+
+    // 5C. Tier 3 Flared Cornice Eaves & Lambrequin Valance (y: 292 to 356)
+    const eavesGrad = ctx.createLinearGradient(-275, 292, 275, 342);
+    eavesGrad.addColorStop(0, '#B85800');
+    eavesGrad.addColorStop(0.22, '#FFE885');
+    eavesGrad.addColorStop(0.5, '#FFF8CC');
+    eavesGrad.addColorStop(0.78, '#FFC229');
+    eavesGrad.addColorStop(1, '#8C3B00');
+
+    ctx.fillStyle = eavesGrad;
+    ctx.beginPath();
+    ctx.moveTo(-232, 292);
+    ctx.lineTo(232, 292);
+    ctx.quadraticCurveTo(262, 308, 274, 326);
+    ctx.lineTo(-274, 326);
+    ctx.quadraticCurveTo(-262, 308, -232, 292);
+    ctx.closePath();
+    ctx.fill();
+
+    // Scalloped Royal Lambrequin Cresting along the top of the glass chamber (y: 326 to 362)
+    const numScallops = 9;
+    const scallopSpan = 508;
+    const scW = scallopSpan / numScallops;
+    for (let i = 0; i < numScallops; i++) {
+      const sx = -scallopSpan * 0.5 + (i + 0.5) * scW;
+      ctx.fillStyle = i % 2 === 0 ? '#FFD24C' : '#08754D';
+      ctx.beginPath();
+      ctx.moveTo(sx - scW * 0.5, 326);
+      ctx.lineTo(sx + scW * 0.5, 326);
+      ctx.quadraticCurveTo(sx + scW * 0.42, 352, sx, 360);
+      ctx.quadraticCurveTo(sx - scW * 0.42, 352, sx - scW * 0.5, 326);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.strokeStyle = '#FFF5B8';
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+
+      // Tiny gold pearl at each lambrequin tip
+      ctx.fillStyle = '#FFF7C2';
+      ctx.beginPath();
+      ctx.arc(sx, 362, 3.8, 0, TAU);
+      ctx.fill();
+    }
+
+    // Cabochon Jewels along the Cornice Eaves
+    const eavesGemX = [-210, -140, -70, 0, 70, 140, 210];
+    for (let i = 0; i < eavesGemX.length; i++) {
+      drawCabochonGem(
+        ctx,
+        eavesGemX[i],
+        310,
+        i === 3 ? 14 : 10.5,
+        i % 2 === 0 ? 'emerald' : 'amber',
+        p2 + i * 0.5
+      );
+    }
+
+    // 5D. 4 Dangling Eaves Charms with Secondary Overlapping Motion
+    const eavesCharms = [
+      { x: -268, y: 326, len: 54, w: 16, type: 'emerald', lag: -0.95 },
+      { x: -152, y: 332, len: 44, w: 13, type: 'amber',   lag: -1.20 },
+      { x:  152, y: 332, len: 44, w: 13, type: 'amber',   lag: -1.10 },
+      { x:  268, y: 326, len: 54, w: 16, type: 'emerald', lag: -0.85 }
+    ];
+    for (let i = 0; i < eavesCharms.length; i++) {
+      const ch = eavesCharms[i];
+      const chAngle = -lanternAngle * 0.92 + 0.21 * Math.sin(p1 + ch.lag) + 0.06 * Math.cos(p2 + ch.lag);
+      ctx.save();
+      ctx.translate(ch.x, ch.y);
+      ctx.rotate(chAngle);
+      drawTeardropCharm(ctx, ch.len, ch.w, ch.type, p2 + i);
+      ctx.restore();
+    }
+
+    // =========================================================================
+    // 6. LOWER PEDESTAL BOWL, FLARED GALLERY & FINIAL (y: 906 to 1148)
+    // =========================================================================
+    // 6A. Tier 1 Flared Golden Gallery Band (y: 906 to 956)
+    const galGrad = ctx.createLinearGradient(-205, 906, 205, 956);
+    galGrad.addColorStop(0, '#9E4500');
+    galGrad.addColorStop(0.25, '#FFE885');
+    galGrad.addColorStop(0.5, '#FFF8CC');
+    galGrad.addColorStop(0.75, '#FFC229');
+    galGrad.addColorStop(1, '#7A3000');
+
+    ctx.fillStyle = galGrad;
+    ctx.beginPath();
+    ctx.moveTo(-172, 906);
+    ctx.lineTo(172, 906);
+    ctx.lineTo(198, 932);
+    ctx.lineTo(176, 956);
+    ctx.lineTo(-176, 956);
+    ctx.lineTo(-198, 932);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.strokeStyle = '#FFF5B8';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    // Jewels along the lower gallery band
+    const baseGemX = [-145, -75, 0, 75, 145];
+    for (let i = 0; i < baseGemX.length; i++) {
+      drawCabochonGem(
+        ctx,
+        baseGemX[i],
+        931,
+        i === 2 ? 13 : 10,
+        i % 2 === 0 ? 'emerald' : 'amber',
+        p2 + i * 0.8
+      );
+    }
+
+    // 2 Dangling Charms on the outer tips of the lower gallery band
+    const lowerCharms = [
+      { x: -194, y: 934, len: 50, w: 15, type: 'amber', lag: -1.15 },
+      { x:  194, y: 934, len: 50, w: 15, type: 'amber', lag: -1.05 }
+    ];
+    for (let i = 0; i < lowerCharms.length; i++) {
+      const ch = lowerCharms[i];
+      const chAngle = -lanternAngle * 0.92 + 0.22 * Math.sin(p1 + ch.lag) + 0.07 * Math.sin(p2 + ch.lag);
+      ctx.save();
+      ctx.translate(ch.x, ch.y);
+      ctx.rotate(chAngle);
+      drawTeardropCharm(ctx, ch.len, ch.w, ch.type, p1 + i);
+      ctx.restore();
+    }
+
+    // 6B. Tier 2 Inverted Ogee Emerald & Gold Lower Bowl (y: 956 to 1082)
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(-172, 956);
+    ctx.lineTo(172, 956);
+    ctx.bezierCurveTo(165, 1018, 92, 1055, 52, 1082);
+    ctx.lineTo(-52, 1082);
+    ctx.bezierCurveTo(-92, 1055, -165, 1018, -172, 956);
+    ctx.closePath();
+    ctx.clip();
+
+    const bowlEmGrad = ctx.createRadialGradient(-40 + parallaxShift * 10, 995, 10, 0, 1015, 190);
+    bowlEmGrad.addColorStop(0, '#18C988');
+    bowlEmGrad.addColorStop(0.45, '#08754D');
+    bowlEmGrad.addColorStop(0.85, '#033824');
+    bowlEmGrad.addColorStop(1, '#011C11');
+    ctx.fillStyle = bowlEmGrad;
+    ctx.fillRect(-190, 950, 380, 140);
+
+    // Fluted gold ribs on the lower bowl
+    const bowlRibs = [-0.82, -0.42, 0.0, 0.42, 0.82];
+    for (let i = 0; i < bowlRibs.length; i++) {
+      const u = bowlRibs[i] + parallaxShift * 0.025;
+      ctx.strokeStyle = '#FFCC33';
+      ctx.lineWidth = 7.5;
+      ctx.beginPath();
+      ctx.moveTo(u * 168, 956);
+      ctx.quadraticCurveTo(u * 135, 1025, u * 50, 1082);
+      ctx.stroke();
+
+      ctx.strokeStyle = '#FFF7C2';
+      ctx.lineWidth = 2.2;
+      ctx.stroke();
+    }
+
+    // Glowing pierced teardrops in the lower bowl
+    const bowlCuts = [-0.62, -0.21, 0.21, 0.62];
+    for (let i = 0; i < bowlCuts.length; i++) {
+      const u = bowlCuts[i] + parallaxShift * 0.025;
+      const cx = u * 118;
+      const cy = 1012;
+      drawCabochonGem(ctx, cx, cy, 9.5, 'amber', p2 + i);
+    }
+
+    ctx.restore(); // End Lower Bowl Clip
+
+    ctx.strokeStyle = '#FFE47A';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(-172, 956);
+    ctx.lineTo(172, 956);
+    ctx.bezierCurveTo(165, 1018, 92, 1055, 52, 1082);
+    ctx.lineTo(-52, 1082);
+    ctx.bezierCurveTo(-92, 1055, -165, 1018, -172, 956);
+    ctx.closePath();
+    ctx.stroke();
+
+    // 6C. Tier 3 Turned Gold Spire Knob (y: 1082 to 1148)
+    const knobGrad = ctx.createLinearGradient(-56, 1082, 56, 1148);
+    knobGrad.addColorStop(0, '#FFF6B8');
+    knobGrad.addColorStop(0.4, '#FFCC33');
+    knobGrad.addColorStop(0.8, '#9E4500');
+    knobGrad.addColorStop(1, '#FFE47A');
+    ctx.fillStyle = knobGrad;
+    ctx.beginPath();
+    ctx.roundRect(-58, 1078, 116, 14, 7);
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(-42, 1092);
+    ctx.lineTo(42, 1092);
+    ctx.bezierCurveTo(38, 1122, 18, 1136, 0, 1148);
+    ctx.bezierCurveTo(-18, 1136, -38, 1122, -42, 1092);
+    ctx.closePath();
+    ctx.fill();
+
+    drawCabochonGem(ctx, 0, 1114, 11, 'emerald', p1);
+
+    // =========================================================================
+    // 7. HANGING ROYAL TASSEL (Secondary Overlapping Action at y = 1148)
+    // =========================================================================
+    const tAngle1 = -lanternAngle * 0.90 + 0.16 * Math.sin(p1 - 0.75) + 0.045 * Math.cos(p2 - 0.5);
+    const tAngle2 = -lanternAngle * 0.96 + 0.22 * Math.sin(p1 - 1.30) + 0.065 * Math.sin(p2 - 1.0);
+    const tAngle3 = -lanternAngle * 1.02 + 0.28 * Math.sin(p1 - 1.80) + 0.085 * Math.cos(p2 - 1.5);
+
+    drawRoyalTassel(ctx, 0, 1148, tAngle1, tAngle2, tAngle3, phase);
+
+    // =========================================================================
+    // 8. HERO SPECULAR GLINTS ON THE LANTERN METALWORK
+    // =========================================================================
+    const glintA = Math.pow(0.5 + 0.5 * Math.sin(p2 + 0.3), 3.2);
+    drawSparkleShape(
+      ctx,
+      -210,
+      308,
+      36 * glintA,
+      p1 * 0.5,
+      'four',
+      '#FFFFFF',
+      '#FFE885',
+      'rgba(255, 190, 40, 0)',
+      glintA * 0.92
+    );
+
+    const glintB = Math.pow(0.5 + 0.5 * Math.sin(p2 + 2.4), 3.2);
+    drawSparkleShape(
+      ctx,
+      midPillarTopX,
+      (topY + botY) * 0.5,
+      42 * glintB,
+      -p1 * 0.5,
+      'eight',
+      '#FFFFFF',
+      '#78FFD0',
+      'rgba(18, 184, 125, 0)',
+      glintB * 0.90
+    );
+
+    const glintC = Math.pow(0.5 + 0.5 * Math.sin(p3 + 1.2), 3.4);
+    drawSparkleShape(
+      ctx,
+      145,
+      931,
+      34 * glintC,
+      p1 * 0.25,
+      'four',
+      '#FFFFFF',
+      '#FFE885',
+      'rgba(255, 180, 30, 0)',
+      glintC * 0.90
+    );
+
+    ctx.restore();
+  }
+
+  // Deterministic Frame Renderer
+  window.renderFrame = function(t) {
+    const DURATION = window.DURATION;
+    const phase = (((t % DURATION) + DURATION) % DURATION) / DURATION;
+    const p1 = phase * TAU;
+    const p2 = phase * TAU * 2;
+    const p3 = phase * TAU * 3;
+
+    // 1. Clear entire 4K canvas to solid pure black #000000
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, W, H);
+
+    // 2. Compute Primary & Articulated Pendulum Kinematics (all integer frequencies)
+    const topAnchorX = CX + 8 * Math.sin(p1 + 0.5);
+    const topAnchorY = 228 + 10 * Math.sin(p2);
+    const segLen = 78;
+
+    // Upper chain angles
+    const chainSwing1 = 0.085 * Math.sin(p1) + 0.015 * Math.cos(p2 - 0.3);
+    const chainSwing2 = 0.105 * Math.sin(p1 - 0.22) + 0.020 * Math.cos(p2 - 0.6);
+
+    // Exact pivot position of the lantern's top bail ring at the end of the 2-segment chain
+    const bailX = topAnchorX
+      - Math.sin(chainSwing1) * segLen
+      - Math.sin(chainSwing2) * segLen;
+    const bailY = (topAnchorY + 34)
+      + Math.cos(chainSwing1) * segLen
+      + Math.cos(chainSwing2) * segLen;
+
+    // Main lantern swing angle (follow-through lag behind upper chain)
+    const lanternAngle = 0.118 * Math.sin(p1 - 0.42) + 0.022 * Math.sin(p2 - 0.85);
+    const parallaxShift = Math.sin(p1 - 0.42);
+
+    // Inner flame lean (responds to swing velocity & lag)
+    const flameLean = -lanternAngle * 0.55 + 0.14 * Math.cos(p1 - 0.65) + 0.06 * Math.sin(p3);
+
+    // Subtle breathing scale on the lantern
+    const breatheX = 1 + 0.008 * Math.sin(p2);
+    const breatheY = 1 - 0.007 * Math.sin(p2);
+
+    // 3. Draw Background Layer Sparkles (behind the lantern)
+    ctx.save();
+    ctx.translate(CX, CY);
+    for (let i = 0; i < NUM_SPARKLES; i++) {
+      const s = sparkles[i];
+      if (s.layer !== 0) continue;
+      const sx = s.bx + Math.cos(s.freqX * p1 + s.phaseX) * s.driftRx;
+      const sy = s.by + Math.sin(s.freqY * p1 + s.phaseY) * s.driftRy;
+      const tw = 0.5 + 0.5 * Math.sin(s.twinkleFreq * p1 + s.twinklePhase);
+      const curve = Math.pow(tw, 1.8);
+      const rad = s.size * (0.25 + 0.75 * curve);
+      const alpha = 0.12 + 0.88 * curve;
+      const rot = s.rotBase + s.rotFreq * p1 * 0.25;
+      drawSparkleShape(ctx, sx, sy, rad, rot, s.type, s.colorCore, s.colorMid, s.colorOuter, alpha);
+    }
+    ctx.restore();
+
+    // 4. Draw Top Celestial Suspension Clasp & Articulated Chain
+    drawTopSuspension(ctx, topAnchorX, topAnchorY, chainSwing1, chainSwing2, segLen, phase);
+
+    // 5. Draw Main Swinging Ramadan Fanous Lantern
+    ctx.save();
+    ctx.translate(bailX, bailY);
+    ctx.rotate(lanternAngle);
+    ctx.scale(breatheX, breatheY);
+    drawFanousLantern(ctx, phase, lanternAngle, parallaxShift, flameLean);
+    ctx.restore();
+
+    // 6. Draw Foreground Layer Sparkles (in front of the lantern)
+    ctx.save();
+    ctx.translate(CX, CY);
+    for (let i = 0; i < NUM_SPARKLES; i++) {
+      const s = sparkles[i];
+      if (s.layer !== 1) continue;
+      const sx = s.bx + Math.cos(s.freqX * p1 + s.phaseX) * s.driftRx;
+      const sy = s.by + Math.sin(s.freqY * p1 + s.phaseY) * s.driftRy;
+      const tw = 0.5 + 0.5 * Math.sin(s.twinkleFreq * p1 + s.twinklePhase);
+      const curve = Math.pow(tw, 1.7);
+      const rad = s.size * (0.28 + 0.72 * curve);
+      const alpha = 0.15 + 0.85 * curve;
+      const rot = s.rotBase + s.rotFreq * p1 * 0.25;
+      drawSparkleShape(ctx, sx, sy, rad, rot, s.type, s.colorCore, s.colorMid, s.colorOuter, alpha);
+    }
+    ctx.restore();
+  };
+
+  // Normal playback loop
+  function animate(now) {
+    window.renderFrame(now * 0.001);
+    requestAnimationFrame(animate);
+  }
+  requestAnimationFrame(animate);
+})();
+</script>
+</body>
+</html>

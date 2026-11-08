@@ -121,24 +121,46 @@ await page.addInitScript((initParams) => {
 }, params);
 
 await page.goto(pathToFileURL(assetPath).href);
-await page.waitForFunction('window.__assetReady === true', null, { timeout: 60000 });
+await page.waitForFunction(() => {
+  return window.__assetReady === true || typeof window.renderFrame === 'function' || (window.asset && typeof window.asset.render === 'function');
+}, null, { timeout: 60000 });
 
 // Sinkronkan parameter akhir & ukuran canvas
 await page.evaluate(({ p, w, h }) => {
-  if (window.asset && window.asset.params) {
-    Object.assign(window.asset.params, p);
-  }
-  const c = window.asset.canvas || document.querySelector('canvas');
+  const c = (window.asset && window.asset.canvas) || document.querySelector('canvas');
   if (!c) throw new Error('Canvas tidak ditemukan');
   c.width = w;
   c.height = h;
   window.__engineCanvas = c;
+
+  // Auto-adaptasi jika aset menggunakan window.renderFrame atau window.render
+  if (!window.asset) {
+    const renderFn = typeof window.renderFrame === 'function' ? window.renderFrame : (typeof window.render === 'function' ? window.render : null);
+    window.asset = {
+      canvas: c,
+      render: renderFn || (() => {}),
+      params: { duration: window.DURATION || 10, fps: window.FPS || 30 },
+      meta: { duration: window.DURATION || 10, fps: window.FPS || 30 }
+    };
+  } else {
+    if (typeof window.asset.render !== 'function' && typeof window.renderFrame === 'function') {
+      window.asset.render = window.renderFrame;
+    }
+    if (!window.asset.params) window.asset.params = {};
+    if (!window.asset.params.duration) window.asset.params.duration = window.DURATION || 10;
+  }
+
+  if (window.asset && window.asset.params) {
+    Object.assign(window.asset.params, p);
+  }
+
   if (typeof window.asset.applyParams === 'function') {
     window.asset.applyParams();
   }
+  window.__assetReady = true;
 }, { p: params, w: W, h: H });
 
-const durationS = Number(pick('duration', await page.evaluate(() => window.asset.params.duration ?? window.asset.meta.duration)));
+const durationS = Number(pick('duration', await page.evaluate(() => window.asset.params.duration ?? window.asset.meta.duration ?? window.DURATION ?? 10)));
 
 // ---------- validasi kepatuhan microstock ----------
 if (W % 2 !== 0 || H % 2 !== 0) {

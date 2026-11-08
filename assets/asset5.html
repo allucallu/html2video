@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Islamic Geometric Star Mandala</title>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: #000000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  canvas {
+    display: block;
+    width: 100vw;
+    height: 56.25vw;
+    max-height: 100vh;
+    max-width: 177.78vh;
+    margin: auto;
+    background-color: #000000;
+  }
+</style>
+</head>
+<body>
+<canvas id="canvas" width="3840" height="2160"></canvas>
+<script>
+window.DURATION = 10;
+window.FPS = 30;
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const CX = 1920;
+const CY = 1080;
+const TAU = Math.PI * 2;
+
+// Seeded deterministic pseudo-random generator
+function createSeededPRNG(seed) {
+  let s = seed % 2147483647;
+  if (s <= 0) s += 2147483646;
+  return function() {
+    s = (s * 16807) % 2147483647;
+    return (s - 1) / 2147483646;
+  };
+}
+
+// Pre-compute 64 deterministic ambient motes with integer loop harmonics
+const rand = createSeededPRNG(839201);
+const PARTICLES = [];
+const NUM_PARTICLES = 64;
+
+for (let i = 0; i < NUM_PARTICLES; i++) {
+  PARTICLES.push({
+    baseRadius: 220 + rand() * 610,
+    radiusAmp: 20 + rand() * 40,
+    radiusFreq: 1 + Math.floor(rand() * 2), // integer: 1 or 2
+    baseAngle: rand() * TAU,
+    rotDirection: rand() > 0.5 ? 1 : -1,
+    rotFreq: 1, // 1 full revolution per 10s loop
+    wobbleAmp: 0.08 + rand() * 0.12,
+    wobbleFreq: 1 + Math.floor(rand() * 2),
+    phaseOffset: rand(),
+    size: 3.0 + rand() * 5.0,
+    twinkleFreq: 1 + Math.floor(rand() * 3),
+    colorType: rand() > 0.4 ? 'gold' : (rand() > 0.5 ? 'amber' : 'emerald')
+  });
+}
+
+// Helper: 4-pointed diamond star flare
+function drawStarCross(x, y, radius, innerRadius, alpha, color) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.fillStyle = color;
+  ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+  ctx.beginPath();
+  for (let i = 0; i < 8; i++) {
+    const r = (i % 2 === 0) ? radius : innerRadius;
+    const a = (i * Math.PI) / 4;
+    const px = Math.cos(a) * r;
+    const py = Math.sin(a) * r;
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+// Helper: glossy multi-pass beveled stroke
+function strokeBeveled(pathFn, baseWidth, glowColor, glowSize) {
+  if (glowSize > 0) {
+    ctx.save();
+    ctx.shadowColor = glowColor;
+    ctx.shadowBlur = glowSize;
+    ctx.strokeStyle = glowColor;
+    ctx.lineWidth = baseWidth + 8;
+    ctx.globalAlpha = 0.35;
+    pathFn();
+    ctx.stroke();
+    ctx.restore();
+  }
+  // Dark antique bronze base
+  ctx.save();
+  ctx.strokeStyle = '#4A2E05';
+  ctx.lineWidth = baseWidth;
+  pathFn();
+  ctx.stroke();
+
+  // Polished gold core
+  ctx.strokeStyle = '#E5A92C';
+  ctx.lineWidth = Math.max(1, baseWidth * 0.65);
+  pathFn();
+  ctx.stroke();
+
+  // Highlight crest
+  ctx.strokeStyle = '#FFF4C7';
+  ctx.lineWidth = Math.max(1, baseWidth * 0.28);
+  ctx.globalAlpha = 0.9;
+  pathFn();
+  ctx.stroke();
+  ctx.restore();
+}
+
+window.renderFrame = function(t) {
+  const phase = ((t % window.DURATION) + window.DURATION) % window.DURATION / window.DURATION;
+  
+  // Clear to SOLID PURE BLACK
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(0, 0, 3840, 2160);
+
+  // Synchronized breathing scale and periodic harmonics
+  const scaleBreathe = 1.0 + 0.025 * Math.sin(TAU * phase * 2);
+  const lightAngle = TAU * phase * 2 + Math.PI / 4;
+  const lx = Math.cos(lightAngle);
+  const ly = Math.sin(lightAngle);
+
+  // 1. CONTAINED AMBIENT GLOW (Completely attenuates to pure black well before canvas borders)
+  const auraRad = 860 * scaleBreathe;
+  const auraGrad = ctx.createRadialGradient(CX, CY, 50, CX, CY, auraRad);
+  const auraPulse = 0.5 + 0.5 * Math.sin(TAU * phase * 2);
+  auraGrad.addColorStop(0.0, `rgba(235, 175, 45, ${0.16 + 0.04 * auraPulse})`);
+  auraGrad.addColorStop(0.28, `rgba(10, 130, 65, ${0.11 + 0.03 * (1 - auraPulse)})`);
+  auraGrad.addColorStop(0.55, `rgba(205, 95, 15, ${0.06 + 0.02 * auraPulse})`);
+  auraGrad.addColorStop(0.82, 'rgba(2, 45, 20, 0.02)');
+  auraGrad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = auraGrad;
+  ctx.beginPath();
+  ctx.arc(CX, CY, auraRad, 0, TAU);
+  ctx.fill();
+
+  ctx.save();
+  ctx.translate(CX, CY);
+  ctx.scale(scaleBreathe, scaleBreathe);
+
+  // 2. CELESTIAL ASTROLABE COORDINATE RING (Outer gear, counter-rotates 1 full turn)
+  ctx.save();
+  const rotAstro = -TAU * phase;
+  ctx.rotate(rotAstro);
+
+  // Dual outer fine gold coordinate rails
+  ctx.strokeStyle = '#825916';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(0, 0, 832, 0, TAU);
+  ctx.arc(0, 0, 854, 0, TAU);
+  ctx.stroke();
+
+  // 64 Astrolabe Graduations
+  ctx.strokeStyle = '#D99F2A';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  for (let i = 0; i < 64; i++) {
+    const a = (i * TAU) / 64;
+    const isMajor = (i % 4 === 0);
+    const rStart = isMajor ? 826 : 832;
+    const rEnd = isMajor ? 860 : 854;
+    ctx.moveTo(Math.cos(a) * rStart, Math.sin(a) * rStart);
+    ctx.lineTo(Math.cos(a) * rEnd, Math.sin(a) * rEnd);
+  }
+  ctx.stroke();
+
+  // 16 Astrolabe Golden Fleur-de-lis Studs
+  for (let i = 0; i < 16; i++) {
+    const a = (i * TAU) / 16;
+    const sx = Math.cos(a) * 843;
+    const sy = Math.sin(a) * 843;
+    const fltGrad = ctx.createRadialGradient(sx - 2, sy - 2, 1, sx, sy, 8);
+    fltGrad.addColorStop(0, '#FFFFFF');
+    fltGrad.addColorStop(0.4, '#F7CA52');
+    fltGrad.addColorStop(1, '#633B05');
+    ctx.fillStyle = fltGrad;
+    ctx.beginPath();
+    ctx.arc(sx, sy, 7, 0, TAU);
+    ctx.fill();
+    ctx.strokeStyle = '#FFF1BD';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // 3. OUTER 16-CUSPED MIHRAB / PALMETTE CREST RING (Radius ~670 to 805)
+  ctx.save();
+  const rotCrest = TAU * phase;
+  ctx.rotate(rotCrest);
+
+  for (let i = 0; i < 16; i++) {
+    const aMid = (i * TAU) / 16;
+    const aPrev = ((i - 0.5) * TAU) / 16;
+    const aNext = ((i + 0.5) * TAU) / 16;
+
+    const rValley = 672;
+    const rPeak = 796 + 8 * Math.sin(TAU * phase * 3 + i);
+    const rMidCtrl = 745;
+
+    const p0x = Math.cos(aPrev) * rValley;
+    const p0y = Math.sin(aPrev) * rValley;
+    const pMidX = Math.cos(aMid) * rPeak;
+    const pMidY = Math.sin(aMid) * rPeak;
+    const pNextX = Math.cos(aNext) * rValley;
+    const pNextY = Math.sin(aNext) * rValley;
+
+    const c1x = Math.cos(aMid - 0.12) * rMidCtrl;
+    const c1y = Math.sin(aMid - 0.12) * rMidCtrl;
+    const c2x = Math.cos(aMid + 0.12) * rMidCtrl;
+    const c2y = Math.sin(aMid + 0.12) * rMidCtrl;
+
+    // Palmette Tile Enamel Fill
+    const palmettePath = () => {
+      ctx.beginPath();
+      ctx.moveTo(p0x, p0y);
+      ctx.quadraticCurveTo(c1x, c1y, pMidX, pMidY);
+      ctx.quadraticCurveTo(c2x, c2y, pNextX, pNextY);
+      ctx.arc(0, 0, rValley, aNext, aPrev, true);
+      ctx.closePath();
+    };
+
+    const emeraldGrad = ctx.createRadialGradient(
+      Math.cos(aMid) * 720, Math.sin(aMid) * 720, 10,
+      Math.cos(aMid) * 740, Math.sin(aMid) * 740, 120
+    );
+    emeraldGrad.addColorStop(0, '#12C26A');
+    emeraldGrad.addColorStop(0.45, '#057038');
+    emeraldGrad.addColorStop(0.85, '#02381B');
+    emeraldGrad.addColorStop(1, '#011F0E');
+
+    ctx.fillStyle = emeraldGrad;
+    palmettePath();
+    ctx.fill();
+
+    strokeBeveled(palmettePath, 7, '#FFD34E', 12);
+
+    // Inlaid Warm Amber Teardrop Cabochon inside each palmette
+    const jx = Math.cos(aMid) * 735;
+    const jy = Math.sin(aMid) * 735;
+    const amberGrad = ctx.createRadialGradient(jx - 4, jy - 5, 2, jx, jy, 22);
+    amberGrad.addColorStop(0, '#FFF1BE');
+    amberGrad.addColorStop(0.35, '#FF9419');
+    amberGrad.addColorStop(0.8, '#B84E00');
+    amberGrad.addColorStop(1, '#4A1C00');
+
+    ctx.save();
+    ctx.translate(jx, jy);
+    ctx.rotate(aMid + Math.PI / 2);
+    ctx.fillStyle = amberGrad;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 11, 20, 0, 0, TAU);
+    ctx.fill();
+    ctx.strokeStyle = '#FFDE87';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    // Specular curved reflection on cabochon
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+    ctx.beginPath();
+    ctx.ellipse(-3, -6, 4, 8, -0.3, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+
+    // Golden Finial Spear at the palmette tip
+    const fx = Math.cos(aMid) * (rPeak + 14);
+    const fy = Math.sin(aMid) * (rPeak + 14);
+    drawStarCross(fx, fy, 16, 5, 0.85, '#FFE99E');
+  }
+  ctx.restore();
+
+  // 4. INTERLACED 16-FOLD GUILLOCHE & STRAPWORK BRAID (Radius ~575 to 672)
+  ctx.save();
+  const rotGuilloche = -TAU * phase;
+  ctx.rotate(rotGuilloche);
+
+  // 16 Faceted Hexagonal Inlay Tiles (Alternating Amber & Emerald)
+  for (let i = 0; i < 16; i++) {
+    const a = (i * TAU) / 16;
+    const rC = 624;
+    const tx = Math.cos(a) * rC;
+    const ty = Math.sin(a) * rC;
+    const isAmber = (i % 2 === 0);
+
+    ctx.save();
+    ctx.translate(tx, ty);
+    ctx.rotate(a);
+
+    ctx.beginPath();
+    for (let k = 0; k < 6; k++) {
+      const ang = (k * TAU) / 6;
+      const hx = Math.cos(ang) * 32;
+      const hy = Math.sin(ang) * 20;
+      if (k === 0) ctx.moveTo(hx, hy);
+      else ctx.lineTo(hx, hy);
+    }
+    ctx.closePath();
+
+    if (isAmber) {
+      const tileGrad = ctx.createLinearGradient(-20, -20, 20, 20);
+      tileGrad.addColorStop(0, '#FFB347');
+      tileGrad.addColorStop(0.5, '#CC5500');
+      tileGrad.addColorStop(1, '#5E2000');
+      ctx.fillStyle = tileGrad;
+    } else {
+      const tileGrad = ctx.createLinearGradient(-20, -20, 20, 20);
+      tileGrad.addColorStop(0, '#2CF898');
+      tileGrad.addColorStop(0.5, '#078243');
+      tileGrad.addColorStop(1, '#023018');
+      ctx.fillStyle = tileGrad;
+    }
+    ctx.fill();
+    ctx.strokeStyle = '#F7CB5B';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Interlaced Circular Ribbon Loops
+  const guillocheRibbon = () => {
+    ctx.beginPath();
+    for (let i = 0; i < 16; i++) {
+      const a = (i * TAU) / 16;
+      const mx = Math.cos(a) * 624;
+      const my = Math.sin(a) * 624;
+      ctx.moveTo(mx + 38, my);
+      ctx.arc(mx, my, 38, 0, TAU);
+    }
+  };
+  strokeBeveled(guillocheRibbon, 6, '#FFCB42', 8);
+  ctx.restore();
+
+  // 5. MIDDLE 8-POINT SATELLITE ROSETTES & ARABESQUE TENDRILS (Radius ~450 to 570)
+  ctx.save();
+  const rotSatellites = TAU * phase;
+  ctx.rotate(rotSatellites);
+
+  for (let i = 0; i < 8; i++) {
+    const a = (i * TAU) / 8;
+    const satR = 510;
+    const sx = Math.cos(a) * satR;
+    const sy = Math.sin(a) * satR;
+
+    // Golden connecting scrollwork vine
+    const aNext = ((i + 1) * TAU) / 8;
+    const nextX = Math.cos(aNext) * satR;
+    const nextY = Math.sin(aNext) * satR;
+    const midArchR = 460 + 12 * Math.sin(TAU * phase * 2 + i);
+    const midArchX = Math.cos(a + Math.PI / 8) * midArchR;
+    const midArchY = Math.sin(a + Math.PI / 8) * midArchR;
+
+    ctx.strokeStyle = '#D9981E';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.quadraticCurveTo(midArchX, midArchY, nextX, nextY);
+    ctx.stroke();
+
+    // Intermediate Emerald Medallion at Arch Center
+    const archGrad = ctx.createRadialGradient(midArchX - 2, midArchY - 2, 2, midArchX, midArchY, 16);
+    archGrad.addColorStop(0, '#75FFAF');
+    archGrad.addColorStop(0.4, '#0A944E');
+    archGrad.addColorStop(1, '#02381A');
+    ctx.fillStyle = archGrad;
+    ctx.beginPath();
+    ctx.arc(midArchX, midArchY, 13, 0, TAU);
+    ctx.fill();
+    ctx.strokeStyle = '#FFE699';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    // 8-Point Satellite Star Medallion
+    ctx.save();
+    ctx.translate(sx, sy);
+    ctx.rotate(-rotSatellites * 2 + i * (Math.PI / 4));
+
+    // Star facet fill
+    ctx.beginPath();
+    for (let k = 0; k < 16; k++) {
+      const ang = (k * TAU) / 16;
+      const r = (k % 2 === 0) ? 42 : 21;
+      const px = Math.cos(ang) * r;
+      const py = Math.sin(ang) * r;
+      if (k === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+
+    const satStarGrad = ctx.createRadialGradient(-3, -3, 2, 0, 0, 42);
+    satStarGrad.addColorStop(0, '#FFE89E');
+    satStarGrad.addColorStop(0.4, '#D97706');
+    satStarGrad.addColorStop(0.85, '#78350F');
+    satStarGrad.addColorStop(1, '#2E1103');
+    ctx.fillStyle = satStarGrad;
+    ctx.fill();
+
+    const satStarPath = () => {
+      ctx.beginPath();
+      for (let k = 0; k < 16; k++) {
+        const ang = (k * TAU) / 16;
+        const r = (k % 2 === 0) ? 42 : 21;
+        const px = Math.cos(ang) * r;
+        const py = Math.sin(ang) * r;
+        if (k === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+    };
+    strokeBeveled(satStarPath, 5, '#FFA726', 10);
+
+    // Center jewel bead of satellite
+    const beadGrad = ctx.createRadialGradient(-2, -2, 1, 0, 0, 10);
+    beadGrad.addColorStop(0, '#FFFFFF');
+    beadGrad.addColorStop(0.4, '#26F295');
+    beadGrad.addColorStop(1, '#044D25');
+    ctx.fillStyle = beadGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, 9, 0, TAU);
+    ctx.fill();
+    ctx.strokeStyle = '#FFF1BD';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
+  }
+  ctx.restore();
+
+  // 6. THE GRAND 8-POINTED STAR (RUB EL HIZB STRAPWORK) (Radius ~220 to 475)
+  ctx.save();
+  const rotMainStar = TAU * phase;
+  ctx.rotate(rotMainStar);
+
+  const starROuter = 462 + 14 * Math.sin(TAU * phase * 2);
+  const starRInner = starROuter * 0.5412; // Octagram geometric valley ratio
+  const starVertices = [];
+
+  for (let i = 0; i < 16; i++) {
+    const a = (i * TAU) / 16;
+    const r = (i % 2 === 0) ? starROuter : starRInner;
+    starVertices.push({ x: Math.cos(a) * r, y: Math.sin(a) * r, angle: a });
+  }
+
+  // 8 Outer Triangular Spires Enamel Fill (Deep Emerald Green with Gold Arabesques)
+  for (let i = 0; i < 8; i++) {
+    const vPrev = starVertices[(i * 2 + 15) % 16];
+    const vPeak = starVertices[i * 2];
+    const vNext = starVertices[i * 2 + 1];
+
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(vPrev.x, vPrev.y);
+    ctx.lineTo(vPeak.x, vPeak.y);
+    ctx.lineTo(vNext.x, vNext.y);
+    ctx.closePath();
+
+    const spireGrad = ctx.createRadialGradient(
+      vPeak.x * 0.7, vPeak.y * 0.7, 10,
+      vPeak.x * 0.6, vPeak.y * 0.6, 260
+    );
+    spireGrad.addColorStop(0, '#10E37C');
+    spireGrad.addColorStop(0.35, '#057A3F');
+    spireGrad.addColorStop(0.8, '#02361A');
+    spireGrad.addColorStop(1, '#001409');
+    ctx.fillStyle = spireGrad;
+    ctx.fill();
+
+    // Symmetrical Islamic Arabesque Lotus Scroll inside each spire
+    ctx.save();
+    ctx.translate(vPeak.x * 0.62, vPeak.y * 0.62);
+    ctx.rotate(vPeak.angle + Math.PI / 2);
+    ctx.strokeStyle = '#FAD978';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    // Central stem
+    ctx.moveTo(0, 45);
+    ctx.lineTo(0, -25);
+    // Left volute
+    ctx.moveTo(0, 20);
+    ctx.quadraticCurveTo(-24, 10, -20, -10);
+    ctx.quadraticCurveTo(-14, -25, -2, -15);
+    // Right volute
+    ctx.moveTo(0, 20);
+    ctx.quadraticCurveTo(24, 10, 20, -10);
+    ctx.quadraticCurveTo(14, -25, 2, -15);
+    ctx.stroke();
+
+    // Golden lotus tip floret
+    ctx.fillStyle = '#FFECA8';
+    ctx.beginPath();
+    ctx.arc(0, -28, 4.5, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // 8 Radiant Amber Kites in the valleys
+  for (let i = 0; i < 8; i++) {
+    const vValley = starVertices[i * 2 + 1];
+    const kiteMidR = starRInner * 0.68;
+    const kx = Math.cos(vValley.angle) * kiteMidR;
+    const ky = Math.sin(vValley.angle) * kiteMidR;
+
+    const kiteGrad = ctx.createRadialGradient(kx - 4, ky - 4, 3, kx, ky, 55);
+    kiteGrad.addColorStop(0, '#FFEAA1');
+    kiteGrad.addColorStop(0.35, '#FF8A00');
+    kiteGrad.addColorStop(0.8, '#B84300');
+    kiteGrad.addColorStop(1, '#4A1500');
+
+    ctx.beginPath();
+    ctx.moveTo(vValley.x, vValley.y);
+    const pA = starVertices[i * 2];
+    const pB = starVertices[(i * 2 + 2) % 16];
+    ctx.lineTo(pA.x * 0.65, pA.y * 0.65);
+    ctx.lineTo(kx, ky);
+    ctx.lineTo(pB.x * 0.65, pB.y * 0.65);
+    ctx.closePath();
+    ctx.fillStyle = kiteGrad;
+    ctx.fill();
+    ctx.strokeStyle = '#FFDB78';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+  }
+
+  // Two Interlocking Concentric Squares (45-degree offset)
+  const drawSquare = (rotAngle) => {
+    const sqPath = () => {
+      ctx.beginPath();
+      for (let k = 0; k < 4; k++) {
+        const ang = rotAngle + (k * Math.PI) / 2;
+        const px = Math.cos(ang) * starROuter;
+        const py = Math.sin(ang) * starROuter;
+        if (k === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+    };
+    strokeBeveled(sqPath, 16, '#FFCA38', 18);
+  };
+
+  // Draw Square 2, then Square 1, then re-weave intersections for authentic Islamic strapwork
+  drawSquare(Math.PI / 4);
+  drawSquare(0);
+
+  // Over-under strapwork weave segments
+  for (let k = 0; k < 4; k++) {
+    const ang = Math.PI / 4 + (k * Math.PI) / 2;
+    const edgeMidAngle = ang + Math.PI / 4;
+    const edgeMidR = starROuter * Math.SQRT1_2;
+    const weaveX = Math.cos(edgeMidAngle) * edgeMidR;
+    const weaveY = Math.sin(edgeMidAngle) * edgeMidR;
+
+    ctx.save();
+    ctx.translate(weaveX, weaveY);
+    ctx.rotate(edgeMidAngle + Math.PI / 2);
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+    ctx.shadowBlur = 14;
+
+    const weaveSegment = () => {
+      ctx.beginPath();
+      ctx.moveTo(-32, 0);
+      ctx.lineTo(32, 0);
+    };
+    strokeBeveled(weaveSegment, 16, '#FFCA38', 0);
+    ctx.restore();
+  }
+
+  // Luminous Cross Flares at the 8 star tips
+  for (let i = 0; i < 8; i++) {
+    const tip = starVertices[i * 2];
+    const tipPulse = Math.pow(Math.max(0, Math.sin(TAU * phase * 4 + (i * Math.PI) / 4)), 3.0);
+    if (tipPulse > 0.05) {
+      drawStarCross(tip.x, tip.y, 48 * tipPulse, 12 * tipPulse, tipPulse * 0.95, '#FFFFFF');
+      drawStarCross(tip.x, tip.y, 72 * tipPulse, 16 * tipPulse, tipPulse * 0.6, '#FFD866');
+    }
+  }
+  ctx.restore();
+
+  // 7. CONCENTRIC 16-PETAL CLOISONNÉ ROSETTE (Radius ~155 to 260)
+  ctx.save();
+  const rotRosette = -TAU * phase;
+  ctx.rotate(rotRosette);
+
+  for (let i = 0; i < 16; i++) {
+    const a = (i * TAU) / 16;
+    const aL = a - Math.PI / 16;
+    const aR = a + Math.PI / 16;
+    const isEmerald = (i % 2 === 0);
+
+    const rBase = 158;
+    const rPetal = 252;
+
+    const p0x = Math.cos(aL) * rBase;
+    const p0y = Math.sin(aL) * rBase;
+    const pTipX = Math.cos(a) * rPetal;
+    const pTipY = Math.sin(a) * rPetal;
+    const p1x = Math.cos(aR) * rBase;
+    const p1y = Math.sin(aR) * rBase;
+
+    ctx.beginPath();
+    ctx.moveTo(p0x, p0y);
+    ctx.quadraticCurveTo(Math.cos(aL) * 215, Math.sin(aL) * 215, pTipX, pTipY);
+    ctx.quadraticCurveTo(Math.cos(aR) * 215, Math.sin(aR) * 215, p1x, p1y);
+    ctx.arc(0, 0, rBase, aR, aL, true);
+    ctx.closePath();
+
+    if (isEmerald) {
+      const g = ctx.createRadialGradient(pTipX * 0.8, pTipY * 0.8, 5, pTipX * 0.5, pTipY * 0.5, 90);
+      g.addColorStop(0, '#24F492');
+      g.addColorStop(0.4, '#078242');
+      g.addColorStop(1, '#023318');
+      ctx.fillStyle = g;
+    } else {
+      const g = ctx.createRadialGradient(pTipX * 0.8, pTipY * 0.8, 5, pTipX * 0.5, pTipY * 0.5, 90);
+      g.addColorStop(0, '#FFC857');
+      g.addColorStop(0.45, '#E66000');
+      g.addColorStop(1, '#571D00');
+      ctx.fillStyle = g;
+    }
+    ctx.fill();
+
+    const petalPath = () => {
+      ctx.beginPath();
+      ctx.moveTo(p0x, p0y);
+      ctx.quadraticCurveTo(Math.cos(aL) * 215, Math.sin(aL) * 215, pTipX, pTipY);
+      ctx.quadraticCurveTo(Math.cos(aR) * 215, Math.sin(aR) * 215, p1x, p1y);
+      ctx.arc(0, 0, rBase, aR, aL, true);
+      ctx.closePath();
+    };
+    strokeBeveled(petalPath, 4.5, '#FFD868', 8);
+  }
+
+  // Beaded Gold Pearls Ring
+  ctx.beginPath();
+  for (let i = 0; i < 32; i++) {
+    const a = (i * TAU) / 32;
+    const px = Math.cos(a) * 162;
+    const py = Math.sin(a) * 162;
+    ctx.moveTo(px + 4, py);
+    ctx.arc(px, py, 3.5, 0, TAU);
+  }
+  ctx.fillStyle = '#FFE596';
+  ctx.fill();
+  ctx.restore();
+
+  // 8. THE ROYAL 8-POINT FACETED EMERALD CRYSTAL STAR (Radius ~58 to 160)
+  ctx.save();
+  const rotGem = -TAU * phase;
+  ctx.rotate(rotGem);
+
+  const gemROuter = 158;
+  const gemRInner = 88;
+  const gemVerts = [];
+
+  for (let i = 0; i < 16; i++) {
+    const a = (i * TAU) / 16;
+    const r = (i % 2 === 0) ? gemROuter : gemRInner;
+    gemVerts.push({ x: Math.cos(a) * r, y: Math.sin(a) * r, angle: a });
+  }
+
+  // 16 3D Facets with dynamic specular & diffuse reflections
+  for (let i = 0; i < 16; i++) {
+    const v1 = gemVerts[i];
+    const v2 = gemVerts[(i + 1) % 16];
+    const midA = (v1.angle + v2.angle) / 2;
+    const tilt = (i % 2 === 0) ? 0.38 : -0.38;
+    const facetNormalA = midA + tilt;
+
+    const fnx = Math.cos(facetNormalA);
+    const fny = Math.sin(facetNormalA);
+    const dot = fnx * lx + fny * ly;
+    const diffuse = Math.max(0.12, dot * 0.5 + 0.5);
+    const specular = Math.pow(Math.max(0, dot), 12);
+
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(v1.x, v1.y);
+    ctx.lineTo(v2.x, v2.y);
+    ctx.closePath();
+
+    // Emerald facet body
+    const rCol = Math.floor(4 + diffuse * 38 + specular * 200);
+    const gCol = Math.floor(48 + diffuse * 175 + specular * 60);
+    const bCol = Math.floor(22 + diffuse * 90 + specular * 180);
+    ctx.fillStyle = `rgb(${Math.min(255, rCol)}, ${Math.min(255, gCol)}, ${Math.min(255, bCol)})`;
+    ctx.fill();
+
+    // Gold facet edge seams
+    ctx.strokeStyle = `rgba(255, 230, 150, ${0.4 + 0.6 * diffuse})`;
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+  }
+
+  // Outer gold rim of the gem star
+  const gemBorder = () => {
+    ctx.beginPath();
+    for (let i = 0; i < 16; i++) {
+      const v = gemVerts[i];
+      if (i === 0) ctx.moveTo(v.x, v.y);
+      else ctx.lineTo(v.x, v.y);
+    }
+    ctx.closePath();
+  };
+  strokeBeveled(gemBorder, 6, '#FFE07D', 14);
+  ctx.restore();
+
+  // 9. CENTRAL OCULUS DOME & ROTATING STARBURST (Radius 0 to 58)
+  ctx.save();
+  const rotOculus = TAU * phase * 2;
+  ctx.rotate(rotOculus);
+
+  // Bezel Ring with 8 Diamond Studs
+  const bezelGrad = ctx.createRadialGradient(-3, -3, 2, 0, 0, 58);
+  bezelGrad.addColorStop(0, '#FFF9DE');
+  bezelGrad.addColorStop(0.35, '#E5A625');
+  bezelGrad.addColorStop(0.75, '#784305');
+  bezelGrad.addColorStop(1, '#3B1E01');
+  ctx.fillStyle = bezelGrad;
+  ctx.beginPath();
+  ctx.arc(0, 0, 56, 0, TAU);
+  ctx.fill();
+  ctx.strokeStyle = '#FFE899';
+  ctx.lineWidth = 3.5;
+  ctx.stroke();
+
+  // 8 Diamond cabochon bezels
+  for (let i = 0; i < 8; i++) {
+    const a = (i * TAU) / 8;
+    const bx = Math.cos(a) * 47;
+    const by = Math.sin(a) * 47;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.arc(bx, by, 3.5, 0, TAU);
+    ctx.fill();
+  }
+
+  // Domed Royal Emerald Cabochon Center
+  const cabRad = 38;
+  const cabGrad = ctx.createRadialGradient(lx * 10, ly * 10, 2, 0, 0, cabRad);
+  cabGrad.addColorStop(0, '#6DFFBD');
+  cabGrad.addColorStop(0.35, '#0EBA63');
+  cabGrad.addColorStop(0.75, '#03572D');
+  cabGrad.addColorStop(1, '#001A0C');
+  ctx.fillStyle = cabGrad;
+  ctx.beginPath();
+  ctx.arc(0, 0, cabRad, 0, TAU);
+  ctx.fill();
+  ctx.strokeStyle = '#FFE696';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+
+  // Glossy glass crescent reflection
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+  ctx.beginPath();
+  ctx.ellipse(lx * 12 - 2, ly * 12 - 2, 12, 6, lightAngle, 0, TAU);
+  ctx.fill();
+
+  // 8-Point Golden Micro-Star Core
+  ctx.beginPath();
+  for (let i = 0; i < 16; i++) {
+    const a = (i * TAU) / 16;
+    const r = (i % 2 === 0) ? 24 : 11;
+    const px = Math.cos(a) * r;
+    const py = Math.sin(a) * r;
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+  const coreStarGrad = ctx.createRadialGradient(-2, -2, 1, 0, 0, 24);
+  coreStarGrad.addColorStop(0, '#FFFFFF');
+  coreStarGrad.addColorStop(0.4, '#FFD34E');
+  coreStarGrad.addColorStop(0.85, '#D97706');
+  coreStarGrad.addColorStop(1, '#5C2400');
+  ctx.fillStyle = coreStarGrad;
+  ctx.fill();
+  ctx.strokeStyle = '#FFF6D1';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // White radiant hearth center
+  const centerFlarePulse = 0.75 + 0.25 * Math.sin(TAU * phase * 4);
+  drawStarCross(0, 0, 36 * centerFlarePulse, 7 * centerFlarePulse, 0.95, '#FFFFFF');
+  drawStarCross(0, 0, 55 * centerFlarePulse, 10 * centerFlarePulse, 0.6, '#FFE485');
+  ctx.restore();
+
+  // 10. LUMINOUS RUNNING ENERGY WAVE PULSES (Periodic Golden Light Streams)
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  for (let i = 0; i < 8; i++) {
+    const a = (i * TAU) / 8 + rotMainStar;
+    const waveProgress = ((phase * 3 + i / 8) % 1.0);
+    const rPulse = 160 + waveProgress * (starROuter - 160);
+    const px = Math.cos(a) * rPulse;
+    const py = Math.sin(a) * rPulse;
+    const pulseAlpha = Math.sin(Math.PI * waveProgress) * 0.85;
+
+    const pulseGrad = ctx.createRadialGradient(px, py, 1, px, py, 42);
+    pulseGrad.addColorStop(0, `rgba(255, 255, 255, ${pulseAlpha})`);
+    pulseGrad.addColorStop(0.35, `rgba(255, 215, 75, ${pulseAlpha * 0.8})`);
+    pulseGrad.addColorStop(1, 'rgba(255, 160, 0, 0)');
+
+    ctx.fillStyle = pulseGrad;
+    ctx.beginPath();
+    ctx.arc(px, py, 42, 0, TAU);
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // 11. AMBIENT SACRED GOLDEN DUST MOTES (Seamless closed harmonic orbits)
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+
+  for (let i = 0; i < NUM_PARTICLES; i++) {
+    const p = PARTICLES[i];
+
+    // Integer harmonics guarantee r(0) === r(1) and angle(1) === angle(0) +/- 2*PI
+    const r = p.baseRadius + p.radiusAmp * Math.sin(TAU * (phase * p.radiusFreq + p.phaseOffset));
+    const angle = p.baseAngle + TAU * phase * p.rotDirection * p.rotFreq + 
+                  p.wobbleAmp * Math.sin(TAU * (phase * p.wobbleFreq + p.phaseOffset));
+    const alpha = Math.pow(0.5 + 0.5 * Math.sin(TAU * (phase * p.twinkleFreq + p.phaseOffset)), 2.0);
+
+    const px = Math.cos(angle) * r;
+    const py = Math.sin(angle) * r;
+
+    let colCenter, colEdge;
+    if (p.colorType === 'gold') {
+      colCenter = `rgba(255, 245, 210, ${alpha * 0.95})`;
+      colEdge = `rgba(245, 175, 25, 0)`;
+    } else if (p.colorType === 'emerald') {
+      colCenter = `rgba(180, 255, 220, ${alpha * 0.95})`;
+      colEdge = `rgba(16, 185, 95, 0)`;
+    } else {
+      colCenter = `rgba(255, 220, 180, ${alpha * 0.95})`;
+      colEdge = `rgba(255, 120, 10, 0)`;
+    }
+
+    const moteGrad = ctx.createRadialGradient(px, py, 0, px, py, p.size * 2.8);
+    moteGrad.addColorStop(0, colCenter);
+    moteGrad.addColorStop(0.4, colCenter);
+    moteGrad.addColorStop(1, colEdge);
+
+    ctx.fillStyle = moteGrad;
+    ctx.beginPath();
+    ctx.arc(px, py, p.size * 2.8, 0, TAU);
+    ctx.fill();
+
+    if (p.size > 5.5 && alpha > 0.4) {
+      drawStarCross(px, py, p.size * 3.5, p.size * 0.8, alpha * 0.7, '#FFFFFF');
+    }
+  }
+  ctx.restore();
+
+  ctx.restore(); // End centered coordinate system
+};
+
+// Normal interactive playback loop
+function animate(now) {
+  requestAnimationFrame(animate);
+  window.renderFrame(now / 1000);
+}
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>
