@@ -4,11 +4,12 @@ on:
   workflow_dispatch:
     inputs:
       asset:
-        description: 'Path aset HTML'
-        default: 'assets/ghost-pack-4k.html'
+        description: 'Path aset HTML (misal assets/nama_aset.html)'
+        required: true
       config:
-        description: 'Config/preset JSON'
-        default: 'assets/ghost-pack-4k.render.json'
+        description: 'Config/preset JSON (opsional, biarkan kosong untuk default aset)'
+        required: false
+        default: ''
       bg:
         description: 'Latar Belakang (black | alpha)'
         type: choice
@@ -73,14 +74,13 @@ jobs:
       - name: Render Video Final
         run: |
           mkdir -p out
-          CMD_ARGS=()
+          [ -n "${{ inputs.config }}" ] && CMD_ARGS+=(--config "${{ inputs.config }}")
           [ -n "${{ inputs.res }}" ] && CMD_ARGS+=(--res "${{ inputs.res }}")
           [ -n "${{ inputs.fps }}" ] && CMD_ARGS+=(--fps "${{ inputs.fps }}")
           [ -n "${{ inputs.bg }}" ] && CMD_ARGS+=(--bg "${{ inputs.bg }}")
           [ "${{ inputs.codec }}" != "auto" ] && CMD_ARGS+=(--codec "${{ inputs.codec }}")
 
           node core/render.mjs "${{ inputs.asset }}" \
-            --config "${{ inputs.config }}" \
             "${CMD_ARGS[@]}"
 
       - uses: actions/upload-artifact@v4
@@ -136,6 +136,7 @@ jobs:
         run: |
           mkdir -p out
           CMD_ARGS=()
+          [ -n "${{ inputs.config }}" ] && CMD_ARGS+=(--config "${{ inputs.config }}")
           [ -n "${{ inputs.res }}" ] && CMD_ARGS+=(--res "${{ inputs.res }}")
           [ -n "${{ inputs.fps }}" ] && CMD_ARGS+=(--fps "${{ inputs.fps }}")
           [ -n "${{ inputs.bg }}" ] && CMD_ARGS+=(--bg "${{ inputs.bg }}")
@@ -154,7 +155,6 @@ jobs:
           fi
 
           node core/render.mjs "${{ inputs.asset }}" \
-            --config "${{ inputs.config }}" \
             "${CMD_ARGS[@]}" \
             --chunk ${{ matrix.chunk }}/${{ inputs.chunks }} \
             --out "out/part-${{ matrix.chunk }}.$EXT"

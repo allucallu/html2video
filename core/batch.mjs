@@ -20,7 +20,18 @@ function parseArgs(argv) {
 }
 
 const args = parseArgs(process.argv.slice(2));
-const assetFile = args._[0] || 'assets/ghost-pack-4k.html';
+
+let defaultAsset = null;
+try {
+  const allAssets = (await readdir('assets')).filter((f) => f.endsWith('.html'));
+  if (allAssets.length > 0) defaultAsset = path.join('assets', allAssets[0]);
+} catch {}
+
+const assetFile = args._[0] || defaultAsset;
+if (!assetFile) {
+  console.log("Belum ada file HTML di folder assets/. Silakan tentukan file: node core/batch.mjs assets/nama_aset.html");
+  process.exit(0);
+}
 
 if (args.help) {
   console.log(`Pemakaian: node core/batch.mjs [aset.html] [opsi]

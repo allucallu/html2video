@@ -98,12 +98,12 @@ http.createServer(async (req, res) => {
 
   <div class="card">
     <h2>Aset & Variasi Preset Siap Uji</h2>
-    ${assets.map((asset) => `
+    ${assets.length === 0 ? '<p style="color:#8b949e;margin:0;">Belum ada aset di folder <code>assets/</code>. Silakan letakkan file HTML aset baru Anda di folder tersebut.</p>' : assets.map((asset) => `
       <div class="asset-block">
         <div class="asset-title"><span class="badge badge-default">HTML Asset</span> ${asset}</div>
         <div class="links-grid">
           <a href="/assets/${asset}">
-            <span class="badge badge-black">Default</span> Buka Preview Asli (Default Grid)
+            <span class="badge badge-black">Default</span> Buka Preview Asli
           </a>
           ${presets.map((pr) => `
             <a href="/assets/${asset}?preset=${pr.file}">
