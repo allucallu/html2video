@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Paper Clip Scrapbook Sticker Animation</title>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: #000000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  canvas {
+    display: block;
+    width: 100vw;
+    height: 56.25vw;
+    max-height: 100vh;
+    max-width: 177.78vh;
+    margin: auto;
+    background-color: #000000;
+  }
+</style>
+</head>
+<body>
+<canvas id="canvas" width="3840" height="2160"></canvas>
+<script>
+window.DURATION = 10;
+window.FPS = 30;
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const CX = 1920;
+const CY = 1080;
+const TAU = Math.PI * 2;
+
+// Retro Scrapbook Palette
+const PALETTE = {
+  stickerWhite: '#FAF5EA',
+  stickerCream: '#F1E6D2',
+  paperEdge: '#DDD0B8',
+  printShadow: '#C7B69B',
+  printShadowDark: '#B3A082',
+  inkOutline: '#453A34',
+  mustard: '#E6B142',
+  mustardLight: '#F7D279',
+  mustardDark: '#C48B20',
+  softRed: '#D65E57',
+  softRedLight: '#EC8A84',
+  softRedDark: '#AE413A',
+  dustyPink: '#E29193',
+  dustyPinkLight: '#F2B8BA',
+  dustyPinkDark: '#C47274',
+  sage: '#8BA78D',
+  sageLight: '#B0C8B2',
+  sageDark: '#6A866C',
+  warmCream: '#FBF6EC'
+};
+
+// Seeded deterministic PRNG
+function createSeededPRNG(seed) {
+  let s = seed % 2147483647;
+  if (s <= 0) s += 2147483646;
+  return function() {
+    s = (s * 16807) % 2147483647;
+    return (s - 1) / 2147483646;
+  };
+}
+
+const rand = createSeededPRNG(629104);
+
+// Precompute hand-drawn jitter along the paper clip spline
+const NUM_CLIP_PTS = 140;
+const clipJitterX = [];
+const clipJitterY = [];
+const scissorBorderJitter = [];
+for (let i = 0; i <= NUM_CLIP_PTS; i++) {
+  const a = (i / NUM_CLIP_PTS) * TAU;
+  clipJitterX.push((rand() - 0.5) * 3.2 + Math.sin(a * 7) * 2.0);
+  clipJitterY.push((rand() - 0.5) * 3.2 + Math.cos(a * 6) * 2.0);
+  // Angular scissor-cut facets for the outer white sticker border
+  scissorBorderJitter.push((rand() - 0.5) * 8.0 + Math.sin(a * 11) * 4.5);
+}
+
+// Precompute deterministic paper texture fibers inside the sticker
+const PAPER_FIBERS = [];
+for (let i = 0; i < 340; i++) {
+  PAPER_FIBERS.push({
+    x: (rand() - 0.5) * 900,
+    y: (rand() - 0.5) * 1350,
+    len: 10 + rand() * 24,
+    ang: rand() * TAU,
+    alpha: 0.10 + rand() * 0.16,
+    isLight: rand() > 0.45
+  });
+}
+
+// Precompute Floating Mini Die-Cut Scrapbook Stickers (hole-punch dots, stars, diamonds, hearts)
+const MINI_STICKERS = [];
+const MINI_COLORS = [PALETTE.mustard, PALETTE.dustyPink, PALETTE.sage, PALETTE.softRed, PALETTE.warmCream];
+for (let i = 0; i < 16; i++) {
+  const ang = (i / 16) * TAU + (rand() - 0.5) * 0.22;
+  const rx = 680 + rand() * 440;
+  const ry = 460 + rand() * 280;
+  const types = ['star', 'dot', 'heart', 'tab'];
+  MINI_STICKERS.push({
+    baseX: CX + Math.cos(ang) * rx,
+    baseY: CY + Math.sin(ang) * ry,
+    wobbleRx: 14 + rand() * 24,
+    wobbleRy: 14 + rand() * 24,
+    freqX: 1 + (i % 2),
+    freqY: 1 + ((i + 1) % 2),
+    rotFreq: 1 + (i % 3),
+    rotAmp: 0.16 + rand() * 0.18,
+    phaseOffset: rand(),
+    size: 24 + rand() * 18,
+    type: types[i % types.length],
+    color: MINI_COLORS[i % MINI_COLORS.length],
+    jit: [rand(), rand(), rand(), rand(), rand(), rand(), rand(), rand(), rand(), rand()]
+  });
+}
+
+// Draw a mini die-cut scrapbook sticker with scissor-cut white border and internal offset print shadow
+function drawMiniSticker(s, phase) {
+  const px = s.baseX + Math.sin(TAU * (phase * s.freqX + s.phaseOffset)) * s.wobbleRx;
+  const py = s.baseY + Math.cos(TAU * (phase * s.freqY + s.phaseOffset)) * s.wobbleRy;
+  const rot = Math.sin(TAU * (phase * s.rotFreq + s.phaseOffset)) * s.rotAmp + s.phaseOffset * TAU;
+  const sc = 1.0 + 0.06 * Math.sin(TAU * (phase * 2 + s.phaseOffset));
+
+  ctx.save();
+  ctx.translate(px, py);
+  ctx.rotate(rot);
+  ctx.scale(sc, sc);
+
+  const traceShape = (scale, ox, oy) => {
+    const R = s.size * scale;
+    ctx.beginPath();
+    if (s.type === 'dot') {
+      for (let k = 0; k < 10; k++) {
+        const a = (k / 10) * TAU;
+        const r = R * (0.92 + 0.14 * s.jit[k]);
+        const x = ox + Math.cos(a) * r;
+        const y = oy + Math.sin(a) * r;
+        if (k === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+    } else if (s.type === 'star') {
+      for (let k = 0; k < 10; k++) {
+        const a = (k / 10) * TAU - Math.PI / 2;
+        const r = (k % 2 === 0 ? R * 1.18 : R * 0.52) * (0.94 + 0.12 * s.jit[k]);
+        const x = ox + Math.cos(a) * r;
+        const y = oy + Math.sin(a) * r;
+        if (k === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+    } else if (s.type === 'tab') {
+      const w = R * 1.25;
+      const h = R * 0.85;
+      ctx.moveTo(ox - w, oy - h);
+      ctx.lineTo(ox + w, oy - h + 3);
+      ctx.lineTo(ox + w * 0.72, oy);
+      ctx.lineTo(ox + w, oy + h - 2);
+      ctx.lineTo(ox - w, oy + h);
+    } else {
+      const hr = R * 0.95;
+      ctx.moveTo(ox, oy + hr * 0.95);
+      ctx.bezierCurveTo(ox - hr * 1.3, oy + hr * 0.2, ox - hr * 1.2, oy - hr * 0.95, ox, oy - hr * 0.35);
+      ctx.bezierCurveTo(ox + hr * 1.2, oy - hr * 0.95, ox + hr * 1.3, oy + hr * 0.2, ox, oy + hr * 0.95);
+    }
+    ctx.closePath();
+  };
+
+  // Thick scissor-cut white sticker border
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  traceShape(1.0, 0, 0);
+  ctx.fillStyle = PALETTE.stickerWhite;
+  ctx.fill();
+  ctx.strokeStyle = PALETTE.stickerWhite;
+  ctx.lineWidth = 24;
+  ctx.stroke();
+
+  ctx.strokeStyle = PALETTE.paperEdge;
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  // Internal offset print shadow
+  traceShape(0.88, 5, 6);
+  ctx.fillStyle = PALETTE.printShadow;
+  ctx.fill();
+
+  // Flat retro fill
+  traceShape(0.88, 0, 0);
+  ctx.fillStyle = s.color;
+  ctx.fill();
+
+  // Imperfect ink outline
+  traceShape(0.88, -1.5, -1.5);
+  ctx.strokeStyle = PALETTE.inkOutline;
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+// Compute the continuous parametric centerline of the Gem Paper Clip with dynamic springy wobble
+// Returns array of {x, y, u, loopId} points
+function computePaperClipPoints(phase) {
+  // Periodic harmonics (integer frequencies k = 1, 2, 3, 4)
+  const sin1 = Math.sin(TAU * phase * 1);
+  const sin2 = Math.sin(TAU * phase * 2);
+  const cos2 = Math.cos(TAU * phase * 2);
+  const sin3 = Math.sin(TAU * phase * 3);
+  const cos3 = Math.cos(TAU * phase * 3);
+  const sin4 = Math.sin(TAU * phase * 4);
+
+  // Springy elastic deformation parameters for the wire loops:
+  // Outer right tail splay (flicks outward and springs back)
+  const outerTailSplay = 18 * sin3 + 10 * cos2;
+  // Inner tongue loop counter-flex (delayed overlap relative to outer loop)
+  const innerTongueFlexX = -22 * Math.sin(TAU * (phase * 3 - 0.18)) + 12 * sin1;
+  const innerTongueLiftY = -14 * Math.cos(TAU * (phase * 2 - 0.15));
+  // Overall S-bend shear wobble along the vertical length of the paper clip
+  const midBendX = 16 * Math.sin(TAU * (phase * 2 + 0.1));
+
+  // Classic Gem Paper Clip Geometry (centered around 0,0, height ~1080, width ~460)
+  // Segments:
+  // 0: Start at inner tongue tip: (-95, -190) -> goes down left inner leg to (-95, 250)
+  // 1: Bottom inner U-turn: center (0, 250), radius 95, angle PI to 0 -> (95, 250)
+  // 2: Right inner leg going up: (95, 250) to (95, -340)
+  // 3: Top large U-turn: center (-25, -340), radius 120, angle 0 to -PI -> (-145, -340)
+  // 4: Left outer leg going down: (-145, -340) to (-145, 310)
+  // 5: Bottom large U-turn: center (15, 310), radius 160, angle PI to 0 -> (175, 310)
+  // 6: Right outer tail leg going up: (175, 310) to (175, -140)
+
+  const rawPts = [];
+
+  function addLine(x0, y0, x1, y1, steps, tag) {
+    for (let i = 0; i < steps; i++) {
+      const t = i / steps;
+      rawPts.push({
+        x: x0 + (x1 - x0) * t,
+        y: y0 + (y1 - y0) * t,
+        tag,
+        segT: t
+      });
+    }
+  }
+
+  function addArc(cx, cy, r, a0, a1, steps, tag) {
+    for (let i = 0; i < steps; i++) {
+      const t = i / steps;
+      const a = a0 + (a1 - a0) * t;
+      rawPts.push({
+        x: cx + Math.cos(a) * r,
+        y: cy + Math.sin(a) * r,
+        tag,
+        segT: t
+      });
+    }
+  }
+
+  addLine(-88, -170, -88, 235, 20, 'innerLeft');
+  addArc(0, 235, 88, Math.PI, 0, 20, 'innerBotArc');
+  addLine(88, 235, 88, -335, 26, 'midRight');
+  addArc(-28, -335, 116, 0, -Math.PI, 24, 'topArc');
+  addLine(-144, -335, -144, 305, 28, 'outerLeft');
+  addArc(14, 305, 158, Math.PI, 0, 26, 'botOuterArc');
+  addLine(172, 305, 172, -135, 22, 'outerRightTail');
+  // Final endpoint
+  rawPts.push({ x: 172, y: -135, tag: 'outerRightTail', segT: 1.0 });
+
+  const total = rawPts.length;
+  const deformedPts = [];
+
+  for (let i = 0; i < total; i++) {
+    const u = i / (total - 1);
+    const p = rawPts[i];
+    let dx = 0;
+    let dy = 0;
+
+    // 1. Whole-body elastic S-curve wobble along Y
+    const yNorm = p.y / 500; // in [-1, 1]
+    dx += midBendX * (1 - yNorm * yNorm);
+    dx += 14 * sin4 * yNorm * Math.sin(u * Math.PI);
+
+    // 2. Inner loop independent springy flex (u < 0.32)
+    if (u < 0.35) {
+      const wInner = Math.pow(1 - u / 0.35, 1.4);
+      dx += innerTongueFlexX * wInner;
+      dy += innerTongueLiftY * wInner;
+    }
+
+    // 3. Outer right free end springy splay (u > 0.78)
+    if (u > 0.78) {
+      const wTail = Math.pow((u - 0.78) / 0.22, 1.6);
+      dx += outerTailSplay * wTail;
+      dy += -Math.abs(outerTailSplay) * 0.25 * wTail;
+    }
+
+    // 4. Deterministic hand-drawn organic imperfection
+    const jitIdx = Math.min(NUM_CLIP_PTS, Math.floor(u * NUM_CLIP_PTS));
+    dx += clipJitterX[jitIdx];
+    dy += clipJitterY[jitIdx];
+
+    deformedPts.push({
+      x: p.x + dx,
+      y: p.y + dy,
+      u,
+      jit: scissorBorderJitter[jitIdx]
+    });
+  }
+
+  return deformedPts;
+}
+
+window.renderFrame = function(t) {
+  const phase = ((t % window.DURATION) + window.DURATION) % window.DURATION / window.DURATION;
+
+  // 0. Solid Pure Black Background (#000000 across the whole frame)
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(0, 0, 3840, 2160);
+
+  // Integer frequency periodic harmonics
+  const sin1 = Math.sin(TAU * phase * 1);
+  const cos1 = Math.cos(TAU * phase * 1);
+  const sin2 = Math.sin(TAU * phase * 2);
+  const cos2 = Math.cos(TAU * phase * 2);
+  const sin3 = Math.sin(TAU * phase * 3);
+  const cos3 = Math.cos(TAU * phase * 3);
+  const sin4 = Math.sin(TAU * phase * 4);
+
+  // 1. Ambient Motion: Draw Floating Scrapbook Confetti Stickers in the background
+  for (let i = 0; i < MINI_STICKERS.length; i++) {
+    drawMiniSticker(MINI_STICKERS[i], phase);
+  }
+
+  // 2. Primary Motion: Main Paper Clip Sticker Wobble, Tilt, Bounce & Squash/Stretch
+  // Tilted at a dynamic jaunty scrapbook angle (~18 degrees) with rhythmic wobble
+  const baseTilt = 0.28;
+  const wobbleRot = baseTilt + 0.065 * sin2 + 0.035 * cos1 + 0.018 * sin3;
+  const bounceX = 14 * cos1 + 8 * sin2;
+  const bounceY = 20 * sin2 - 10 * cos3;
+
+  // Subtle squash and stretch synchronized with the bounce
+  const stretch = 1.0 + 0.022 * sin2 - 0.012 * cos3;
+  const squash = 1.0 - 0.022 * sin2 + 0.012 * cos3;
+
+  ctx.save();
+  ctx.translate(CX + bounceX, CY + bounceY);
+  ctx.rotate(wobbleRot);
+  ctx.scale(squash, stretch);
+
+  // Compute the deformed paper clip centerline points for this frame
+  const clipPts = computePaperClipPoints(phase);
+
+  // Secondary Motion: Cute Clipped Scrapbook Flag Tab & Mini Note Card attached to the Paper Clip
+  // Attached near top-left of the paper clip, fluttering with delayed overlap
+  const flagWave1 = Math.sin(TAU * (phase * 2 - 0.22));
+  const flagWave2 = Math.sin(TAU * (phase * 3 - 0.35));
+
+  // Helper to trace the Paper Clip centerline path with an optional offset
+  function traceClipCenterline(ox = 0, oy = 0) {
+    ctx.beginPath();
+    for (let i = 0; i < clipPts.length; i++) {
+      const p = clipPts[i];
+      if (i === 0) ctx.moveTo(p.x + ox, p.y + oy);
+      else ctx.lineTo(p.x + ox, p.y + oy);
+    }
+  }
+
+  // Helper to trace the Clipped Dusty-Pink Washi Flag Tab at the top of the paper clip
+  const topAnchor = clipPts[Math.floor(clipPts.length * 0.50)]; // Top U-turn crown
+  function traceTopFlagPath(ox = 0, oy = 0) {
+    const ax = topAnchor.x - 10 + ox;
+    const ay = topAnchor.y - 12 + oy;
+    const tipX = ax - 210 + 14 * flagWave1;
+    const tipY = ay - 95 + 22 * flagWave1 + 12 * flagWave2;
+
+    ctx.beginPath();
+    ctx.moveTo(ax + 38, ay - 22);
+    ctx.quadraticCurveTo(ax - 70, ay - 80 + 10 * flagWave1, tipX, tipY - 42);
+    // Swallowtail V-notch on the flag tab
+    ctx.lineTo(tipX + 36, tipY + 4);
+    ctx.lineTo(tipX - 8, tipY + 48);
+    ctx.quadraticCurveTo(ax - 75, ay + 15 + 10 * flagWave1, ax + 22, ay + 42);
+    ctx.closePath();
+  }
+
+  // Helper to trace the Clipped Sage-Green Mini Scrapbook Ticket tucked inside the clip
+  function traceTuckedTicketPath(ox = 0, oy = 0) {
+    const tx = -45 + ox;
+    const ty = -40 + oy;
+    const ticketTilt = -0.22 + 0.04 * flagWave1;
+    const cosT = Math.cos(ticketTilt);
+    const sinT = Math.sin(ticketTilt);
+    const w = 185;
+    const h = 115;
+    const corners = [
+      { x: -w, y: -h },
+      { x: w, y: -h },
+      { x: w, y: h },
+      { x: -w, y: h }
+    ];
+    ctx.beginPath();
+    corners.forEach((c, idx) => {
+      const rx = tx + c.x * cosT - c.y * sinT;
+      const ry = ty + c.x * sinT + c.y * cosT;
+      if (idx === 0) ctx.moveTo(rx, ry);
+      else ctx.lineTo(rx, ry);
+    });
+    ctx.closePath();
+  }
+
+  // =========================================================================
+  // LAYER 1: DIE-CUT PAPER STICKER THICK WHITE OUTLINE BORDER & CREAM BACKING
+  // (Uniform width, scissor-cut feel, enclosing the paper clip + flag + ticket)
+  // =========================================================================
+  const wireThickness = 54;
+  const stickerBorderThickness = 158; // Creates a bold ~52px uniform white border around the wire
+
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  // 1A. Outer Scissor-Cut Paper Thickness Rim (Warm tan paper edge shadow)
+  ctx.strokeStyle = PALETTE.paperEdge;
+  ctx.lineWidth = stickerBorderThickness + 8;
+  traceClipCenterline(6, 8);
+  ctx.stroke();
+
+  traceTopFlagPath(6, 8);
+  ctx.fillStyle = PALETTE.paperEdge;
+  ctx.fill();
+  ctx.lineWidth = 96;
+  ctx.stroke();
+
+  traceTuckedTicketPath(6, 8);
+  ctx.fill();
+  ctx.stroke();
+
+  // 1B. Main Thick White Die-Cut Sticker Border (#FAF5EA)
+  ctx.strokeStyle = PALETTE.stickerWhite;
+  ctx.fillStyle = PALETTE.stickerWhite;
+  ctx.lineWidth = stickerBorderThickness;
+  traceClipCenterline(0, 0);
+  ctx.stroke();
+
+  // Fill the interior web of the paper clip so it reads as a solid one-piece die-cut sticker
+  ctx.beginPath();
+  ctx.roundRect(-165, -360, 355, 690, 140);
+  ctx.fill();
+
+  traceTopFlagPath(0, 0);
+  ctx.lineWidth = 88;
+  ctx.fill();
+  ctx.stroke();
+
+  traceTuckedTicketPath(0, 0);
+  ctx.fill();
+  ctx.stroke();
+
+  // 1C. Scissor-Cut Facet Nicks along the outer white sticker perimeter
+  ctx.strokeStyle = '#EFE6D4';
+  ctx.lineWidth = 4;
+  traceClipCenterline(2, -2);
+  ctx.stroke();
+  ctx.restore();
+
+  // =========================================================================
+  // LAYER 2: INNER STICKER CARD TEXTURE & INTERNAL OFFSET PRINT SHADOWS
+  // (All shadows stay strictly INSIDE the white sticker border)
+  // =========================================================================
+  ctx.save();
+  // Create an inner recess area on the sticker card behind the paper clip
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = PALETTE.stickerCream;
+  ctx.fillStyle = PALETTE.stickerCream;
+  ctx.lineWidth = stickerBorderThickness - 54;
+  traceClipCenterline(0, 0);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.roundRect(-145, -340, 315, 650, 115);
+  ctx.fill();
+
+  // Subtle vintage graph/dot pattern on the cream sticker interior
+  ctx.save();
+  ctx.beginPath();
+  ctx.roundRect(-175, -390, 375, 740, 130);
+  ctx.clip();
+
+  ctx.fillStyle = '#E2D4BC';
+  for (let gx = -200; gx <= 220; gx += 32) {
+    for (let gy = -400; gy <= 380; gy += 32) {
+      ctx.beginPath();
+      ctx.arc(gx, gy, 2.5, 0, TAU);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+
+  // Internal Offset Print Shadow of the Tucked Ticket, Flag Tab, and Paper Clip
+  // (Risograph / screenprint offset shadow cast strictly onto the sticker backing)
+  const shadowOffX = 14;
+  const shadowOffY = 16;
+
+  traceTuckedTicketPath(shadowOffX, shadowOffY);
+  ctx.fillStyle = PALETTE.printShadow;
+  ctx.fill();
+
+  traceTopFlagPath(shadowOffX, shadowOffY);
+  ctx.fillStyle = PALETTE.printShadow;
+  ctx.fill();
+
+  ctx.strokeStyle = PALETTE.printShadowDark;
+  ctx.lineWidth = wireThickness + 4;
+  traceClipCenterline(shadowOffX, shadowOffY);
+  ctx.stroke();
+  ctx.restore();
+
+  // =========================================================================
+  // LAYER 3: TUCKED SAGE-GREEN SCRAPBOOK TICKET & DUSTY-PINK WASHI FLAG TAB
+  // (Clipped between the inner and outer loops of the paper clip!)
+  // =========================================================================
+  // 3A. Tucked Sage-Green & Polka-Dot Scrapbook Ticket
+  ctx.save();
+  traceTuckedTicketPath(0, 0);
+  ctx.fillStyle = PALETTE.sage;
+  ctx.fill();
+
+  // Clip decorative stripes inside the tucked ticket
+  ctx.save();
+  ctx.clip();
+  ctx.strokeStyle = PALETTE.sageLight;
+  ctx.lineWidth = 14;
+  for (let s = -260; s <= 260; s += 36) {
+    ctx.beginPath();
+    ctx.moveTo(s - 80, -200);
+    ctx.lineTo(s + 80, 200);
+    ctx.stroke();
+  }
+  // Inner ticket frame line
+  traceTuckedTicketPath(0, 0);
+  ctx.strokeStyle = PALETTE.warmCream;
+  ctx.lineWidth = 10;
+  ctx.stroke();
+  ctx.restore();
+
+  // Hand-drawn ink border around tucked ticket
+  traceTuckedTicketPath(0, 0);
+  ctx.strokeStyle = PALETTE.inkOutline;
+  ctx.lineWidth = 5;
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+  ctx.restore();
+
+  // 3B. Fluttering Dusty-Pink & Soft-Red Washi Flag Tab looped around the top curve
+  ctx.save();
+  traceTopFlagPath(0, 0);
+  ctx.fillStyle = PALETTE.dustyPink;
+  ctx.fill();
+
+  ctx.save();
+  ctx.clip();
+  // Retro polka dots on the fluttering flag tab
+  const ax = topAnchor.x - 10;
+  const ay = topAnchor.y - 12;
+  const flagDots = [
+    { dx: -55, dy: -28, col: PALETTE.warmCream },
+    { dx: -115, dy: -45, col: PALETTE.mustard },
+    { dx: -85, dy: 2, col: PALETTE.softRed },
+    { dx: -155, dy: -12, col: PALETTE.warmCream },
+    { dx: -145, dy: -62, col: PALETTE.sage }
+  ];
+  flagDots.forEach((fd) => {
+    ctx.fillStyle = fd.col;
+    ctx.beginPath();
+    ctx.arc(ax + fd.dx + 8 * flagWave1, ay + fd.dy + 12 * flagWave1, 13, 0, TAU);
+    ctx.fill();
+  });
+
+  // Fold crease shadow where the flag wraps over the top wire
+  ctx.strokeStyle = PALETTE.dustyPinkDark;
+  ctx.lineWidth = 12;
+  ctx.beginPath();
+  ctx.moveTo(ax + 18, ay - 35);
+  ctx.lineTo(ax + 8, ay + 45);
+  ctx.stroke();
+  ctx.restore();
+
+  traceTopFlagPath(0, 0);
+  ctx.strokeStyle = PALETTE.inkOutline;
+  ctx.lineWidth = 5;
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+  ctx.restore();
+
+  // =========================================================================
+  // LAYER 4: THE GEM PAPER CLIP (RETRO VINYL-COATED MUSTARD YELLOW & SOFT RED)
+  // Drawn in two passes so the Tucked Ticket sits authentically BETWEEN the loops!
+  // =========================================================================
+  function drawWireSegment(startIdx, endIdx) {
+    const subPath = (ox = 0, oy = 0) => {
+      ctx.beginPath();
+      for (let i = startIdx; i <= endIdx; i++) {
+        const p = clipPts[i];
+        if (i === startIdx) ctx.moveTo(p.x + ox, p.y + oy);
+        else ctx.lineTo(p.x + ox, p.y + oy);
+      }
+    };
+
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    // 1. Hand-drawn dark ink outer casing
+    ctx.strokeStyle = PALETTE.inkOutline;
+    ctx.lineWidth = wireThickness + 11;
+    subPath(0, 0);
+    ctx.stroke();
+
+    // 2. Base Vinyl Coating in Retro Mustard Yellow
+    ctx.strokeStyle = PALETTE.mustard;
+    ctx.lineWidth = wireThickness;
+    subPath(0, 0);
+    ctx.stroke();
+
+    // 3. Darker Mustard inner bevel shade (offset slightly down-right inside the wire)
+    ctx.save();
+    ctx.strokeStyle = PALETTE.mustardDark;
+    ctx.lineWidth = wireThickness * 0.45;
+    subPath(5, 5);
+    ctx.stroke();
+    ctx.restore();
+
+    // 4. Two-Tone Retro Dipped End Accents (Soft Red vinyl coating on the bottom U-turn and tips)
+    if (endIdx > 95) {
+      const dipStart = Math.max(startIdx, 96);
+      const dipEnd = Math.min(endIdx, 132);
+      if (dipEnd > dipStart) {
+        ctx.beginPath();
+        for (let i = dipStart; i <= dipEnd; i++) {
+          const p = clipPts[i];
+          if (i === dipStart) ctx.moveTo(p.x, p.y);
+          else ctx.lineTo(p.x, p.y);
+        }
+        ctx.strokeStyle = PALETTE.softRed;
+        ctx.lineWidth = wireThickness - 2;
+        ctx.stroke();
+
+        ctx.strokeStyle = PALETTE.softRedLight;
+        ctx.lineWidth = wireThickness * 0.28;
+        ctx.stroke();
+      }
+    }
+
+    // 5. Crisp Cream-Yellow Specular Highlight Strip along the top-left of the vinyl wire
+    ctx.strokeStyle = PALETTE.mustardLight;
+    ctx.lineWidth = wireThickness * 0.30;
+    subPath(-6, -6);
+    ctx.stroke();
+
+    // 6. Dashed White Retro Comic/Sticker Highlight Glints
+    ctx.strokeStyle = PALETTE.warmCream;
+    ctx.lineWidth = 6.5;
+    ctx.setLineDash([28, 48]);
+    subPath(-8, -8);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.restore();
+  }
+
+  // Pass 1: Draw the outer & top loops of the paper clip (behind the front inner tongue)
+  const splitIdx = 38; // Index where the inner loop finishes its bottom turn and heads up
+  drawWireSegment(splitIdx, clipPts.length - 1);
+
+  // Re-draw the overlapping middle section of the tucked ticket so the wire visibly clips it!
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(-125, -180, 185, 290);
+  ctx.clip();
+
+  // Subtle shadow cast by the inner tongue wire onto the green ticket
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = 'rgba(65, 85, 66, 0.45)';
+  ctx.lineWidth = wireThickness + 10;
+  ctx.beginPath();
+  for (let i = 0; i <= splitIdx; i++) {
+    const p = clipPts[i];
+    if (i === 0) ctx.moveTo(p.x + 12, p.y + 14);
+    else ctx.lineTo(p.x + 12, p.y + 14);
+  }
+  ctx.stroke();
+  ctx.restore();
+
+  // Pass 2: Draw the front Inner Tongue Loop ON TOP of the tucked ticket!
+  drawWireSegment(0, splitIdx);
+
+  // Cute Soft-Red Vinyl End-Caps on both wire tips (index 0 and index length-1)
+  [clipPts[0], clipPts[clipPts.length - 1]].forEach((tipPt) => {
+    ctx.save();
+    ctx.fillStyle = PALETTE.softRed;
+    ctx.strokeStyle = PALETTE.inkOutline;
+    ctx.lineWidth = 5.5;
+    ctx.beginPath();
+    ctx.arc(tipPt.x, tipPt.y, wireThickness * 0.52, 0, TAU);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = PALETTE.warmCream;
+    ctx.beginPath();
+    ctx.arc(tipPt.x - 6, tipPt.y - 6, 6, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+  });
+
+  // =========================================================================
+  // LAYER 5: SUBTLE PAPER GRAIN FIBERS & STICKER PEEL-LIFT CORNER ACCENT
+  // =========================================================================
+  ctx.save();
+  // Clip to the overall sticker silhouette to overlay subtle tactile paper fibers
+  ctx.lineCap = 'round';
+  for (let i = 0; i < PAPER_FIBERS.length; i++) {
+    const f = PAPER_FIBERS[i];
+    // Only draw fibers within the main sticker bounding region
+    if (Math.abs(f.x) < 230 && Math.abs(f.y) < 420) {
+      ctx.strokeStyle = f.isLight
+        ? `rgba(255, 250, 240, ${f.alpha})`
+        : `rgba(140, 115, 90, ${f.alpha * 0.7})`;
+      ctx.lineWidth = 2.2;
+      const dx = Math.cos(f.ang) * f.len * 0.5;
+      const dy = Math.sin(f.ang) * f.len * 0.5;
+      ctx.beginPath();
+      ctx.moveTo(f.x - dx, f.y - dy);
+      ctx.lineTo(f.x + dx, f.y + dy);
+      ctx.stroke();
+    }
+  }
+
+  // Playful hand-drawn "wobble ticks" inside the white sticker border near the bottom & right tail
+  const tailTip = clipPts[clipPts.length - 1];
+  const tickAlpha = 0.45 + 0.45 * Math.abs(sin3);
+  ctx.strokeStyle = `rgba(69, 58, 52, ${tickAlpha})`;
+  ctx.lineWidth = 5;
+  for (let m = 0; m < 2; m++) {
+    const rArc = 42 + m * 14;
+    ctx.beginPath();
+    ctx.arc(tailTip.x + 6, tailTip.y, rArc, -0.45, 0.45);
+    ctx.stroke();
+  }
+
+  const botTurn = clipPts[Math.floor(clipPts.length * 0.78)];
+  for (let m = 0; m < 2; m++) {
+    const rArc = 54 + m * 14;
+    ctx.beginPath();
+    ctx.arc(botTurn.x - 110, botTurn.y + 40, rArc, Math.PI * 0.65, Math.PI * 0.95);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+  ctx.restore(); // End Main Paper Clip Sticker Transform
+};
+
+// Normal playback loop
+function animate(now) {
+  requestAnimationFrame(animate);
+  window.renderFrame(now / 1000);
+}
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>

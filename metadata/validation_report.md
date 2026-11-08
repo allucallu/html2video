@@ -1,11 +1,11 @@
 # Adobe Stock Metadata Validation Report
 
-Generated on: 2026-11-08T04:15:56.072Z
+Generated on: 2026-11-08T06:52:02.810Z
 
 ## Overall Status: ✅ PASSED (All checks clean)
 
 ### Validation Summary
-- **Total Assets Validated:** 7
+- **Total Assets Validated:** 14
 - **CSV Header:** `Filename,Title,Keywords,Category,Releases`
 - **Official Specification Constraints Checked:**
   - Title Length: Max 70 characters (Adobe Stock strict limit for CSV)
@@ -14,7 +14,7 @@ Generated on: 2026-11-08T04:15:56.072Z
   - Duplicate Check: Zero duplicate keywords per asset, zero duplicate titles across files
   - Forbidden Terms Filter: Zero occurrences of "alpha", "transparent", "green screen"
   - Mandatory Field Integrity: Filename, Title, Keywords, Category populated; Releases blank
-  - Core Series Coverage: 10/10 shared Ramadan/Eid core keywords present in all rows
+  - Core Series Coverage: 10/10 shared core motion design overlay keywords present in all rows
 
 ---
 
@@ -22,45 +22,80 @@ Generated on: 2026-11-08T04:15:56.072Z
 
 | Filename | Title (Char Count) | Keywords Count | Category | Status |
 | :--- | :--- | :---: | :---: | :---: |
-| `asset5.mp4` | "Rotating gold Islamic star mandala loop on black background" (59 / 70 chars) | 49 / 49 | 15 | ✅ PASS |
-| `asset6.mp4` | "Swinging ornate gold ketupat decoration loop on black background" (64 / 70 chars) | 49 / 49 | 15 | ✅ PASS |
-| `asset7.mp4` | "Rhythmic beating bedug mosque drum loop on black background" (59 / 70 chars) | 49 / 49 | 15 | ✅ PASS |
-| `gemini-code-1794108171091.mp4` | "Glowing golden crescent moon and star loop on black background" (62 / 70 chars) | 49 / 49 | 15 | ✅ PASS |
-| `gemini-code-1794108757516.mp4` | "Swinging ornate Ramadan fanous lantern loop on black background" (63 / 70 chars) | 49 / 49 | 15 | ✅ PASS |
-| `gemini-code-1794109048766.mp4` | "Twinkling hanging Ramadan lantern garland loop on black background" (66 / 70 chars) | 49 / 49 | 15 | ✅ PASS |
-| `gemini-code-1794109347790.mp4` | "Floating golden stars and crescent moons loop on black background" (65 / 70 chars) | 49 / 49 | 15 | ✅ PASS |
+| `assets1.mp4` | "Washi tape paper sticker fluttering loop on black background" (60 / 70 chars) | 49 / 49 | 8 | ✅ PASS |
+| `assets2.mp4` | "Paper clip scrapbook sticker swaying loop on black background" (61 / 70 chars) | 49 / 49 | 8 | ✅ PASS |
+| `assets3.mp4` | "Glowing arcane magic summoning circle loop on black background" (62 / 70 chars) | 49 / 49 | 8 | ✅ PASS |
+| `assets4.mp4` | "Electric branching lightning bolt strike loop on black background" (65 / 70 chars) | 49 / 49 | 8 | ✅ PASS |
+| `assets5.mp4` | "Hand drawn scribble circle doodle loop on black background" (58 / 70 chars) | 49 / 49 | 8 | ✅ PASS |
+| `assets6.mp4` | "Hand drawn squiggle underline doodle loop on black background" (61 / 70 chars) | 49 / 49 | 8 | ✅ PASS |
+| `assets7.mp4` | "Hand drawn curved arrow indicator loop on black background" (58 / 70 chars) | 49 / 49 | 8 | ✅ PASS |
+| `assets8.mp4` | "Hand drawn checkmark tick doodle loop on black background" (57 / 70 chars) | 49 / 49 | 8 | ✅ PASS |
+| `assets9.mp4` | "Hand drawn X cross mark doodle loop on black background" (55 / 70 chars) | 49 / 49 | 8 | ✅ PASS |
+| `assets10.mp4` | "Hand drawn star burst sparkle doodle loop on black background" (61 / 70 chars) | 49 / 49 | 8 | ✅ PASS |
+| `assets11.mp4` | "Hand drawn heart outline doodle loop on black background" (56 / 70 chars) | 49 / 49 | 8 | ✅ PASS |
+| `assets12.mp4` | "Hand drawn question and exclamation doodle on black background loop" (67 / 70 chars) | 49 / 49 | 8 | ✅ PASS |
+| `assets13.mp4` | "Hand drawn spiral scribble swirl loop on black background" (57 / 70 chars) | 49 / 49 | 8 | ✅ PASS |
+| `assets14.mp4` | "Hand drawn rectangle box frame doodle loop on black background" (62 / 70 chars) | 49 / 49 | 8 | ✅ PASS |
 
 ---
 
 ## Top 10 High-Priority Keywords per Asset (Algorithm Weighting)
 
-### `asset5.mp4`
-- **Title:** Rotating gold Islamic star mandala loop on black background
-- **First 10 Keywords:** islamic mandala, geometric star, arabic pattern, ramadan, gold ornament, rotating, black background, loop, overlay, eid mubarak
+### `assets1.mp4`
+- **Title:** Washi tape paper sticker fluttering loop on black background
+- **First 10 Keywords:** washi tape, paper sticker, scrapbook, stationery, fluttering, peeling, black background, loop, overlay, tape strip
 
-### `asset6.mp4`
-- **Title:** Swinging ornate gold ketupat decoration loop on black background
-- **First 10 Keywords:** ketupat, eid mubarak, ramadan, hari raya, islamic decoration, swinging, black background, loop, overlay, gold ornament
+### `assets2.mp4`
+- **Title:** Paper clip scrapbook sticker swaying loop on black background
+- **First 10 Keywords:** paper clip, paperclip, scrapbook sticker, stationery, craft paper, swaying, black background, loop, overlay, office clip
 
-### `asset7.mp4`
-- **Title:** Rhythmic beating bedug mosque drum loop on black background
-- **First 10 Keywords:** bedug, ramadan drum, mosque drum, ramadan, eid mubarak, rhythmic beat, black background, loop, overlay, islamic tradition
+### `assets3.mp4`
+- **Title:** Glowing arcane magic summoning circle loop on black background
+- **First 10 Keywords:** magic circle, summoning circle, arcane runes, alchemy circle, sacred geometry, rotating, black background, loop, overlay, glowing vfx
 
-### `gemini-code-1794108171091.mp4`
-- **Title:** Glowing golden crescent moon and star loop on black background
-- **First 10 Keywords:** crescent moon, hilal, ramadan moon, islamic star, ramadan, glowing, black background, loop, overlay, eid mubarak
+### `assets4.mp4`
+- **Title:** Electric branching lightning bolt strike loop on black background
+- **First 10 Keywords:** lightning strike, electric bolt, thunderbolt, electric discharge, branching lightning, flashing, black background, loop, overlay, energy vfx
 
-### `gemini-code-1794108757516.mp4`
-- **Title:** Swinging ornate Ramadan fanous lantern loop on black background
-- **First 10 Keywords:** ramadan lantern, fanous, fanoos, islamic lantern, ramadan, swinging, black background, loop, overlay, eid mubarak
+### `assets5.mp4`
+- **Title:** Hand drawn scribble circle doodle loop on black background
+- **First 10 Keywords:** scribble circle, hand drawn circle, doodle circle, highlighter circle, circle callout, line boil, black background, loop, overlay, animated doodle
 
-### `gemini-code-1794109048766.mp4`
-- **Title:** Twinkling hanging Ramadan lantern garland loop on black background
-- **First 10 Keywords:** ramadan garland, hanging lanterns, ramadan bunting, crescent stars, ramadan, twinkling, black background, loop, overlay, eid mubarak
+### `assets6.mp4`
+- **Title:** Hand drawn squiggle underline doodle loop on black background
+- **First 10 Keywords:** squiggle underline, hand drawn underline, wavy underline, marker squiggle, doodle line, line boil, black background, loop, overlay, text emphasis
 
-### `gemini-code-1794109347790.mp4`
-- **Title:** Floating golden stars and crescent moons loop on black background
-- **First 10 Keywords:** floating stars, crescent moons, islamic stars, ramadan particles, ramadan, rising stream, black background, loop, overlay, eid mubarak
+### `assets7.mp4`
+- **Title:** Hand drawn curved arrow indicator loop on black background
+- **First 10 Keywords:** curved arrow, hand drawn arrow, doodle arrow, animated arrow, arrow indicator, line boil, black background, loop, overlay, pointer doodle
+
+### `assets8.mp4`
+- **Title:** Hand drawn checkmark tick doodle loop on black background
+- **First 10 Keywords:** checkmark, hand drawn checkmark, tick mark, doodle checkmark, approved icon, line boil, black background, loop, overlay, correct symbol
+
+### `assets9.mp4`
+- **Title:** Hand drawn X cross mark doodle loop on black background
+- **First 10 Keywords:** cross mark, hand drawn x, x mark, doodle cross, reject symbol, line boil, black background, loop, overlay, wrong answer
+
+### `assets10.mp4`
+- **Title:** Hand drawn star burst sparkle doodle loop on black background
+- **First 10 Keywords:** star burst, hand drawn star, sparkle doodle, burst callout, star explosion, line boil, black background, loop, overlay, pop graphic
+
+### `assets11.mp4`
+- **Title:** Hand drawn heart outline doodle loop on black background
+- **First 10 Keywords:** heart outline, hand drawn heart, doodle heart, love symbol, heart shape, line boil, black background, loop, overlay, romance icon
+
+### `assets12.mp4`
+- **Title:** Hand drawn question and exclamation doodle on black background loop
+- **First 10 Keywords:** question mark, exclamation mark, punctuation doodles, hand drawn symbols, question and answer, line boil, black background, loop, overlay, quiz callout
+
+### `assets13.mp4`
+- **Title:** Hand drawn spiral scribble swirl loop on black background
+- **First 10 Keywords:** spiral scribble, hand drawn spiral, doodle swirl, vortex scribble, swirling loop, line boil, black background, loop, overlay, animated spiral
+
+### `assets14.mp4`
+- **Title:** Hand drawn rectangle box frame doodle loop on black background
+- **First 10 Keywords:** rectangle frame, hand drawn frame, doodle border, box callout, text box frame, line boil, black background, loop, overlay, lower third box
 
 ## Verification Checklist
 - [x] No title exceeds 70 characters.
@@ -69,6 +104,6 @@ Generated on: 2026-11-08T04:15:56.072Z
 - [x] Every asset has exactly 49 unique keywords.
 - [x] No duplicate keywords exist within any asset.
 - [x] No duplicate titles exist across the series.
-- [x] Category 15 (Culture and Religion) applied consistently.
+- [x] Category 8 (Graphic Resources) applied consistently.
 - [x] Releases column is properly empty.
 - [x] Full RFC 4180 CSV compliance with UTF-8 encoding.
