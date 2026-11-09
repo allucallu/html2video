@@ -1,90 +1,130 @@
-# HTML Render Engine
+# 🚀 HTML Render Engine: Pabrik Dolar Microstock Modal Canvas & Kemiskinan
 
-Engine pembuatan aset video microstock (Adobe Stock, Pond5, Shutterstock) dari kode HTML Canvas. 
-Engine menggerakkan waktu virtual `t` sendiri (bukan clock fisik), menjamin hasil render deterministik, bit-identical loop, dan tanpa frame-drop.
-
-Mendukung ekspor:
-- **Black Solid (#000000)**: Cocok untuk elemen grafis gelap / mode blend *Screen* (Codec: H.264 MP4 atau ProRes 422 HQ MOV).
-- **Transparent (Alpha)**: Transparan murni dengan saluran Alpha penuh (Codec: Apple ProRes 4444 MOV).
+> *"Ngapain bayar langganan Adobe After Effects tiap bulan cuma buat ngerender animasi lingkaran muter-muter sama partikel emas? Mending kita perbudak server gratisan Microsoft."*
 
 ---
 
-## Perintah Cepat
+## 🧐 Apaan Ini Sebenernya?
+
+Selamat datang di **HTML Render Engine**, sebuah solusi over-engineered nan jenius buat Anda yang ingin jualan video footage di **Adobe Stock, Shutterstock, atau Pond5**, tapi:
+1. Laptop kentang, kipasnya bunyi kayak helikopter mau take-off tiap buka After Effects / Blender.
+2. Dompet tipis, malas bayar langganan bulanan software motion design.
+3. Lebih jago nulis `Math.sin(t * 3)` daripada narik-narik kurva bezier di timeline editing.
+
+Engine ini membuka file HTML5 Canvas di browser headless (Playwright), membekukan waktu fisik, lalu menjajah waktu virtual `t` frame demi frame untuk disuntikkan langsung ke mulut pipa **FFmpeg**. Hasilnya? Video 4K 60fps/30fps murni, **100% bit-identical loop**, tanpa drama frame drop, tanpa lag, dan siap panen royalti dollar.
+
+---
+
+## ✨ Fitur Sakti (Kenapa Engine Ini Lebih Pinter dari After Effects?)
+
+* **⏱️ Waktu Virtual yang Kejam:**  
+  Engine ini nggak peduli laptop Anda ngos-ngosan ngerender cuma 1 frame per detik. Waktu browser dikontrol manual, jadi hasil akhir videonya dijamin 30 atau 60 FPS super mulus tanpa patah-patah sedetik pun.
+* **☁️ Perbudakan Massal Server GitHub (Matrix Parallelism):**  
+  Punya 14 aset video yang mau dirender? Jangan buang umur nungguin laptop ngerender satu-satu. Lempar ke GitHub Actions! 14 virtual machine cloud bakal kerja rodi serentak di server Microsoft. Render 14 video 4K kelar cuma dalam ~2–3 menit. Biar Bill Gates yang nanggung tagihan listriknya.
+* **📦 Download Sekali Klik (All-in-One Artifact):**  
+  Setelah GitHub selesai kerja bakti, semua video MP4, poster thumbnail 4K, dan file CSV metadata bakal dibungkus rapi jadi satu file `.zip`. Anda tinggal download sekali, ekstrak, lalu seret ke Adobe Stock sambil rebahan.
+* **🏷️ Pabrik Metadata Anti-Ditolak Kurator:**  
+  Dilengkapi validator metadata cerdas. Otomatis ngecek batas 70 karakter judul tanpa koma haram, menyusun tepat 49 keywords teroptimasi algoritma Adobe Sensei, dan menyaring kata-kata terlarang (`alpha`, `transparent`, dsb.) biar aset Anda nggak kena razia kurator galak.
+* **🌑 Mode Black Solid & Alpha ProRes:**  
+  Mendukung render latar hitam pekat `#000000` (mode favorit video editor untuk blend *Screen/Add*) serta transparan murni Apple ProRes 4444 jika Anda memang butuh alpha channel.
+
+---
+
+## 🛠️ Cara Pake (Gampang, Bocil Juga Paham)
+
+### 1. Instalasi (Cuma Sekali Seumur Hidup)
 
 ```bash
-# 1. Instalasi dependensi
+# Clone repo ini, lalu pasang dependensinya
 npm install
-npx playwright install chromium    # opsional di lokal jika sudah punya Google Chrome / Edge
 
-# 2. Preview Studio Lokal (http://localhost:5173)
-npm run preview
-
-# 3. Cek info durasi & frame aset
-npm run info assets/ghost-pack-4k.html
-
-# 4. Ekspor Thumbnail Poster 4K Saja (JPG / PNG)
-npm run poster assets/ghost-pack-4k.html --out out/poster.jpg
-
-# 5. Batch Render Semua Preset (Menghasilkan seluruh variasi video sekaligus)
-npm run batch assets/ghost-pack-4k.html
-
-# 6. Render Manual: Black Solid (H.264 4K)
-node core/render.mjs assets/ghost-pack-4k.html --bg black --out out/final-black.mp4
-
-# 7. Render Manual: Transparan Alpha (Apple ProRes 4444 4K)
-node core/render.mjs assets/ghost-pack-4k.html --bg alpha --out out/final-alpha.mov
+# Kalau di laptop belum ada Google Chrome / Edge, install chromium:
+npx playwright install chromium
 ```
 
----
+### 2. Buka Studio Preview Lokal
 
-## Opsi Perintah CLI (`core/render.mjs`)
-
-| Opsi | Default | Deskripsi |
-| :--- | :--- | :--- |
-| `--bg black\|alpha` | `black` | Mode latar belakang: `black` (#000000 murni) atau `alpha` (transparan). |
-| `--alpha` | - | Pintasan untuk `--bg alpha`. |
-| `--codec` | `h264` / `prores4444` | Codec: `h264`, `prores` (422 HQ), atau `prores4444` (dengan Alpha). |
-| `--out file.[mp4\|mov]` | `out/<aset>` | File keluaran. Otomatis menyimpan poster 4K (`-poster.jpg` / `-poster.png`). |
-| `--poster-only` | - | Hanya ekspor 1 frame poster 4K lalu selesai tanpa encoding video. |
-| `--time S` | `durasi/2` | Waktu frame yang diekspor saat menggunakan `--poster-only`. |
-| `--no-poster` | - | Jangan simpan file poster saat merender video. |
-| `--res` | `3840x2160` | Resolusi keluaran (mis. `3840x2160`, `1920x1080`). |
-| `--fps` | `30` | Frame rate per detik (standar broadcast: 24, 25, 29.97, 30, 60). |
-| `--config` | - | Jalur file JSON config / preset. |
-| `--param k=v` | - | Override parameter aset spesifik (mis. `--param seed=999`). |
-| `--crf` | `14` | CRF untuk encoding H.264 (semakin kecil semakin tinggi kualitasnya). |
-| `--preset` | `slow` | Preset encoder x264 (`slow`, `medium`, `veryfast`). |
-| `--info` | - | Mencetak metadata kepatuhan stock & frame lalu keluar. |
-| `--chrome path` | - | Jalur biner Chromium kustom (atau gunakan env `CHROME_PATH`). |
-
----
-
-## Studio Preview (`npm run preview`)
-
-Jalankan `npm run preview` untuk membuka **Studio Dashboard** di `http://localhost:5173`.
-* Menampilkan daftar semua aset HTML dan preset variasi yang tersedia.
-* Mengklik link preset akan langsung membuka preview dengan preset tersebut dimuat.
-* Di dalam panel UI preview, terdapat menu **Preset Studio** untuk berganti variasi preset secara instan tanpa me-reload browser.
-
----
-
-## Batch Render (`npm run batch`)
-
-Jalankan perintah ini untuk memproduksi portofolio dalam jumlah banyak:
+Pengen liat animasi HTML Anda sebelum dipanggang jadi video? Buka studio dashboard:
 ```bash
-node core/batch.mjs assets/ghost-pack-4k.html
+npm run preview
 ```
-Engine akan secara otomatis mencari seluruh preset di folder `presets/` dan merender setiap variasi satu per satu ke folder `out/`.
-* Gunakan flag `--poster-only` untuk mengekstrak thumbnail 4K seluruh preset dalam hitungan detik.
+Buka browser di `http://localhost:5173`. Anda bisa gonta-ganti aset dan utak-atik preset secara instan tanpa perlu F5 sampai keyboard jebol.
+
+### 3. Cek Kesehatan Aset
+
+Pastikan aset Anda patuh standar microstock (durasi 5–60 detik, resolusi genap, dsb.):
+```bash
+node core/render.mjs assets/nama_aset.html --info
+```
+
+### 4. Render Manual di Laptop Sendiri (Kalau Lagi Gabut)
+
+```bash
+# Render Black Solid H.264 4K (Standar Stock Footage Overlay)
+node core/render.mjs assets/nama_aset.html --bg black --out out/video-kece.mp4
+
+# Render Transparan Murni (Apple ProRes 4444 MOV)
+node core/render.mjs assets/nama_aset.html --bg alpha --out out/video-transparan.mov
+
+# Cuma mau ambil 1 lembar poster 4K buat thumbnail? Cepat kilat:
+node core/render.mjs assets/nama_aset.html --poster-only --out out/poster.jpg
+```
 
 ---
 
-## Render di GitHub Actions
+## ☁️ Cara Sultan: Render Otomatis di GitHub Actions
 
-Di GitHub Actions:
-1. Buka tab **Actions** → pilih workflow **Render aset** → klik **Run workflow**.
-2. Masukkan parameter:
-   - **Latar Belakang**: pilih `black` atau `alpha`.
-   - **Codec**: pilih `auto` (otomatis H.264 untuk black, ProRes 4444 untuk alpha).
-   - **Jumlah job**: default `1` (sangat direkomendasikan untuk durasi 5–30s guna menghindari risiko cacat *concat PTS/DTS*).
-3. Setelah workflow selesai, unduh artifact `final-video` yang berisi video 4K master dan thumbnail poster 4K yang siap diunggah.
+Ini cara paling elegan buat orang yang menghargai waktu tidur:
+
+1. **Taruh semua file HTML Anda** di dalam folder `assets/`.
+2. **Push ke GitHub:**
+   ```bash
+   git add .
+   git commit -m "feat: aset baru siap panen"
+   git push origin main
+   ```
+3. **Pencet Tombol Ajaib:**
+   - Masuk ke tab **Actions** di repositori GitHub Anda.
+   - Pilih workflow **Render Video Aset**.
+   - Klik **Run workflow** (biarkan `asset` tetap terisi `all` dan `bg` tetap `black`).
+4. **Tidur / Ngopi Santai:**
+   - Puluhan runner virtual machine di cloud bakal bekerja serentak merender semua file HTML Anda secara paralel.
+5. **Download Hasil Panen:**
+   - Saat workflow kelar, gulir ke bawah ke bagian **Artifacts**.
+   - Klik **`all-rendered-videos`**.
+   - Tara! Anda dapet satu file zip berisi seluruh video 4K, thumbnail 4K, plus file CSV metadata yang tinggal Anda lempar ke Adobe Stock.
+
+---
+
+## 📁 Struktur Folder (Biar Gak Nyasar)
+
+```text
+├── assets/             # Taruh file HTML5 Canvas Anda di sini (jangan aneh-aneh)
+├── core/
+│   ├── render.mjs      # Otak utama: pengendali Playwright & pipa FFmpeg
+│   ├── serve.mjs       # Server lokal buat nongkrongin preview
+│   └── batch.mjs       # Skrip batch lokal
+├── metadata/           # Gudang metadata CSV, laporan riset, & preview audit
+│   ├── adobe_stock_metadata.csv   # File CSV resmi yang disuapkan ke Adobe Stock
+│   └── previews/                  # Screenshot bukti visual t=2.5s
+├── .github/workflows/
+│   └── render.yml      # Mandor GitHub Actions (Matrix parallel execution)
+└── package.json        # Surat izin mengemudi Node.js
+```
+
+---
+
+## 💡 FAQ (Pertanyaan yang Sering Ditanyain Orang Malas Baca)
+
+**T: Kenapa videonya berlatar hitam solid, bukan transparan (alpha)?**  
+*J: Karena di dunia video editor, klip kilau emas, api, dan partikel glow jauh lebih bersih dan bebas noda abu-abu kotor (*dark fringing*) kalau dirender di atas latar hitam pekat. Pembeli tinggal ubah Blend Mode ke **Screen** atau **Add** di Premiere/CapCut/DaVinci, dan latarnya langsung lenyap seketika.*
+
+**T: Boleh nggak bikin yang beneran transparan?**  
+*J: Boleh banget! Tapi pastikan kode HTML Canvas Anda pakai `ctx.clearRect()` bukan `ctx.fillRect('#000000')`. Kalau kanvasnya udah dicat hitam dari sononya, dirender pakai codec malaikat pun hasilnya bakal tetep hitam.*
+
+**T: Apakah saya bakal kaya raya setelah pakai engine ini?**  
+*J: Tergantung seberapa rajin Anda nyuruh AI bikin animasi HTML Canvas dan seberapa hoki aset Anda dibeli agensi luar negeri. Tapi yang jelas, laptop Anda nggak bakal meledak lagi gara-gara ngerender After Effects.*
+
+---
+
+*Dibuat dengan rasa malas merender lokal, secangkir kopi, dan algoritma matematika Canvas 2D.*
