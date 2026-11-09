@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spirograph Hypotrochoid Bloom</title>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: #000000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  canvas {
+    display: block;
+    width: 100vw;
+    height: 56.25vw;
+    max-height: 100vh;
+    max-width: 177.78vh;
+    margin: auto;
+  }
+</style>
+</head>
+<body>
+<canvas id="canvas" width="3840" height="2160"></canvas>
+<script>
+window.DURATION = 10;
+window.FPS = 30;
+
+const P = window.__cliParams || {};
+const BG = P.bg || 'black';
+const SEED = Number(P.seed) || 1;
+const VARIANT = Number(P.variant) || 0;
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const TAU = Math.PI * 2;
+
+// Seeded PRNG used only at load time
+function createSeededPRNG(seed) {
+  let s = (seed % 2147483647);
+  if (s <= 0) s += 2147483646;
+  return function() {
+    s = (s * 16807) % 2147483647;
+    return (s - 1) / 2147483646;
+  };
+}
+
+const rand = createSeededPRNG(SEED * 9187 + VARIANT * 313 + 7);
+
+// Parse optional HEX palette or use default white/silver + magenta accent
+function hexToRgb(hex) {
+  const clean = hex.replace('#', '').trim();
+  const num = parseInt(clean.length === 3
+    ? clean.split('').map(c => c + c).join('')
+    : clean, 16);
+  return {
+    r: (num >> 16) & 255,
+    g: (num >> 8) & 255,
+    b: num & 255
+  };
+}
+
+function rgba(rgb, a) {
+  return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${Math.max(0, Math.min(1, a))})`;
+}
+
+const DEFAULT_COLORS = {
+  white: { r: 255, g: 255, b: 255 },
+  silver: { r: 185, g: 202, b: 228 },
+  guide: { r: 125, g: 148, b: 185 },
+  accent: { r: 255, g: 46, b: 147 },      // Luminous Magenta
+  accentSoft: { r: 255, g: 120, b: 192 }, // Pale Magenta
+  accentDeep: { r: 175, g: 18, b: 98 }    // Deep Magenta
+};
+
+if (P.palette && typeof P.palette === 'string') {
+  const parts = P.palette.split(',').map(s => s.trim()).filter(Boolean);
+  if (parts[0]) DEFAULT_COLORS.accent = hexToRgb(parts[0]);
+  if (parts[1]) DEFAULT_COLORS.white = hexToRgb(parts[1]);
+  if (parts[2]) DEFAULT_COLORS.silver = hexToRgb(parts[2]);
+  DEFAULT_COLORS.accentSoft = {
+    r: Math.min(255, Math.round((DEFAULT_COLORS.accent.r + 255) * 0.5)),
+    g: Math.min(255, Math.round((DEFAULT_COLORS.accent.g + 255) * 0.5)),
+    b: Math.min(255, Math.round((DEFAULT_COLORS.accent.b + 255) * 0.5))
+  };
+  DEFAULT_COLORS.accentDeep = {
+    r: Math.round(DEFAULT_COLORS.accent.r * 0.65),
+    g: Math.round(DEFAULT_COLORS.accent.g * 0.65),
+    b: Math.round(DEFAULT_COLORS.accent.b * 0.65)
+  };
+}
+
+// Lookup table of 8 distinct mathematical hypotrochoid presets indexed by VARIANT
+// N: number of symmetry petals (stator numerator)
+// M: winding number / revolutions to close (roller numerator)
+// shells: number of phase-nested guilloche curves in the bloom
+// rollers: number of visible rolling generator mechanisms
+const PRESETS = [
+  { N: 8,  M: 3, shells: 9,  dBase: 0.145, dAmp: 0.055, innerN: 8,  innerM: 1, rollers: 4, rotMult: 1 },
+  { N: 12, M: 5, shells: 8,  dBase: 0.135, dAmp: 0.052, innerN: 6,  innerM: 1, rollers: 6, rotMult: 2 },
+  { N: 7,  M: 3, shells: 9,  dBase: 0.142, dAmp: 0.050, innerN: 7,  innerM: 2, rollers: 7, rotMult: 1 },
+  { N: 10, M: 3, shells: 8,  dBase: 0.148, dAmp: 0.054, innerN: 5,  innerM: 2, rollers: 5, rotMult: 1 },
+  { N: 9,  M: 4, shells: 9,  dBase: 0.138, dAmp: 0.052, innerN: 9,  innerM: 2, rollers: 3, rotMult: 2 },
+  { N: 16, M: 5, shells: 7,  dBase: 0.130, dAmp: 0.048, innerN: 8,  innerM: 3, rollers: 4, rotMult: 2 },
+  { N: 11, M: 4, shells: 8,  dBase: 0.140, dAmp: 0.050, innerN: 11, innerM: 3, rollers: 11, rotMult: 1 },
+  { N: 14, M: 5, shells: 8,  dBase: 0.136, dAmp: 0.050, innerN: 7,  innerM: 2, rollers: 7, rotMult: 2 }
+];
+
+const CFG = PRESETS[((VARIANT % PRESETS.length) + PRESETS.length) % PRESETS.length];
+
+// LOOP FIX: the whole bloom rotates by 2*PI*rotMult/N over one loop. The curve SET is invariant under
+// that rotation, but individual riders (rollers, ambient nodes, apex nodes) are not: each rider must also
+// slide along its curve by ROT_SHIFT per loop so that it lands exactly where it started.
+// Identity used: Rot(-2*PI*r/N) * P(theta) = P(theta + c), c = 2*PI*(m1 - r/N), with (r - (N-M)*m1) % M == 0.
+const ROT_SHIFT = (function () {
+  const N = CFG.N, M = CFG.M, r = CFG.rotMult;
+  for (let m1 = 0; m1 < M; m1++) {
+    if ((((r - (N - M) * m1) % M) + M) % M === 0) return TAU * (m1 - r / N);
+  }
+  return 0;
+})();
+
+// Precompute static angle sample arrays at load time
+// LOOP FIX: sample count must be a multiple of M*N so the rotated polyline lands on its own vertices
+const SAMPLES_MAIN = CFG.M * CFG.N * Math.max(1, Math.round(540 / (CFG.M * CFG.N)));
+const THETA_MAIN = new Float32Array(SAMPLES_MAIN + 1);
+for (let i = 0; i <= SAMPLES_MAIN; i++) {
+  THETA_MAIN[i] = (i / SAMPLES_MAIN) * TAU * CFG.M;
+}
+
+const SAMPLES_INNER = CFG.innerM * CFG.innerN * Math.max(1, Math.round(360 / (CFG.innerM * CFG.innerN)));
+const THETA_INNER = new Float32Array(SAMPLES_INNER + 1);
+for (let i = 0; i <= SAMPLES_INNER; i++) {
+  THETA_INNER[i] = (i / SAMPLES_INNER) * TAU * CFG.innerM;
+}
+
+// Precompute ambient orbital node offsets using seeded PRNG
+const AMBIENT_NODES = [];
+const NUM_AMBIENT = 36;
+for (let i = 0; i < NUM_AMBIENT; i++) {
+  AMBIENT_NODES.push({
+    s0: (i / NUM_AMBIENT + rand() * 0.02) % 1.0,
+    shellIdx: i % CFG.shells,
+    speedMult: (i % 2 === 0) ? 1 : -1,
+    twinklePhase: rand() * TAU,
+    twinkleFreq: 4 + (i % 3),
+    isAccent: (i % 3 === 0),
+    sizeScale: 0.75 + 0.55 * rand()
+  });
+}
+
+// Helper: Evaluate Hypotrochoid point in normalized units (relative to S)
+// R: fixed stator radius, r: rolling circle radius, d: pen arm distance, twist: angular phase shift
+function evalHypotrochoid(theta, R, r, d, twist) {
+  const diff = R - r;
+  const ratio = diff / r;
+  const a1 = theta + twist;
+  const a2 = ratio * theta - twist * (CFG.N / CFG.M - 1);
+  return {
+    x: diff * Math.cos(a1) + d * Math.cos(a2),
+    y: diff * Math.sin(a1) - d * Math.sin(a2)
+  };
+}
+
+// Helper: Multi-pass vector glow stroke (no shadowBlur, fast 4K CPU rendering)
+function strokeGlowingPath(pathFn, coreWidth, rgb, baseAlpha, glowPasses) {
+  if (baseAlpha <= 0.004) return;
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  if (BG === 'black' && glowPasses > 1) {
+    ctx.globalCompositeOperation = 'lighter';
+  }
+
+  for (let p = glowPasses; p >= 1; p--) {
+    const mult = p === 1 ? 1.0 : (p === 2 ? 2.6 : 5.4);
+    const alphaMult = p === 1 ? 1.0 : (p === 2 ? 0.28 : 0.09);
+    ctx.strokeStyle = rgba(rgb, baseAlpha * alphaMult);
+    ctx.lineWidth = coreWidth * mult;
+    pathFn();
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// Helper: Draw a precision scientific node with soft radial alpha halo
+function drawGlowingNode(x, y, radius, coreRgb, haloRgb, alpha) {
+  if (alpha <= 0.01) return;
+  ctx.save();
+  if (BG === 'black') {
+    ctx.globalCompositeOperation = 'lighter';
+  }
+
+  const haloR = radius * 4.2;
+  const grad = ctx.createRadialGradient(x, y, 0, x, y, haloR);
+  grad.addColorStop(0.0, rgba(coreRgb, alpha * 0.95));
+  grad.addColorStop(0.25, rgba(haloRgb, alpha * 0.55));
+  grad.addColorStop(0.65, rgba(haloRgb, alpha * 0.14));
+  grad.addColorStop(1.0, rgba(haloRgb, 0.0));
+
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(x, y, haloR, 0, TAU);
+  ctx.fill();
+
+  ctx.fillStyle = rgba(coreRgb, alpha);
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, TAU);
+  ctx.fill();
+  ctx.restore();
+}
+
+window.renderFrame = function(t) {
+  const W = canvas.width;
+  const H = canvas.height;
+  const S = Math.min(W, H);
+  const cx = 0.5 * W;
+  const cy = 0.5 * H;
+
+  // Reset deterministic canvas state
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.setLineDash([]);
+  ctx.lineWidth = 1;
+
+  // Background Mode Handling
+  if (BG === 'alpha') {
+    ctx.clearRect(0, 0, W, H);
+  } else {
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  const phase = (((t % window.DURATION) + window.DURATION) % window.DURATION) / window.DURATION;
+
+  // Seamless Loop Periodic Harmonics
+  // Primary (k = 1, 2): Main bloom morphing, symmetry-locked rotation, eccentricity breathing
+  const sin1 = Math.sin(TAU * phase * 1);
+  const cos1 = Math.cos(TAU * phase * 1);
+  const sin2 = Math.sin(TAU * phase * 2);
+  const cos2 = Math.cos(TAU * phase * 2);
+
+  // Secondary (k = 3, 5): Counter-rotating inner rosetta, traveling wave phase
+  const sin3 = Math.sin(TAU * phase * 3);
+  const cos3 = Math.cos(TAU * phase * 3);
+  const sin5 = Math.sin(TAU * phase * 5);
+
+  // Ambient (k = 4, 7): Halo pulse, node twinkling
+  const sin4 = Math.sin(TAU * phase * 4);
+  const sin7 = Math.sin(TAU * phase * 7);
+
+  // Symmetry-locked rotation angles (recipe #2: angle = 2*PI*m*phase / N)
+  const mainSymRot = (TAU * CFG.rotMult * phase) / CFG.N + 0.04 * sin1;
+  const innerSymRot = -(TAU * 2 * phase) / CFG.innerN - 0.05 * sin2;
+
+  // Overall subject radius scales to ~35.5% of S (diameter ~71% of S, generous safe margins)
+  const maxOuterR = 0.355 * S;
+  const R_stator = 0.225 * S * (1.0 + 0.025 * sin2);
+  const r_roller = R_stator * (CFG.M / CFG.N);
+
+  // =========================================================================
+  // 1. SOFT CONTAINED CENTRAL HALO (Alpha radial gradient reaching 0 well inside subject)
+  // =========================================================================
+  ctx.save();
+  const haloRad = maxOuterR * (1.05 + 0.04 * sin4);
+  const bgHalo = ctx.createRadialGradient(cx, cy, 0, cx, cy, haloRad);
+  const haloAlpha = 0.11 + 0.03 * sin2;
+  bgHalo.addColorStop(0.0, rgba(DEFAULT_COLORS.accent, haloAlpha));
+  bgHalo.addColorStop(0.38, rgba(DEFAULT_COLORS.accentDeep, haloAlpha * 0.55));
+  bgHalo.addColorStop(0.72, rgba(DEFAULT_COLORS.guide, haloAlpha * 0.20));
+  bgHalo.addColorStop(1.0, rgba(DEFAULT_COLORS.guide, 0.0));
+  ctx.fillStyle = bgHalo;
+  ctx.beginPath();
+  ctx.arc(cx, cy, haloRad, 0, TAU);
+  ctx.fill();
+  ctx.restore();
+
+  // =========================================================================
+  // 2. FAINT SCIENTIFIC CONSTRUCTION GEOMETRY (Stator Ring, Radial Axes, Envelope Circles)
+  // =========================================================================
+  ctx.save();
+  ctx.translate(cx, cy);
+
+  // Outer Bounding Envelope Circle & Fixed Stator Circle
+  const rEnvelopeOuter = (R_stator - r_roller) + (CFG.dBase + CFG.dAmp * 0.6) * S;
+  const rEnvelopeInner = Math.abs((R_stator - r_roller) - (CFG.dBase + CFG.dAmp * 0.6) * S);
+
+  ctx.strokeStyle = rgba(DEFAULT_COLORS.guide, 0.22);
+  ctx.lineWidth = 0.0008 * S;
+  ctx.beginPath();
+  ctx.arc(0, 0, rEnvelopeOuter, 0, TAU);
+  ctx.arc(0, 0, R_stator, 0, TAU);
+  ctx.arc(0, 0, rEnvelopeInner, 0, TAU);
+  ctx.stroke();
+
+  // Dashed pitch circle (path of rolling circle centers: radius = R_stator - r_roller)
+  ctx.save();
+  ctx.setLineDash([0.006 * S, 0.006 * S]);
+  ctx.strokeStyle = rgba(DEFAULT_COLORS.silver, 0.25);
+  ctx.lineWidth = 0.0007 * S;
+  ctx.beginPath();
+  ctx.arc(0, 0, R_stator - r_roller, 0, TAU);
+  ctx.stroke();
+  ctx.restore();
+
+  // Precision Degree & Symmetry Tick Marks on Outer Reference Ring
+  const tickRingR = maxOuterR * 0.98;
+  ctx.strokeStyle = rgba(DEFAULT_COLORS.silver, 0.28);
+  ctx.lineWidth = 0.0007 * S;
+  ctx.beginPath();
+  ctx.arc(0, 0, tickRingR, 0, TAU);
+  const totalTicks = CFG.N * 8;
+  for (let i = 0; i < totalTicks; i++) {
+    const a = (i / totalTicks) * TAU + mainSymRot;
+    const isMajor = (i % 8 === 0);
+    const isMid = (i % 4 === 0);
+    const len = (isMajor ? 0.014 : (isMid ? 0.008 : 0.004)) * S;
+    ctx.moveTo(Math.cos(a) * (tickRingR - len), Math.sin(a) * (tickRingR - len));
+    ctx.lineTo(Math.cos(a) * (tickRingR + len * 0.4), Math.sin(a) * (tickRingR + len * 0.4));
+  }
+  ctx.stroke();
+
+  // Faint Radial Symmetry Construction Axes
+  ctx.strokeStyle = rgba(DEFAULT_COLORS.guide, 0.14);
+  ctx.lineWidth = 0.0006 * S;
+  ctx.beginPath();
+  for (let i = 0; i < CFG.N; i++) {
+    const a = (i / CFG.N) * TAU + mainSymRot;
+    ctx.moveTo(Math.cos(a) * (0.03 * S), Math.sin(a) * (0.03 * S));
+    ctx.lineTo(Math.cos(a) * tickRingR, Math.sin(a) * tickRingR);
+  }
+  ctx.stroke();
+
+  // =========================================================================
+  // 3. SECONDARY LAYER: INNER COUNTER-ROTATING HYPOTROCHOID ROSETTE CORE
+  // =========================================================================
+  const R_inner = 0.135 * S * (1.0 - 0.04 * cos2);
+  const r_inner = R_inner * (CFG.innerM / CFG.innerN);
+  const d_innerBase = (0.068 + 0.024 * sin3) * S;
+
+  ctx.save();
+  ctx.rotate(innerSymRot); // true rotation (curve has innerN-fold symmetry -> exact loop)
+  for (let sIdx = 0; sIdx < 4; sIdx++) {
+    const sFrac = sIdx / 4;
+    const d_cur = d_innerBase * (0.72 + 0.18 * sIdx);
+    const twist = (sFrac * TAU) / (CFG.innerN * 2) + 0.08 * cos3;
+    const isMagenta = (sIdx === 1 || sIdx === 3);
+    const col = isMagenta ? DEFAULT_COLORS.accentSoft : DEFAULT_COLORS.silver;
+    const alpha = isMagenta ? (0.48 + 0.15 * sin3) : 0.35;
+    const lw = (isMagenta ? 0.0013 : 0.0009) * S;
+
+    const traceInner = () => {
+      ctx.beginPath();
+      for (let i = 0; i <= SAMPLES_INNER; i++) {
+        const pt = evalHypotrochoid(THETA_INNER[i], R_inner, r_inner, d_cur, twist);
+        if (i === 0) ctx.moveTo(pt.x, pt.y);
+        else ctx.lineTo(pt.x, pt.y);
+      }
+      ctx.closePath();
+    };
+
+    strokeGlowingPath(traceInner, lw, col, alpha, isMagenta ? 2 : 1);
+  }
+
+  ctx.restore();
+
+  ctx.save();
+  ctx.rotate(mainSymRot); // true rotation (curve has N-fold symmetry -> exact loop)
+
+  // =========================================================================
+  // 4. PRIMARY LAYER: NESTED SPIROGRAPH HYPOTROCHOID BLOOM SHELLS
+  // =========================================================================
+  // Morphing & breathing pen-arm eccentricity d across the family of shells
+  const morphMix = 0.5 - 0.5 * cos1; // Smooth periodic morph in [0, 1]
+  const numShells = CFG.shells;
+
+  for (let sIdx = 0; sIdx < numShells; sIdx++) {
+    const u = sIdx / (numShells - 1); // 0 (innermost shell) to 1 (outermost shell)
+    const shellWave = Math.sin(TAU * (phase * 2 - u * 0.65));
+    const R_shell = R_stator * (0.84 + 0.24 * u);
+    const r_shell = R_shell * (CFG.M / CFG.N);
+
+    // Breathing eccentricity d reveals cusps, loops, and petal interlacing
+    const d_shell = S * (
+      CFG.dBase * (0.58 + 0.72 * u) +
+      CFG.dAmp * (0.65 * Math.sin(TAU * phase * 1 + u * 2.2) + 0.35 * shellWave)
+    );
+
+    // Phase-shifted angular twist between consecutive guilloche shells
+    const twist = (u - 0.5) * (TAU / (CFG.N * 1.45)) * (0.55 + 0.65 * morphMix)
+                + 0.035 * Math.sin(TAU * phase * 3 + u * Math.PI);
+
+    // Brightness & line-weight hierarchy:
+    // Hero shells (center & outer accent shells) are crisp magenta or bright white;
+    // intermediate shells form a delicate silver-magenta interference mesh.
+    const isHeroMagenta = (sIdx === Math.floor(numShells * 0.65) || sIdx === numShells - 2);
+    const isHeroWhite   = (sIdx === Math.floor(numShells * 0.35) || sIdx === numShells - 1);
+    const isSubMagenta  = (!isHeroMagenta && !isHeroWhite && sIdx % 2 === 1);
+
+    let strokeRgb, lineW, strokeAlpha, passes;
+    if (isHeroMagenta) {
+      strokeRgb = DEFAULT_COLORS.accent;
+      lineW = 0.0022 * S;
+      strokeAlpha = 0.92;
+      passes = 3;
+    } else if (isHeroWhite) {
+      strokeRgb = DEFAULT_COLORS.white;
+      lineW = 0.0020 * S;
+      strokeAlpha = 0.90;
+      passes = 3;
+    } else if (isSubMagenta) {
+      strokeRgb = DEFAULT_COLORS.accentSoft;
+      lineW = 0.0012 * S;
+      strokeAlpha = 0.46 + 0.14 * shellWave;
+      passes = 2;
+    } else {
+      strokeRgb = DEFAULT_COLORS.silver;
+      lineW = 0.0010 * S;
+      strokeAlpha = 0.42 + 0.12 * shellWave;
+      passes = 1;
+    }
+
+    const traceShell = () => {
+      ctx.beginPath();
+      for (let i = 0; i <= SAMPLES_MAIN; i++) {
+        const pt = evalHypotrochoid(THETA_MAIN[i], R_shell, r_shell, d_shell, twist);
+        if (i === 0) ctx.moveTo(pt.x, pt.y);
+        else ctx.lineTo(pt.x, pt.y);
+      }
+      ctx.closePath();
+    };
+
+    strokeGlowingPath(traceShell, lineW, strokeRgb, strokeAlpha, passes);
+
+    // Highlight symmetry apex & cusp intersection nodes on the hero shells
+    if (isHeroMagenta || isHeroWhite) {
+      for (let k = 0; k < CFG.N; k++) {
+        // Outer petal apex occurs at theta = k * TAU * M / N
+        const thetaApex = (k * TAU * CFG.M) / CFG.N;
+        const ptApex = evalHypotrochoid(thetaApex, R_shell, r_shell, d_shell, twist);
+        const apexPolar = ((k * CFG.M) % CFG.N) * (TAU / CFG.N) + mainSymRot;
+        const nodePulse = 0.65 + 0.35 * Math.sin(TAU * phase * 4 + apexPolar);
+
+        drawGlowingNode(
+          ptApex.x,
+          ptApex.y,
+          (isHeroMagenta ? 0.0040 : 0.0034) * S * nodePulse,
+          DEFAULT_COLORS.white,
+          isHeroMagenta ? DEFAULT_COLORS.accent : DEFAULT_COLORS.silver,
+          0.88 * nodePulse
+        );
+
+        // Inner valley / self-intersection cusp occurs halfway between apices
+        const thetaValley = ((k + 0.5) * TAU * CFG.M) / CFG.N;
+        const ptValley = evalHypotrochoid(thetaValley, R_shell, r_shell, d_shell, twist);
+        drawGlowingNode(
+          ptValley.x,
+          ptValley.y,
+          0.0028 * S,
+          isHeroMagenta ? DEFAULT_COLORS.accentSoft : DEFAULT_COLORS.white,
+          DEFAULT_COLORS.accent,
+          0.72
+        );
+      }
+    }
+  }
+
+  // =========================================================================
+  // 5. LIVE ROLLING GENERATOR CIRCLES & PEN-ARM MECHANISM (Scientific Diagram Layer)
+  // =========================================================================
+  // Show CFG.rollers rolling generator wheels inside the stator circle tracing the primary hero curve
+  const heroIdx = Math.floor(numShells * 0.65);
+  const uHero = heroIdx / (numShells - 1);
+  const R_hero = R_stator * (0.84 + 0.24 * uHero);
+  const r_hero = R_hero * (CFG.M / CFG.N);
+  const d_hero = S * (
+    CFG.dBase * (0.58 + 0.72 * uHero) +
+    CFG.dAmp * (0.65 * Math.sin(TAU * phase * 1 + uHero * 2.2) + 0.35 * Math.sin(TAU * (phase * 2 - uHero * 0.65)))
+  );
+  const twistHero = (uHero - 0.5) * (TAU / (CFG.N * 1.45)) * (0.55 + 0.65 * morphMix)
+                  + 0.035 * Math.sin(TAU * phase * 3 + uHero * Math.PI);
+
+  for (let rIdx = 0; rIdx < CFG.rollers; rIdx++) {
+    // Each roller travels exactly 1 full closed hypotrochoid cycle (TAU * M) over the loop
+    const thetaRoll = (rIdx / CFG.rollers) * TAU * CFG.M + (TAU * CFG.M + ROT_SHIFT) * phase;
+    const centerDist = R_hero - r_hero;
+    const aCenter = thetaRoll + twistHero;
+
+    // Center of the rolling generator circle
+    const rcx = centerDist * Math.cos(aCenter);
+    const rcy = centerDist * Math.sin(aCenter);
+
+    // Current pen point on the hero hypotrochoid curve
+    const penPt = evalHypotrochoid(thetaRoll, R_hero, r_hero, d_hero, twistHero);
+
+    // Draw the rolling generator circle
+    ctx.strokeStyle = rgba(DEFAULT_COLORS.silver, 0.38);
+    ctx.lineWidth = 0.0011 * S;
+    ctx.beginPath();
+    ctx.arc(rcx, rcy, r_hero, 0, TAU);
+    ctx.stroke();
+
+    // Draw the internal gear spokes of the rolling circle
+    const ratio = (R_hero - r_hero) / r_hero;
+    const wheelRot = -(ratio * thetaRoll - twistHero * (CFG.N / CFG.M - 1));
+    ctx.strokeStyle = rgba(DEFAULT_COLORS.guide, 0.22);
+    ctx.lineWidth = 0.0007 * S;
+    ctx.beginPath();
+    for (let sp = 0; sp < 4; sp++) {
+      const sa = wheelRot + (sp * Math.PI) / 2;
+      ctx.moveTo(rcx - Math.cos(sa) * r_hero, rcy - Math.sin(sa) * r_hero);
+      ctx.lineTo(rcx + Math.cos(sa) * r_hero, rcy + Math.sin(sa) * r_hero);
+    }
+    ctx.stroke();
+
+    // Draw the magenta pen-arm vector from roller center (rcx, rcy) to tracer locus (penPt.x, penPt.y)
+    strokeGlowingPath(() => {
+      ctx.beginPath();
+      ctx.moveTo(rcx, rcy);
+      ctx.lineTo(penPt.x, penPt.y);
+    }, 0.0015 * S, DEFAULT_COLORS.accent, 0.78, 2);
+
+    // Roller center pivot node & bright active tracer locus node
+    drawGlowingNode(rcx, rcy, 0.0028 * S, DEFAULT_COLORS.white, DEFAULT_COLORS.silver, 0.85);
+    drawGlowingNode(penPt.x, penPt.y, 0.0052 * S, DEFAULT_COLORS.white, DEFAULT_COLORS.accent, 1.0);
+  }
+
+  // =========================================================================
+  // 6. AMBIENT LAYER: TRAVELING PULSES ALONG CURVES & TWINKLING ORBITAL NODES
+  // =========================================================================
+  for (let i = 0; i < NUM_AMBIENT; i++) {
+    const nd = AMBIENT_NODES[i];
+    // Seamless pulse position along curve (recipe #6: fract(s0 + m*phase))
+    const theta = TAU * CFG.M * (nd.s0 + nd.speedMult * phase) + ROT_SHIFT * phase;
+
+    const u = nd.shellIdx / (numShells - 1);
+    const shellWave = Math.sin(TAU * (phase * 2 - u * 0.65));
+    const R_s = R_stator * (0.84 + 0.24 * u);
+    const r_s = R_s * (CFG.M / CFG.N);
+    const d_s = S * (
+      CFG.dBase * (0.58 + 0.72 * u) +
+      CFG.dAmp * (0.65 * Math.sin(TAU * phase * 1 + u * 2.2) + 0.35 * shellWave)
+    );
+    const twist = (u - 0.5) * (TAU / (CFG.N * 1.45)) * (0.55 + 0.65 * morphMix)
+                + 0.035 * Math.sin(TAU * phase * 3 + u * Math.PI);
+
+    const pt = evalHypotrochoid(theta, R_s, r_s, d_s, twist);
+    const twinkle = 0.45 + 0.55 * (0.5 + 0.5 * Math.sin(TAU * phase * nd.twinkleFreq + nd.twinklePhase));
+
+    drawGlowingNode(
+      pt.x,
+      pt.y,
+      0.0026 * S * nd.sizeScale * (0.8 + 0.4 * twinkle),
+      DEFAULT_COLORS.white,
+      nd.isAccent ? DEFAULT_COLORS.accent : DEFAULT_COLORS.silver,
+      twinkle * 0.90
+    );
+  }
+
+  ctx.restore();
+
+  // Central Focal Hub (High-contrast center point for thumbnail clarity)
+  const centerPulse = 1.0 + 0.12 * sin4 + 0.06 * sin7;
+  ctx.strokeStyle = rgba(DEFAULT_COLORS.white, 0.85);
+  ctx.lineWidth = 0.0014 * S;
+  ctx.beginPath();
+  ctx.arc(0, 0, 0.018 * S * centerPulse, 0, TAU);
+  ctx.stroke();
+
+  drawGlowingNode(0, 0, 0.0065 * S * centerPulse, DEFAULT_COLORS.white, DEFAULT_COLORS.accent, 1.0);
+
+  ctx.restore();
+};
+
+// Normal playback loop
+function animate(now) {
+  requestAnimationFrame(animate);
+  window.renderFrame(now / 1000);
+}
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>

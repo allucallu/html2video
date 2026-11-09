@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>90s Retro VHS Camcorder Overlay</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: #000000;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  canvas {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+    object-fit: contain;
+  }
+</style>
+</head>
+<body>
+<canvas id="stage" width="3840" height="2160"></canvas>
+<script>
+(function() {
+  'use strict';
+
+  const canvas = document.getElementById('stage');
+  const ctx = canvas.getContext('2d');
+
+  const DURATION = 4.0;
+  const FPS = 30;
+  const TAU = Math.PI * 2;
+
+  function resize() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    if (w > 0 && h > 0) {
+      if (h > w) {
+        canvas.width = 2160;
+        canvas.height = 3840;
+      } else {
+        canvas.width = 3840;
+        canvas.height = 2160;
+      }
+    }
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // Internal layer renderer for chromatic aberration pass
+  function drawVHSContent(targetCtx, W, H, u, phase, offsetX, offsetY, tintColor) {
+    targetCtx.save();
+    targetCtx.translate(offsetX, offsetY);
+
+    const marginX = 200 * u;
+    const marginY = 180 * u;
+    const p1 = phase * TAU;
+    const p2 = phase * TAU * 2;
+    const p4 = phase * TAU * 4;
+    const p8 = phase * TAU * 8;
+
+    // Apply color override if in chromatic aberration split pass
+    if (tintColor) {
+      targetCtx.fillStyle = tintColor;
+      targetCtx.strokeStyle = tintColor;
+    } else {
+      targetCtx.fillStyle = '#FFFFFF';
+      targetCtx.strokeStyle = '#FFFFFF';
+    }
+
+    // --- TOP LEFT: PLAY ▶ & SP MODE ---
+    const playX = marginX;
+    const playY = marginY + 40 * u;
+
+    targetCtx.font = `800 ${52 * u}px "Share Tech Mono", monospace`;
+    targetCtx.textBaseline = 'middle';
+    targetCtx.textAlign = 'left';
+    targetCtx.fillText('PLAY', playX, playY);
+
+    // Vector Play Triangle ▶
+    const triX = playX + 155 * u;
+    const triY = playY;
+    const triS = 22 * u;
+    targetCtx.beginPath();
+    targetCtx.moveTo(triX, triY - triS);
+    targetCtx.lineTo(triX + triS * 1.6, triY);
+    targetCtx.lineTo(triX, triY + triS);
+    targetCtx.closePath();
+    targetCtx.fill();
+
+    // Mode Badge "SP" (Standard Play)
+    targetCtx.font = `700 ${38 * u}px "Share Tech Mono", monospace`;
+    targetCtx.fillText('SP', playX + 225 * u, playY);
+
+    // Audio Hi-Fi indicator
+    targetCtx.font = `400 ${28 * u}px "Share Tech Mono", monospace`;
+    targetCtx.fillText('STEREO // HI-FI', playX, playY + 54 * u);
+
+    // --- TOP RIGHT: BLINKING REC & RETRO 3-SEGMENT BATTERY ---
+    const topRtX = W - marginX;
+    const topRtY = marginY + 40 * u;
+
+    // Blinking REC (Sharp periodic gate: 0.5s on, 0.5s off = 4 full blinks over 4 seconds)
+    const recBlink = Math.sin(p4) > 0 ? 1 : 0;
+    if (recBlink > 0) {
+      const recDotX = topRtX - 320 * u;
+      const recDotY = topRtY;
+      const rDotR = 18 * u;
+
+      targetCtx.save();
+      targetCtx.fillStyle = tintColor || '#FF2424';
+      targetCtx.beginPath();
+      targetCtx.arc(recDotX, recDotY, rDotR, 0, TAU);
+      targetCtx.fill();
+      targetCtx.restore();
+
+      targetCtx.font = `800 ${52 * u}px "Share Tech Mono", monospace`;
+      targetCtx.textAlign = 'left';
+      targetCtx.fillText('REC', recDotX + 32 * u, recDotY);
+    }
+
+    // Retro 3-Segment Battery Icon
+    const battW = 90 * u;
+    const battH = 46 * u;
+    const battX = topRtX - battW;
+    const battY = topRtY - battH * 0.5;
+
+    targetCtx.lineWidth = 5 * u;
+    targetCtx.strokeRect(battX, battY, battW, battH);
+    // Terminal nub
+    targetCtx.fillRect(battX - 8 * u, topRtY - 12 * u, 8 * u, 24 * u);
+
+    // 3 segments
+    const bPad = 6 * u;
+    const bSegW = (battW - bPad * 4) / 3;
+    const bSegH = battH - bPad * 2;
+    for (let b = 0; b < 3; b++) {
+      targetCtx.fillRect(battX + bPad + b * (bSegW + bPad), battY + bPad, bSegW, bSegH);
+    }
+
+    // --- CENTER RETICLE: VINTAGE CAMCORDER BRACKET CROSSHAIR [ + ] ---
+    const cx = W * 0.5;
+    const cy = H * 0.5;
+    const rW = 140 * u;
+    const rH = 100 * u;
+    const cLen = 30 * u;
+
+    targetCtx.save();
+    targetCtx.translate(cx, cy);
+
+    // Center plus
+    const pSize = 24 * u;
+    targetCtx.lineWidth = 4 * u;
+    targetCtx.beginPath();
+    targetCtx.moveTo(-pSize, 0); targetCtx.lineTo(pSize, 0);
+    targetCtx.moveTo(0, -pSize); targetCtx.lineTo(0, pSize);
+    targetCtx.stroke();
+
+    // Corner brackets [ ]
+    targetCtx.beginPath();
+    // TL
+    targetCtx.moveTo(-rW, -rH + cLen); targetCtx.lineTo(-rW, -rH); targetCtx.lineTo(-rW + cLen, -rH);
+    // TR
+    targetCtx.moveTo(rW - cLen, -rH); targetCtx.lineTo(rW, -rH); targetCtx.lineTo(rW, -rH + cLen);
+    // BL
+    targetCtx.moveTo(-rW, rH - cLen); targetCtx.lineTo(-rW, rH); targetCtx.lineTo(-rW + cLen, rH);
+    // BR
+    targetCtx.moveTo(rW - cLen, rH); targetCtx.lineTo(rW, rH); targetCtx.lineTo(rW, rH - cLen);
+    targetCtx.stroke();
+    targetCtx.restore();
+
+    // --- BOTTOM LEFT: DATE/TIME STAMP & AUTO TRACKING STATUS ---
+    const btmX = marginX;
+    const btmY = H - marginY - 40 * u;
+
+    targetCtx.font = `800 ${48 * u}px "Share Tech Mono", monospace`;
+    targetCtx.textAlign = 'left';
+    targetCtx.textBaseline = 'middle';
+    targetCtx.fillText('OCT. 24 1994', btmX, btmY - 50 * u);
+
+    targetCtx.font = `700 ${34 * u}px "Share Tech Mono", monospace`;
+    targetCtx.fillText('AUTO TRACKING', btmX, btmY + 10 * u);
+
+    // 8 Animated Tracking Blocks
+    const trackBarX = btmX + 270 * u;
+    const trackBarY = btmY + 2 * u;
+    const blockCount = 8;
+    const blockW = 16 * u;
+    const blockH = 22 * u;
+    const blockGap = 6 * u;
+
+    // Harmonic tracking shift
+    const activeBlocks = 5 + Math.round(2 * Math.sin(p2));
+    for (let k = 0; k < blockCount; k++) {
+      if (k < activeBlocks) {
+        targetCtx.fillRect(trackBarX + k * (blockW + blockGap), trackBarY - blockH * 0.5, blockW, blockH);
+      } else {
+        targetCtx.lineWidth = 2 * u;
+        targetCtx.strokeRect(trackBarX + k * (blockW + blockGap), trackBarY - blockH * 0.5, blockW, blockH);
+      }
+    }
+
+    targetCtx.font = `400 ${26 * u}px "Share Tech Mono", monospace`;
+    targetCtx.fillText('MEM // TAPE 01', btmX, btmY + 60 * u);
+
+    // --- BOTTOM RIGHT: RUNNING COUNTER ---
+    const frameIndex = Math.floor((phase * 4 % 1) * 30);
+    const ffStr = String(frameIndex).padStart(2, '0');
+    const counterStr = `00:42:19:${ffStr}`;
+
+    targetCtx.font = `800 ${58 * u}px "Share Tech Mono", monospace`;
+    targetCtx.textAlign = 'right';
+    targetCtx.fillText(counterStr, W - marginX, btmY - 10 * u);
+
+    targetCtx.font = `700 ${28 * u}px "Share Tech Mono", monospace`;
+    targetCtx.fillText('CH 1 // MONO IN', W - marginX, btmY + 46 * u);
+
+    targetCtx.restore();
+  }
+
+  function renderAtTime(t) {
+    const W = canvas.width;
+    const H = canvas.height;
+    const S = Math.min(W, H);
+    const u = S / 2160;
+
+    // Clear Pure Black
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, W, H);
+
+    const phase = ((t % DURATION) + DURATION) % DURATION / DURATION;
+    const p4 = phase * TAU * 4;
+
+    // Subtle Periodic RGB Chromatic Aberration Split (-3px Red, +3px Cyan)
+    const splitAmp = Math.sin(p4) * 3.5 * u;
+
+    // 1. Red Offset Pass
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    drawVHSContent(ctx, W, H, u, phase, -splitAmp, 0, 'rgba(255, 36, 36, 0.90)');
+
+    // 2. Cyan Offset Pass
+    drawVHSContent(ctx, W, H, u, phase, splitAmp, 0, 'rgba(0, 240, 255, 0.90)');
+
+    // 3. Crisp Pure White Core Pass
+    ctx.globalCompositeOperation = 'screen';
+    drawVHSContent(ctx, W, H, u, phase, 0, 0, '#FFFFFF');
+    ctx.restore();
+
+    // Horizontal Tracking Scanlines Near Top & Bottom Edges (Seamless periodic oscillation)
+    ctx.save();
+    ctx.fillStyle = '#FFFFFF';
+    ctx.globalAlpha = 0.18;
+
+    const scanlineY1 = 80 * u + Math.sin(phase * TAU * 2) * 25 * u;
+    const scanlineY2 = H - 90 * u + Math.cos(phase * TAU * 2) * 25 * u;
+
+    ctx.fillRect(0, scanlineY1, W, 3 * u);
+    ctx.fillRect(0, scanlineY1 + 12 * u, W, 1.5 * u);
+    ctx.fillRect(0, scanlineY2, W, 3 * u);
+    ctx.fillRect(0, scanlineY2 - 14 * u, W, 2 * u);
+    ctx.restore();
+  }
+
+  window.DURATION = DURATION;
+  window.FPS = FPS;
+  window.renderAtTime = renderAtTime;
+  window.renderFrame = renderAtTime;
+  window.asset = {
+    canvas: canvas,
+    render: renderAtTime,
+    params: { duration: DURATION, fps: FPS },
+    meta: { duration: DURATION, fps: FPS }
+  };
+  window.__assetReady = true;
+
+  document.fonts.ready.then(() => {
+    let start = null;
+    function loop(now) {
+      if (!start) start = now;
+      const t = (now - start) / 1000;
+      renderAtTime(t);
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  });
+})();
+</script>
+</body>
+</html>
+

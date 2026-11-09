@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lissajous Harmonograph 3:2 Layered Silver Curves</title>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: #000000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  canvas {
+    display: block;
+    width: 100vw;
+    height: 56.25vw;
+    max-height: 100vh;
+    max-width: 177.78vh;
+    margin: auto;
+  }
+</style>
+</head>
+<body>
+<canvas id="canvas" width="3840" height="2160"></canvas>
+<script>
+window.DURATION = 10;
+window.FPS = 30;
+
+const P = window.__cliParams || {};
+const BG = P.bg || 'black';
+const SEED = Number(P.seed) || 1;
+const VARIANT = Number(P.variant) || 0;
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const TAU = Math.PI * 2;
+
+// Seeded PRNG used only at load time
+function createSeededPRNG(seed) {
+  let s = (seed % 2147483647);
+  if (s <= 0) s += 2147483646;
+  return function() {
+    s = (s * 16807) % 2147483647;
+    return (s - 1) / 2147483646;
+  };
+}
+
+const rand = createSeededPRNG(SEED * 6733 + VARIANT * 397 + 23);
+
+function hexToRgb(hex) {
+  const clean = hex.replace('#', '').trim();
+  const num = parseInt(clean.length === 3
+    ? clean.split('').map(c => c + c).join('')
+    : clean, 16);
+  return {
+    r: (num >> 16) & 255,
+    g: (num >> 8) & 255,
+    b: num & 255
+  };
+}
+
+function rgba(rgb, a) {
+  return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${Math.max(0, Math.min(1, a))})`;
+}
+
+// Default Palette: Layered White & Silver Curves + Precision Cyan Accent
+const COLORS = {
+  white: { r: 255, g: 255, b: 255 },
+  silverBright: { r: 216, g: 228, b: 245 },
+  silverMid: { r: 168, g: 188, b: 216 },
+  silverDeep: { r: 112, g: 135, b: 168 },
+  guide: { r: 105, g: 128, b: 162 },
+  accent: { r: 56, g: 232, b: 255 },       // Scientific Cyan Accent
+  accentSoft: { r: 145, g: 244, b: 255 },
+  accentDeep: { r: 18, g: 135, b: 175 }
+};
+
+if (P.palette && typeof P.palette === 'string') {
+  const parts = P.palette.split(',').map(s => s.trim()).filter(Boolean);
+  if (parts[0]) COLORS.accent = hexToRgb(parts[0]);
+  if (parts[1]) COLORS.white = hexToRgb(parts[1]);
+  if (parts[2]) COLORS.silverBright = hexToRgb(parts[2]);
+  COLORS.accentSoft = {
+    r: Math.min(255, Math.round((COLORS.accent.r + 255) * 0.5)),
+    g: Math.min(255, Math.round((COLORS.accent.g + 255) * 0.5)),
+    b: Math.min(255, Math.round((COLORS.accent.b + 255) * 0.5))
+  };
+  COLORS.accentDeep = {
+    r: Math.round(COLORS.accent.r * 0.55),
+    g: Math.round(COLORS.accent.g * 0.55),
+    b: Math.round(COLORS.accent.b * 0.55)
+  };
+}
+
+// Lookup table of 8 distinct Lissajous Harmonograph presets indexed by VARIANT
+// Variant 0 is the canonical 3:2 Lissajous Harmonograph with 16 layered silver curves
+const PRESETS = [
+  { fx: 3, fy: 2, layers: 16, decay: 0.42, spreadBase: 0.44, spreadAmp: 0.18, rotaryAmp: 0.032, rotFreq: 1, phaseMult: 1, breathK: 2 },
+  { fx: 3, fy: 2, layers: 18, decay: 0.52, spreadBase: 0.58, spreadAmp: 0.22, rotaryAmp: 0.058, rotFreq: -1, phaseMult: 2, breathK: 2 },
+  { fx: 4, fy: 3, layers: 15, decay: 0.40, spreadBase: 0.38, spreadAmp: 0.16, rotaryAmp: 0.028, rotFreq: 1, phaseMult: 1, breathK: 2 },
+  { fx: 5, fy: 4, layers: 14, decay: 0.38, spreadBase: 0.34, spreadAmp: 0.15, rotaryAmp: 0.024, rotFreq: 1, phaseMult: 1, breathK: 1 },
+  { fx: 5, fy: 3, layers: 15, decay: 0.44, spreadBase: 0.40, spreadAmp: 0.16, rotaryAmp: 0.030, rotFreq: -1, phaseMult: 1, breathK: 2 },
+  { fx: 5, fy: 2, layers: 16, decay: 0.42, spreadBase: 0.42, spreadAmp: 0.18, rotaryAmp: 0.026, rotFreq: 1, phaseMult: 1, breathK: 3 },
+  { fx: 3, fy: 4, layers: 16, decay: 0.45, spreadBase: 0.46, spreadAmp: 0.19, rotaryAmp: 0.036, rotFreq: -1, phaseMult: 1, breathK: 2 },
+  { fx: 6, fy: 5, layers: 14, decay: 0.36, spreadBase: 0.30, spreadAmp: 0.14, rotaryAmp: 0.022, rotFreq: 1, phaseMult: 1, breathK: 2 }
+];
+
+const CFG = PRESETS[((VARIANT % PRESETS.length) + PRESETS.length) % PRESETS.length];
+
+// Precompute static angle sample array at load time
+const SAMPLES = 480;
+const THETA = new Float32Array(SAMPLES + 1);
+for (let i = 0; i <= SAMPLES; i++) {
+  THETA[i] = (i / SAMPLES) * TAU;
+}
+
+// Precompute traveling pulse seeds along the harmonograph curves
+const PULSES = [];
+const NUM_PULSES = 28;
+for (let i = 0; i < NUM_PULSES; i++) {
+  PULSES.push({
+    s0: (i / NUM_PULSES + rand() * 0.02) % 1.0,
+    layerIdx: Math.floor(rand() * CFG.layers),
+    speed: (i % 2 === 0) ? 1 : -1,
+    twinkleFreq: 4 + (i % 4),
+    twinklePhase: rand() * TAU,
+    isAccent: (i % 3 === 0)
+  });
+}
+
+// Helper: Evaluate a single point on layer `u` (in [0, 1]) of the Lissajous Harmonograph
+// Combines primary fx:fy orthogonal pendulums with a subtle rotary harmonograph gimbal pendulum
+function evalHarmonographPoint(theta, u, ampX, ampY, rotR, deltaX, deltaY, deltaRot) {
+  const x = ampX * Math.sin(CFG.fx * theta + deltaX) + rotR * Math.cos(CFG.rotFreq * theta + deltaRot);
+  const y = ampY * Math.sin(CFG.fy * theta + deltaY) + rotR * Math.sin(CFG.rotFreq * theta + deltaRot);
+  return { x, y };
+}
+
+// Helper: Multi-pass glowing vector stroke (no shadowBlur, fast 4K CPU rendering)
+function strokeGlowingPath(pathFn, coreWidth, rgb, baseAlpha, glowPasses) {
+  if (baseAlpha <= 0.004) return;
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  if (BG === 'black' && glowPasses > 1) {
+    ctx.globalCompositeOperation = 'lighter';
+  }
+
+  for (let p = glowPasses; p >= 1; p--) {
+    const mult = p === 1 ? 1.0 : (p === 2 ? 2.6 : 5.2);
+    const alphaMult = p === 1 ? 1.0 : (p === 2 ? 0.28 : 0.09);
+    ctx.strokeStyle = rgba(rgb, baseAlpha * alphaMult);
+    ctx.lineWidth = coreWidth * mult;
+    pathFn();
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// Helper: Draw a bright scientific intersection/stylus node with soft radial alpha halo
+function drawGlowingNode(x, y, radius, coreRgb, haloRgb, alpha) {
+  if (alpha <= 0.01 || radius <= 0.2) return;
+  ctx.save();
+  if (BG === 'black') {
+    ctx.globalCompositeOperation = 'lighter';
+  }
+
+  const haloR = radius * 4.2;
+  const grad = ctx.createRadialGradient(x, y, 0, x, y, haloR);
+  grad.addColorStop(0.0, rgba(coreRgb, alpha * 0.96));
+  grad.addColorStop(0.26, rgba(haloRgb, alpha * 0.56));
+  grad.addColorStop(0.65, rgba(haloRgb, alpha * 0.14));
+  grad.addColorStop(1.0, rgba(haloRgb, 0.0));
+
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(x, y, haloR, 0, TAU);
+  ctx.fill();
+
+  ctx.fillStyle = rgba(coreRgb, alpha);
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, TAU);
+  ctx.fill();
+  ctx.restore();
+}
+
+window.renderFrame = function(t) {
+  const W = canvas.width;
+  const H = canvas.height;
+  const S = Math.min(W, H);
+  const cx = 0.5 * W;
+  const cy = 0.5 * H;
+
+  // Deterministic state reset
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.setLineDash([]);
+  ctx.lineWidth = 1;
+
+  // Background Mode Handling
+  if (BG === 'alpha') {
+    ctx.clearRect(0, 0, W, H);
+  } else {
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  const phase = (((t % window.DURATION) + window.DURATION) % window.DURATION) / window.DURATION;
+
+  // Seamless Loop Periodic Harmonics
+  // Primary (k = 1, 2): Lissajous phase shift 2*PI*phase, harmonograph damping spread breathing
+  const sin1 = Math.sin(TAU * phase * 1);
+  const cos1 = Math.cos(TAU * phase * 1);
+  const sinB = Math.sin(TAU * phase * CFG.breathK);
+  const cosB = Math.cos(TAU * phase * CFG.breathK);
+
+  // Secondary (k = 3, 5): Pendulum stylus driver & rotary harmonic modulation
+  const sin3 = Math.sin(TAU * phase * 3);
+  const cos3 = Math.cos(TAU * phase * 3);
+
+  // Ambient (k = 4, 7): Node twinkling & halo pulse
+  const sin4 = Math.sin(TAU * phase * 4);
+  const sin7 = Math.sin(TAU * phase * 7);
+
+  // Subject occupies ~70% of shorter canvas side S (outer radius = 0.352 * S)
+  const gimbalOuterR = 0.352 * S;
+  const gimbalInnerR = 0.326 * S;
+  const boxHalf = 0.222 * S; // Bounding Chebyshev square of the Lissajous figure
+
+  // =========================================================================
+  // 1. SOFT CONTAINED CENTRAL HALO (Alpha radial gradient reaching 0 inside safe bounds)
+  // =========================================================================
+  ctx.save();
+  const haloRad = gimbalOuterR * (1.06 + 0.03 * sin4);
+  const bgHalo = ctx.createRadialGradient(cx, cy, 0, cx, cy, haloRad);
+  const haloAlpha = 0.11 + 0.03 * cosB;
+  bgHalo.addColorStop(0.0, rgba(COLORS.silverBright, haloAlpha));
+  bgHalo.addColorStop(0.38, rgba(COLORS.accentDeep, haloAlpha * 0.60));
+  bgHalo.addColorStop(0.74, rgba(COLORS.guide, haloAlpha * 0.20));
+  bgHalo.addColorStop(1.0, rgba(COLORS.guide, 0.0));
+  ctx.fillStyle = bgHalo;
+  ctx.beginPath();
+  ctx.arc(cx, cy, haloRad, 0, TAU);
+  ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  ctx.translate(cx, cy);
+
+  // Subtle breathing & gentle rocking oscillation (keeps the 3:2 horizontal/vertical axes readable)
+  const frameTilt = 0.045 * sin1;
+  ctx.rotate(frameTilt);
+
+  // =========================================================================
+  // 2. SCIENTIFIC CONSTRUCTION GEOMETRY: GIMBAL RINGS & CHEBYSHEV GRID
+  // =========================================================================
+  // Outer Circular Harmonograph Gimbal Rings
+  ctx.strokeStyle = rgba(COLORS.guide, 0.26);
+  ctx.lineWidth = 0.0008 * S;
+  ctx.beginPath();
+  ctx.arc(0, 0, gimbalOuterR, 0, TAU);
+  ctx.arc(0, 0, gimbalInnerR, 0, TAU);
+  ctx.stroke();
+
+  // 120 Degree Graduations around the Harmonograph Gimbal Ring
+  ctx.strokeStyle = rgba(COLORS.silverMid, 0.32);
+  ctx.lineWidth = 0.0007 * S;
+  ctx.beginPath();
+  const numTicks = 120;
+  for (let i = 0; i < numTicks; i++) {
+    const a = (i / numTicks) * TAU;
+    const isMajor = (i % 10 === 0);
+    const isMid = (i % 5 === 0);
+    const len = (isMajor ? 0.013 : (isMid ? 0.008 : 0.004)) * S;
+    ctx.moveTo(Math.cos(a) * (gimbalOuterR - len), Math.sin(a) * (gimbalOuterR - len));
+    ctx.lineTo(Math.cos(a) * gimbalOuterR, Math.sin(a) * gimbalOuterR);
+  }
+  ctx.stroke();
+
+  // Chebyshev Partition Grid inside the Lissajous Bounding Box
+  // For fx : fy = 3 : 2, the nodes of cos(j * PI / fx) and cos(k * PI / fy) define the tangent & crossing grid
+  ctx.save();
+  ctx.strokeStyle = rgba(COLORS.guide, 0.22);
+  ctx.lineWidth = 0.0008 * S;
+  ctx.strokeRect(-boxHalf, -boxHalf, boxHalf * 2, boxHalf * 2);
+
+  ctx.setLineDash([0.004 * S, 0.005 * S]);
+  ctx.strokeStyle = rgba(COLORS.guide, 0.18);
+  ctx.lineWidth = 0.0006 * S;
+  ctx.beginPath();
+  // Vertical Chebyshev lines for fx
+  for (let j = 1; j < CFG.fx * 2; j++) {
+    const xLine = boxHalf * Math.cos((j * Math.PI) / (CFG.fx * 2));
+    ctx.moveTo(xLine, -boxHalf);
+    ctx.lineTo(xLine, boxHalf);
+  }
+  // Horizontal Chebyshev lines for fy
+  for (let k = 1; k < CFG.fy * 2; k++) {
+    const yLine = boxHalf * Math.cos((k * Math.PI) / (CFG.fy * 2));
+    ctx.moveTo(-boxHalf, yLine);
+    ctx.lineTo(boxHalf, yLine);
+  }
+  ctx.stroke();
+  ctx.restore();
+
+  // Central Orthogonal Axes
+  ctx.strokeStyle = rgba(COLORS.silverMid, 0.24);
+  ctx.lineWidth = 0.0007 * S;
+  ctx.beginPath();
+  ctx.moveTo(-gimbalInnerR, 0);
+  ctx.lineTo(gimbalInnerR, 0);
+  ctx.moveTo(0, -gimbalInnerR);
+  ctx.lineTo(0, gimbalInnerR);
+  ctx.stroke();
+
+  // =========================================================================
+  // 3. LAYERED SILVER HARMONOGRAPH CURVES (14 to 18 Phase-Precessing Shells)
+  // =========================================================================
+  const numLayers = CFG.layers;
+  const basePhaseX = TAU * CFG.phaseMult * phase + Math.PI * 0.25;
+  const basePhaseY = 0.18 * sinB;
+  const basePhaseRot = -TAU * phase * 2;
+
+  // Breathing phase spread across the damped harmonograph layers
+  const layerPhaseSpread = CFG.spreadBase + CFG.spreadAmp * sinB;
+
+  // Helper to get layer parameters for layer index `lIdx` in [0, numLayers - 1]
+  function getLayerParams(lIdx) {
+    const u = lIdx / (numLayers - 1); // 0 = outermost layer, 1 = innermost damped layer
+    const damp = 1.0 - CFG.decay * Math.pow(u, 0.92);
+    const ampX = boxHalf * 0.90 * damp * (1.0 + 0.025 * cosB);
+    const ampY = boxHalf * 0.90 * damp * (1.0 - 0.025 * cosB);
+    const rotR = S * CFG.rotaryAmp * (1.0 - 0.5 * u) * (0.65 + 0.35 * sin3);
+
+    const deltaX = basePhaseX + u * layerPhaseSpread;
+    const deltaY = basePhaseY - u * layerPhaseSpread * 0.65;
+    const deltaRot = basePhaseRot + u * 1.4;
+
+    return { u, ampX, ampY, rotR, deltaX, deltaY, deltaRot };
+  }
+
+  // Render from innermost damped silver layer outward to the primary hero layers
+  for (let lIdx = numLayers - 1; lIdx >= 0; lIdx--) {
+    const lp = getLayerParams(lIdx);
+    const invU = 1.0 - lp.u;
+
+    // Layer hierarchy:
+    // lIdx === 0: Primary Hero Bright White-Silver Curve
+    // lIdx === Math.floor(numLayers * 0.35): Accent Cyan Harmonic Curve
+    // Intermediate layers: Rich graduated Silver-White ribbon mesh
+    const isPrimaryHero = (lIdx === 0);
+    const isAccentHero  = (lIdx === Math.floor(numLayers * 0.35));
+    const isMajorSilver = (lIdx % 4 === 0 && !isPrimaryHero);
+
+    let col, lw, alpha, passes;
+    if (isPrimaryHero) {
+      col = COLORS.white;
+      lw = 0.0022 * S;
+      alpha = 0.95;
+      passes = 3;
+    } else if (isAccentHero) {
+      col = COLORS.accent;
+      lw = 0.0019 * S;
+      alpha = 0.88;
+      passes = 3;
+    } else if (isMajorSilver) {
+      col = COLORS.silverBright;
+      lw = 0.0014 * S;
+      alpha = 0.62;
+      passes = 2;
+    } else {
+      col = (lIdx % 2 === 0) ? COLORS.silverMid : COLORS.silverDeep;
+      lw = (0.0008 + 0.0004 * invU) * S;
+      alpha = 0.24 + 0.32 * invU;
+      passes = 1;
+    }
+
+    const traceLayer = () => {
+      ctx.beginPath();
+      for (let i = 0; i <= SAMPLES; i++) {
+        const pt = evalHarmonographPoint(
+          THETA[i],
+          lp.u,
+          lp.ampX,
+          lp.ampY,
+          lp.rotR,
+          lp.deltaX,
+          lp.deltaY,
+          lp.deltaRot
+        );
+        if (i === 0) ctx.moveTo(pt.x, pt.y);
+        else ctx.lineTo(pt.x, pt.y);
+      }
+      ctx.closePath();
+    };
+
+    strokeGlowingPath(traceLayer, lw, col, alpha, passes);
+  }
+
+  // =========================================================================
+  // 4. CAUSTIC CROSS-RIBBON STRUTS & SELF-INTERSECTION / LOBE NODES
+  // Connects corresponding phase points between the outer and inner harmonograph envelopes
+  // =========================================================================
+  const lpOuter = getLayerParams(0);
+  const lpInner = getLayerParams(numLayers - 1);
+  const lpAccent = getLayerParams(Math.floor(numLayers * 0.35));
+
+  const numStruts = CFG.fx * CFG.fy * 8; // Multiple of fx*fy (48 struts for 3:2)
+  ctx.strokeStyle = rgba(COLORS.silverBright, 0.25);
+  ctx.lineWidth = 0.0007 * S;
+  ctx.beginPath();
+  for (let k = 0; k < numStruts; k++) {
+    const thetaStrut = (k / numStruts) * TAU;
+    const pOut = evalHarmonographPoint(
+      thetaStrut, lpOuter.u, lpOuter.ampX, lpOuter.ampY, lpOuter.rotR,
+      lpOuter.deltaX, lpOuter.deltaY, lpOuter.deltaRot
+    );
+    const pIn = evalHarmonographPoint(
+      thetaStrut, lpInner.u, lpInner.ampX, lpInner.ampY, lpInner.rotR,
+      lpInner.deltaX, lpInner.deltaY, lpInner.deltaRot
+    );
+    ctx.moveTo(pOut.x, pOut.y);
+    ctx.lineTo(pIn.x, pIn.y);
+  }
+  ctx.stroke();
+
+  // Highlight Key Harmonic Nodes on the Primary & Accent Curves (at multiples of PI / (fx * fy))
+  const numHarmonicNodes = CFG.fx * CFG.fy * 2; // 12 key nodes for 3:2
+  for (let k = 0; k < numHarmonicNodes; k++) {
+    const thetaNode = (k / numHarmonicNodes) * TAU;
+    const ptHero = evalHarmonographPoint(
+      thetaNode, lpOuter.u, lpOuter.ampX, lpOuter.ampY, lpOuter.rotR,
+      lpOuter.deltaX, lpOuter.deltaY, lpOuter.deltaRot
+    );
+    const ptAcc = evalHarmonographPoint(
+      thetaNode, lpAccent.u, lpAccent.ampX, lpAccent.ampY, lpAccent.rotR,
+      lpAccent.deltaX, lpAccent.deltaY, lpAccent.deltaRot
+    );
+
+    const pulse = 0.72 + 0.28 * Math.sin(TAU * phase * 4 + k * (TAU / numHarmonicNodes));
+    drawGlowingNode(
+      ptHero.x,
+      ptHero.y,
+      0.0036 * S * pulse,
+      COLORS.white,
+      (k % 2 === 0) ? COLORS.accent : COLORS.silverBright,
+      0.92 * pulse
+    );
+    drawGlowingNode(
+      ptAcc.x,
+      ptAcc.y,
+      0.0028 * S * pulse,
+      COLORS.white,
+      COLORS.accent,
+      0.82 * pulse
+    );
+  }
+
+  // =========================================================================
+  // 5. LIVE HARMONOGRAPH PENDULUM STYLUS MECHANISM (Scientific Projection Diagram)
+  // Two active styluses (0 and PI phase offset) with orthogonal X/Y gimbal projection lines
+  // =========================================================================
+  for (let sIdx = 0; sIdx < 2; sIdx++) {
+    // Stylus travels 1 full closed Lissajous period per 10s loop
+    const thetaStylus = ((phase + sIdx * 0.5) % 1.0) * TAU;
+    const pStylus = evalHarmonographPoint(
+      thetaStylus, lpOuter.u, lpOuter.ampX, lpOuter.ampY, lpOuter.rotR,
+      lpOuter.deltaX, lpOuter.deltaY, lpOuter.deltaRot
+    );
+
+    // Orthogonal X-pendulum and Y-pendulum anchor points on the bounding gimbal circle (radius = gimbalInnerR)
+    const xClamped = Math.max(-gimbalInnerR * 0.98, Math.min(gimbalInnerR * 0.98, pStylus.x));
+    const yClamped = Math.max(-gimbalInnerR * 0.98, Math.min(gimbalInnerR * 0.98, pStylus.y));
+
+    const anchorTopY = (sIdx === 0 ? -1 : 1) * Math.sqrt(gimbalInnerR * gimbalInnerR - xClamped * xClamped);
+    const anchorSideX = (sIdx === 0 ? 1 : -1) * Math.sqrt(gimbalInnerR * gimbalInnerR - yClamped * yClamped);
+
+    // Draw orthogonal pendulum linkage lines from gimbal rim to the active stylus
+    ctx.save();
+    ctx.setLineDash([0.004 * S, 0.004 * S]);
+    ctx.strokeStyle = rgba(COLORS.accentSoft, 0.55);
+    ctx.lineWidth = 0.0011 * S;
+    ctx.beginPath();
+    ctx.moveTo(pStylus.x, anchorTopY);
+    ctx.lineTo(pStylus.x, pStylus.y);
+    ctx.lineTo(anchorSideX, pStylus.y);
+    ctx.stroke();
+    ctx.restore();
+
+    // Gimbal rim driver nodes & active harmonograph stylus pen node
+    drawGlowingNode(pStylus.x, anchorTopY, 0.0034 * S, COLORS.white, COLORS.accent, 0.90);
+    drawGlowingNode(anchorSideX, pStylus.y, 0.0034 * S, COLORS.white, COLORS.accent, 0.90);
+    drawGlowingNode(pStylus.x, pStylus.y, 0.0058 * S, COLORS.white, COLORS.accent, 1.0);
+  }
+
+  // =========================================================================
+  // 6. AMBIENT LAYER: TRAVELING PULSES GLIDING ALONG THE LAYERED SILVER CURVES
+  // Uses seamless recipe #6: position = fract(s0 + m * phase)
+  // =========================================================================
+  for (let i = 0; i < NUM_PULSES; i++) {
+    const pl = PULSES[i];
+    const pos = (((pl.s0 + pl.speed * phase) % 1.0) + 1.0) % 1.0;
+    const thetaP = pos * TAU;
+    const lp = getLayerParams(pl.layerIdx);
+
+    const pt = evalHarmonographPoint(
+      thetaP, lp.u, lp.ampX, lp.ampY, lp.rotR,
+      lp.deltaX, lp.deltaY, lp.deltaRot
+    );
+
+    const twinkle = 0.45 + 0.55 * (0.5 + 0.5 * Math.sin(TAU * phase * pl.twinkleFreq + pl.twinklePhase));
+    drawGlowingNode(
+      pt.x,
+      pt.y,
+      0.0025 * S * (0.8 + 0.4 * twinkle),
+      COLORS.white,
+      pl.isAccent ? COLORS.accent : COLORS.silverBright,
+      twinkle * 0.88
+    );
+  }
+
+  // =========================================================================
+  // 7. CENTRAL FOCAL HUB (High-contrast center reference for 180px thumbnail clarity)
+  // =========================================================================
+  const centerBeat = 1.0 + 0.12 * sin4 + 0.06 * sin7;
+  strokeGlowingPath(() => {
+    ctx.beginPath();
+    ctx.arc(0, 0, 0.016 * S * centerBeat, 0, TAU);
+  }, 0.0014 * S, COLORS.white, 0.88, 2);
+
+  drawGlowingNode(0, 0, 0.0062 * S * centerBeat, COLORS.white, COLORS.accent, 1.0);
+
+  ctx.restore();
+};
+
+// Normal playback loop
+function animate(now) {
+  requestAnimationFrame(animate);
+  window.renderFrame(now / 1000);
+}
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>

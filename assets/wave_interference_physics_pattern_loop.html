@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Two-Source Wave Interference Pattern</title>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: #000000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  canvas {
+    display: block;
+    width: 100vw;
+    height: 56.25vw;
+    max-height: 100vh;
+    max-width: 177.78vh;
+    margin: auto;
+  }
+</style>
+</head>
+<body>
+<canvas id="canvas" width="3840" height="2160"></canvas>
+<script>
+window.DURATION = 10;
+window.FPS = 30;
+
+const P = window.__cliParams || {};
+const BG = P.bg || 'black';
+const SEED = Number(P.seed) || 1;
+const VARIANT = Number(P.variant) || 0;
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const TAU = Math.PI * 2;
+
+// Seeded PRNG used only at load time
+function createSeededPRNG(seed) {
+  let s = (seed % 2147483647);
+  if (s <= 0) s += 2147483646;
+  return function() {
+    s = (s * 16807) % 2147483647;
+    return (s - 1) / 2147483646;
+  };
+}
+
+const rand = createSeededPRNG(SEED * 7919 + VARIANT * 409 + 13);
+
+function hexToRgb(hex) {
+  const clean = hex.replace('#', '').trim();
+  const num = parseInt(clean.length === 3
+    ? clean.split('').map(c => c + c).join('')
+    : clean, 16);
+  return {
+    r: (num >> 16) & 255,
+    g: (num >> 8) & 255,
+    b: num & 255
+  };
+}
+
+function rgba(rgb, a) {
+  return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${Math.max(0, Math.min(1, a))})`;
+}
+
+// Default Palette: White / Silver lines + Luminous Cyan Accent
+const COLORS = {
+  white: { r: 255, g: 255, b: 255 },
+  silver: { r: 182, g: 204, b: 230 },
+  guide: { r: 118, g: 146, b: 184 },
+  accent: { r: 0, g: 225, b: 255 },       // Scientific Cyan Accent
+  accentSoft: { r: 120, g: 240, b: 255 }, // Pale Cyan
+  accentDeep: { r: 0, g: 130, b: 175 }    // Deep Cerulean
+};
+
+if (P.palette && typeof P.palette === 'string') {
+  const parts = P.palette.split(',').map(s => s.trim()).filter(Boolean);
+  if (parts[0]) COLORS.accent = hexToRgb(parts[0]);
+  if (parts[1]) COLORS.white = hexToRgb(parts[1]);
+  if (parts[2]) COLORS.silver = hexToRgb(parts[2]);
+  COLORS.accentSoft = {
+    r: Math.min(255, Math.round((COLORS.accent.r + 255) * 0.5)),
+    g: Math.min(255, Math.round((COLORS.accent.g + 255) * 0.5)),
+    b: Math.min(255, Math.round((COLORS.accent.b + 255) * 0.5))
+  };
+  COLORS.accentDeep = {
+    r: Math.round(COLORS.accent.r * 0.55),
+    g: Math.round(COLORS.accent.g * 0.55),
+    b: Math.round(COLORS.accent.b * 0.55)
+  };
+}
+
+// Lookup table of 8 distinct Two-Source Interference presets indexed by VARIANT
+// sepBase: half-separation 'a' of the two sources (relative to S)
+// sepAmp: breathing modulation amplitude of source separation
+// lambda: wavelength (relative to S)
+// waveSpeed: integer number of wavelengths emitted per 10s loop
+// rotTurns: integer whole-turn rotations per 10s loop
+// secondaryCross: whether to include a faint orthogonal harmonic dipole pair
+const PRESETS = [
+  { sepBase: 0.088, sepAmp: 0.018, lambda: 0.034, waveSpeed: 4, rotTurns: 1, breathFreq: 2, polarFreq: 3, secondaryCross: false },
+  { sepBase: 0.112, sepAmp: 0.022, lambda: 0.030, waveSpeed: 5, rotTurns: 1, breathFreq: 2, polarFreq: 5, secondaryCross: false },
+  { sepBase: 0.068, sepAmp: 0.016, lambda: 0.028, waveSpeed: 4, rotTurns: 1, breathFreq: 1, polarFreq: 3, secondaryCross: true  },
+  { sepBase: 0.098, sepAmp: 0.024, lambda: 0.038, waveSpeed: 3, rotTurns: 1, breathFreq: 2, polarFreq: 4, secondaryCross: false },
+  { sepBase: 0.125, sepAmp: 0.015, lambda: 0.032, waveSpeed: 5, rotTurns: 1, breathFreq: 3, polarFreq: 5, secondaryCross: false },
+  { sepBase: 0.078, sepAmp: 0.020, lambda: 0.026, waveSpeed: 6, rotTurns: 1, breathFreq: 2, polarFreq: 4, secondaryCross: true  },
+  { sepBase: 0.104, sepAmp: 0.020, lambda: 0.036, waveSpeed: 4, rotTurns: 2, breathFreq: 2, polarFreq: 3, secondaryCross: false },
+  { sepBase: 0.092, sepAmp: 0.025, lambda: 0.031, waveSpeed: 5, rotTurns: 1, breathFreq: 1, polarFreq: 6, secondaryCross: true  }
+];
+
+const CFG = PRESETS[((VARIANT % PRESETS.length) + PRESETS.length) % PRESETS.length];
+
+// Precompute static angle arrays at load time
+const NUM_POLAR_PTS = 360;
+const POLAR_ANGLES = new Float32Array(NUM_POLAR_PTS + 1);
+for (let i = 0; i <= NUM_POLAR_PTS; i++) {
+  POLAR_ANGLES[i] = (i / NUM_POLAR_PTS) * TAU;
+}
+
+const HYPERBOLA_STEPS = 72;
+const HYPERBOLA_U = new Float32Array(HYPERBOLA_STEPS + 1);
+for (let i = 0; i <= HYPERBOLA_STEPS; i++) {
+  HYPERBOLA_U[i] = -1.0 + (2.0 * i) / HYPERBOLA_STEPS; // [-1, 1]
+}
+
+// Precompute ambient orbital reference particles
+const AMBIENT_DOTS = [];
+for (let i = 0; i < 32; i++) {
+  AMBIENT_DOTS.push({
+    s0: (i / 32 + rand() * 0.02) % 1.0,
+    speed: (i % 2 === 0) ? 1 : -1,
+    ringChoice: i % 3,
+    twinkleFreq: 4 + (i % 4),
+    twinklePhase: rand() * TAU,
+    isAccent: (i % 3 === 0)
+  });
+}
+
+// Helper: Multi-pass glowing vector stroke (no shadowBlur, fast 4K CPU rendering)
+function strokeGlowingPath(pathFn, coreWidth, rgb, baseAlpha, glowPasses) {
+  if (baseAlpha <= 0.004) return;
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  if (BG === 'black' && glowPasses > 1) {
+    ctx.globalCompositeOperation = 'lighter';
+  }
+
+  for (let p = glowPasses; p >= 1; p--) {
+    const mult = p === 1 ? 1.0 : (p === 2 ? 2.6 : 5.2);
+    const alphaMult = p === 1 ? 1.0 : (p === 2 ? 0.28 : 0.09);
+    ctx.strokeStyle = rgba(rgb, baseAlpha * alphaMult);
+    ctx.lineWidth = coreWidth * mult;
+    pathFn();
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// Helper: Draw a bright scientific intersection/source node with soft radial alpha halo
+function drawGlowingNode(x, y, radius, coreRgb, haloRgb, alpha) {
+  if (alpha <= 0.01 || radius <= 0.2) return;
+  ctx.save();
+  if (BG === 'black') {
+    ctx.globalCompositeOperation = 'lighter';
+  }
+
+  const haloR = radius * 4.0;
+  const grad = ctx.createRadialGradient(x, y, 0, x, y, haloR);
+  grad.addColorStop(0.0, rgba(coreRgb, alpha * 0.95));
+  grad.addColorStop(0.26, rgba(haloRgb, alpha * 0.55));
+  grad.addColorStop(0.65, rgba(haloRgb, alpha * 0.14));
+  grad.addColorStop(1.0, rgba(haloRgb, 0.0));
+
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(x, y, haloR, 0, TAU);
+  ctx.fill();
+
+  ctx.fillStyle = rgba(coreRgb, alpha);
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, TAU);
+  ctx.fill();
+  ctx.restore();
+}
+
+window.renderFrame = function(t) {
+  const W = canvas.width;
+  const H = canvas.height;
+  const S = Math.min(W, H);
+  const cx = 0.5 * W;
+  const cy = 0.5 * H;
+
+  // Deterministic state reset
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.setLineDash([]);
+  ctx.lineWidth = 1;
+
+  // Background Mode Handling
+  if (BG === 'alpha') {
+    ctx.clearRect(0, 0, W, H);
+  } else {
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  const phase = (((t % window.DURATION) + window.DURATION) % window.DURATION) / window.DURATION;
+
+  // Seamless Loop Periodic Harmonics
+  // Primary (k = 1, 2): Whole-turn rotation, dipole separation breathing
+  const sin1 = Math.sin(TAU * phase * 1);
+  const cos1 = Math.cos(TAU * phase * 1);
+  const sin2 = Math.sin(TAU * phase * CFG.breathFreq);
+  const cos2 = Math.cos(TAU * phase * CFG.breathFreq);
+
+  // Secondary (k = 3, 5): Traveling wavefront propagation & polar envelope standing wave
+  const sin3 = Math.sin(TAU * phase * CFG.polarFreq);
+  const cos3 = Math.cos(TAU * phase * CFG.polarFreq);
+
+  // Ambient (k = 4, 7): Node twinkling & halo pulse
+  const sin4 = Math.sin(TAU * phase * 4);
+  const sin7 = Math.sin(TAU * phase * 7);
+
+  // Subject occupies ~70% of shorter canvas side S (outer radius = 0.35 * S)
+  const apertureR = 0.312 * S;
+  const outerRingR = 0.348 * S;
+
+  // Instantaneous half-separation 'a' of the two wave sources S1 = (-a, 0) and S2 = (+a, 0)
+  const a = (CFG.sepBase + CFG.sepAmp * sin2) * S;
+  const lambda = CFG.lambda * S;
+
+  // Fractional wave propagation shift in [0, 1): wraps seamlessly because CFG.waveSpeed is an integer
+  const waveShift = ((phase * CFG.waveSpeed) % 1.0 + 1.0) % 1.0;
+
+  // =========================================================================
+  // 1. SOFT CONTAINED CENTRAL HALO (Alpha radial gradient reaching 0 inside safe bounds)
+  // =========================================================================
+  ctx.save();
+  const bgHaloR = outerRingR * (1.06 + 0.03 * sin4);
+  const bgHalo = ctx.createRadialGradient(cx, cy, 0, cx, cy, bgHaloR);
+  const haloBaseAlpha = 0.11 + 0.03 * cos2;
+  bgHalo.addColorStop(0.0, rgba(COLORS.accent, haloBaseAlpha));
+  bgHalo.addColorStop(0.42, rgba(COLORS.accentDeep, haloBaseAlpha * 0.55));
+  bgHalo.addColorStop(0.75, rgba(COLORS.guide, haloBaseAlpha * 0.18));
+  bgHalo.addColorStop(1.0, rgba(COLORS.guide, 0.0));
+  ctx.fillStyle = bgHalo;
+  ctx.beginPath();
+  ctx.arc(cx, cy, bgHaloR, 0, TAU);
+  ctx.fill();
+  ctx.restore();
+
+  // =========================================================================
+  // MAIN ROTATING INTERFEROMETER FRAME (Whole-turn rotation via ctx.rotate)
+  // =========================================================================
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(TAU * CFG.rotTurns * phase);
+
+  // =========================================================================
+  // 2. FAINT SCIENTIFIC CONSTRUCTION LINES & POLAR COORDINATE AXES
+  // =========================================================================
+  ctx.strokeStyle = rgba(COLORS.guide, 0.20);
+  ctx.lineWidth = 0.0007 * S;
+  ctx.beginPath();
+  // 12 Radial polar axes
+  for (let i = 0; i < 12; i++) {
+    const ang = (i / 12) * Math.PI;
+    const dx = Math.cos(ang) * outerRingR;
+    const dy = Math.sin(ang) * outerRingR;
+    ctx.moveTo(-dx, -dy);
+    ctx.lineTo(dx, dy);
+  }
+  ctx.stroke();
+
+  // Dashed reference circles at 1/3, 2/3, and 1.0 of apertureR
+  ctx.save();
+  ctx.setLineDash([0.005 * S, 0.005 * S]);
+  ctx.strokeStyle = rgba(COLORS.guide, 0.24);
+  ctx.lineWidth = 0.0007 * S;
+  ctx.beginPath();
+  ctx.arc(0, 0, apertureR * 0.333, 0, TAU);
+  ctx.arc(0, 0, apertureR * 0.666, 0, TAU);
+  ctx.arc(0, 0, outerRingR, 0, TAU);
+  ctx.stroke();
+  ctx.restore();
+
+  // Precision Degree Tick Marks around the Aperture Rim
+  ctx.strokeStyle = rgba(COLORS.silver, 0.32);
+  ctx.lineWidth = 0.0008 * S;
+  ctx.beginPath();
+  ctx.arc(0, 0, apertureR, 0, TAU);
+  const numTicks = 120;
+  for (let i = 0; i < numTicks; i++) {
+    const ang = (i / numTicks) * TAU;
+    const isMajor = (i % 10 === 0);
+    const isMid = (i % 5 === 0);
+    const tickLen = (isMajor ? 0.012 : (isMid ? 0.007 : 0.0035)) * S;
+    ctx.moveTo(Math.cos(ang) * apertureR, Math.sin(ang) * apertureR);
+    ctx.lineTo(Math.cos(ang) * (apertureR + tickLen), Math.sin(ang) * (apertureR + tickLen));
+  }
+  ctx.stroke();
+
+  // =========================================================================
+  // 3. STANDING CONFOCAL HYPERBOLAS OF CONSTRUCTIVE INTERFERENCE
+  // Locus of points where |r1 - r2| = k * lambda (Antinodal rays)
+  // =========================================================================
+  const maxOrderK = Math.floor((2 * a * 0.96) / lambda);
+
+  // Clip interior wave field strictly to the circular resonator aperture (radius = apertureR)
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(0, 0, apertureR, 0, TAU);
+  ctx.clip();
+
+  // Center perpendicular bisector (Order k = 0 antinodal axis: x = 0)
+  strokeGlowingPath(() => {
+    ctx.beginPath();
+    ctx.moveTo(0, -apertureR);
+    ctx.lineTo(0, apertureR);
+  }, 0.0014 * S, COLORS.accentSoft, 0.45, 2);
+
+  // Confocal Hyperbola branches for k = 1 .. maxOrderK on left and right
+  for (let k = 1; k <= maxOrderK; k++) {
+    const semiA = 0.5 * k * lambda; // semi-transverse axis
+    if (semiA >= a * 0.98) continue;
+    const semiB = Math.sqrt(a * a - semiA * semiA);
+    const maxSinh = Math.sqrt((apertureR * apertureR) / (semiA * semiA) + 1);
+    const isPrimaryOrder = (k % 2 === 1);
+
+    [-1, 1].forEach((branchSign) => {
+      const traceHyperbola = () => {
+        ctx.beginPath();
+        for (let i = 0; i <= HYPERBOLA_STEPS; i++) {
+          const u = HYPERBOLA_U[i] * maxSinh;
+          const x = branchSign * semiA * Math.sqrt(1 + u * u);
+          const y = semiB * u;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+      };
+
+      strokeGlowingPath(
+        traceHyperbola,
+        (isPrimaryOrder ? 0.0013 : 0.0009) * S,
+        isPrimaryOrder ? COLORS.accent : COLORS.silver,
+        isPrimaryOrder ? 0.42 : 0.24,
+        isPrimaryOrder ? 2 : 1
+      );
+    });
+  }
+
+  // Optional Secondary Orthogonal Dipole Wavefronts (for quadrupole variants)
+  if (CFG.secondaryCross) {
+    const maxSecondaryRings = Math.ceil((apertureR + a) / lambda);
+    const secShift = ((phase * CFG.waveSpeed + 0.5) % 1.0 + 1.0) % 1.0;
+    for (let n = 0; n < maxSecondaryRings; n++) {
+      const rWave = (n + secShift) * lambda;
+      if (rWave < 0.004 * S) continue;
+      const birthFade = Math.min(1.0, rWave / (1.2 * lambda));
+      const edgeFade = Math.max(0.0, 1.0 - rWave / (apertureR + a * 0.8));
+      const wAlpha = birthFade * Math.pow(edgeFade, 1.3) * 0.26;
+      if (wAlpha <= 0.01) continue;
+
+      ctx.strokeStyle = rgba(COLORS.guide, wAlpha);
+      ctx.lineWidth = 0.0009 * S;
+      ctx.beginPath();
+      ctx.arc(0, -a, rWave, 0, TAU);
+      ctx.moveTo(rWave, a);
+      ctx.arc(0, a, rWave, 0, TAU);
+      ctx.stroke();
+    }
+  }
+
+  // =========================================================================
+  // 4. PRIMARY PROPAGATING WAVEFRONT RINGS FROM TWO SOURCES S1(-a,0) & S2(+a,0)
+  // =========================================================================
+  const maxRings = Math.ceil((apertureR + a) / lambda) + 1;
+  const activeRadii = [];
+
+  for (let n = 0; n < maxRings; n++) {
+    const rWave = (n + waveShift) * lambda;
+    if (rWave < 0.002 * S || rWave > apertureR + a) continue;
+
+    // Smooth fade-in at emitter origin (rWave -> 0) and smooth fade-out at outer limit
+    const birthFade = Math.min(1.0, rWave / (0.85 * lambda));
+    const outerFade = Math.max(0.0, 1.0 - rWave / (apertureR + a));
+    const ringAlpha = birthFade * Math.pow(outerFade, 0.85);
+
+    if (ringAlpha > 0.01) {
+      activeRadii.push({ r: rWave, alpha: ringAlpha, idx: n });
+
+      // Alternate crest (white/silver) and harmonic accent (cyan) wavefronts
+      const isCrest = (n % 2 === 0);
+      const col = isCrest ? COLORS.white : COLORS.accentSoft;
+      const lw = (isCrest ? 0.0017 : 0.0013) * S;
+
+      // Wavefront from Source 1 (-a, 0)
+      strokeGlowingPath(() => {
+        ctx.beginPath();
+        ctx.arc(-a, 0, rWave, 0, TAU);
+      }, lw, col, ringAlpha * (isCrest ? 0.72 : 0.58), 2);
+
+      // Wavefront from Source 2 (+a, 0)
+      strokeGlowingPath(() => {
+        ctx.beginPath();
+        ctx.arc(a, 0, rWave, 0, TAU);
+      }, lw, col, ringAlpha * (isCrest ? 0.72 : 0.58), 2);
+    }
+  }
+
+  // =========================================================================
+  // 5. EXACT CONSTRUCTIVE INTERFERENCE INTERSECTION NODES
+  // Computed analytically where circle r1 around (-a,0) intersects circle r2 around (+a,0)
+  // =========================================================================
+  const dSources = 2 * a;
+
+  for (let i = 0; i < activeRadii.length; i++) {
+    const w1 = activeRadii[i];
+    const r1 = w1.r;
+
+    for (let j = 0; j < activeRadii.length; j++) {
+      const w2 = activeRadii[j];
+      const r2 = w2.r;
+
+      // Triangle inequality check for circle-circle intersection: |r1 - r2| < 2a < r1 + r2
+      const diff = Math.abs(r1 - r2);
+      const sum = r1 + r2;
+      if (diff < dSources * 0.998 && sum > dSources * 1.002) {
+        const ix = (r1 * r1 - r2 * r2) / (2 * dSources);
+        const hSq = r1 * r1 - (ix + a) * (ix + a);
+        if (hSq > 0) {
+          const iy = Math.sqrt(hSq);
+          const distFromOrigin = Math.hypot(ix, iy);
+
+          if (distFromOrigin < apertureR * 0.97) {
+            const apertureTaper = Math.pow(1.0 - distFromOrigin / apertureR, 0.55);
+            const nodeAlpha = Math.min(w1.alpha, w2.alpha) * apertureTaper;
+            const orderK = Math.abs(w1.idx - w2.idx);
+            const isZeroOrder = (orderK === 0);
+            const isPrimaryAntinode = (orderK % 2 === 0);
+
+            const nodeRadius = (isZeroOrder ? 0.0040 : (isPrimaryAntinode ? 0.0032 : 0.0022)) * S;
+            const haloCol = isPrimaryAntinode ? COLORS.accent : COLORS.silver;
+
+            // Upper intersection (ix, +iy) and symmetric lower intersection (ix, -iy)
+            drawGlowingNode(ix, iy, nodeRadius, COLORS.white, haloCol, nodeAlpha * 0.92);
+            if (iy > 0.002 * S) {
+              drawGlowingNode(ix, -iy, nodeRadius, COLORS.white, haloCol, nodeAlpha * 0.92);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  ctx.restore(); // End circular aperture clip
+
+  // =========================================================================
+  // 6. OUTER FAR-FIELD RADIAL INTERFERENCE INTENSITY ENVELOPE & RESONATOR RING
+  // Displays polar standing-wave interference fringe lobes around the perimeter
+  // =========================================================================
+  // Crisp Aperture Ring Border
+  strokeGlowingPath(() => {
+    ctx.beginPath();
+    ctx.arc(0, 0, apertureR, 0, TAU);
+  }, 0.0022 * S, COLORS.white, 0.88, 3);
+
+  // Far-Field Polar Interference Envelope Curve between apertureR and outerRingR
+  const kPathDiff = (TAU * a) / lambda;
+  const tracePolarEnvelope = (phaseShift, signMult) => {
+    ctx.beginPath();
+    for (let i = 0; i <= NUM_POLAR_PTS; i++) {
+      const theta = POLAR_ANGLES[i];
+      // Two-source angular interference factor cos(k*a*cos(theta)) modulated by standing harmonic
+      const fringe = Math.cos(kPathDiff * Math.cos(theta) + phaseShift);
+      const rEnv = (apertureR + outerRingR) * 0.5
+                 + signMult * (outerRingR - apertureR) * 0.44 * fringe * (0.75 + 0.25 * cos3);
+      const px = Math.cos(theta) * rEnv;
+      const py = Math.sin(theta) * rEnv;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+  };
+
+  strokeGlowingPath(() => tracePolarEnvelope(TAU * phase * CFG.polarFreq, 1), 0.0018 * S, COLORS.accent, 0.85, 3);
+  strokeGlowingPath(() => tracePolarEnvelope(-TAU * phase * CFG.polarFreq, -1), 0.0013 * S, COLORS.silver, 0.55, 2);
+
+  // =========================================================================
+  // 7. HIGH-CONTRAST SOURCE EMITTERS S1(-a,0), S2(+a,0) & CENTRAL FOCAL HUB
+  // =========================================================================
+  const dipoleLine = () => {
+    ctx.beginPath();
+    ctx.moveTo(-a, 0);
+    ctx.lineTo(a, 0);
+  };
+  strokeGlowingPath(dipoleLine, 0.0018 * S, COLORS.accent, 0.78, 2);
+
+  // Source 1 and Source 2 Emitters (Bright focal beacons)
+  const emitterPulse = 1.0 + 0.14 * Math.sin(TAU * phase * CFG.waveSpeed);
+  [-a, a].forEach((sx) => {
+    // Target reticle ring around emitter
+    strokeGlowingPath(() => {
+      ctx.beginPath();
+      ctx.arc(sx, 0, 0.015 * S * emitterPulse, 0, TAU);
+    }, 0.0015 * S, COLORS.white, 0.90, 2);
+
+    drawGlowingNode(sx, 0, 0.0068 * S * emitterPulse, COLORS.white, COLORS.accent, 1.0);
+  });
+
+  // Central Standing-Wave Zero-Order Node at (0, 0) (Ensures strong center focal point for thumbnail test)
+  const centerBeat = 1.0 + 0.12 * sin4 + 0.06 * sin7;
+  drawGlowingNode(0, 0, 0.0058 * S * centerBeat, COLORS.white, COLORS.accent, 0.96);
+
+  // =========================================================================
+  // 8. AMBIENT LAYER: ORBITING PHASE MARKERS ALONG REFERENCE RINGS
+  // =========================================================================
+  for (let i = 0; i < AMBIENT_DOTS.length; i++) {
+    const d = AMBIENT_DOTS[i];
+    const pos = (((d.s0 + d.speed * phase) % 1.0) + 1.0) % 1.0;
+    const ang = pos * TAU;
+    const rOrb = d.ringChoice === 0
+      ? outerRingR
+      : (d.ringChoice === 1 ? apertureR * 0.666 : apertureR * 0.333);
+
+    const px = Math.cos(ang) * rOrb;
+    const py = Math.sin(ang) * rOrb;
+    const twinkle = 0.45 + 0.55 * (0.5 + 0.5 * Math.sin(TAU * phase * d.twinkleFreq + d.twinklePhase));
+
+    drawGlowingNode(
+      px,
+      py,
+      0.0024 * S * (0.8 + 0.4 * twinkle),
+      COLORS.white,
+      d.isAccent ? COLORS.accent : COLORS.silver,
+      twinkle * 0.85
+    );
+  }
+
+  ctx.restore(); // End rotating interferometer frame
+};
+
+// Normal playback loop
+function animate(now) {
+  requestAnimationFrame(animate);
+  window.renderFrame(now / 1000);
+}
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>

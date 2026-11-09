@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Share This — Bespoke Vector Kinetic Engagement CTA</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: #000000;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  canvas {
+    display: block;
+    width: 100vw;
+    height: 56.25vw;
+    max-height: 100vh;
+    max-width: 177.78vh;
+    object-fit: contain;
+  }
+</style>
+</head>
+<body>
+<canvas id="stage" width="3840" height="2160"></canvas>
+<script>
+(function() {
+  'use strict';
+
+  const canvas = document.getElementById('stage');
+  const ctx = canvas.getContext('2d');
+
+  // --- CLI & URL PARAMETERS ---
+  const P = window.__cliParams || {};
+  const BG = P.bg || 'black';
+  const SEED = Number(P.seed) || 1;
+  const VARIANT = Number(P.variant) || 0;
+
+  const DURATION = 10;
+  const FPS = 30;
+  const TAU = Math.PI * 2;
+
+  window.DURATION = DURATION;
+  window.FPS = FPS;
+
+  // --- SEEDED PRNG ---
+  function mulberry32(a) {
+    return function() {
+      let t = a += 0x6D2B79F5;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  const rng = mulberry32(SEED * 2654435761 + VARIANT * 1013904223 + 113);
+
+  // --- PALETTE PRESETS ---
+  const PRESET_PALETTES = [
+    // Variant 0: Imperial Gold, Electric Cyan & Pure White
+    ['#FFFFFF', '#FFF4DC', '#FFB800', '#00F0FF', '#7A5000'],
+    // Variant 1: Electric Cyan, Solar Gold & White
+    ['#FFFFFF', '#DCF8FF', '#00E5FF', '#FFD000', '#005C70'],
+    // Variant 2: Neon Emerald, Champagne Gold & White
+    ['#FFFFFF', '#DCFFEE', '#00E68A', '#FFE066', '#006338'],
+    // Variant 3: Hyper Magenta, Ice Cyan & White
+    ['#FFFFFF', '#FFD8F0', '#FF1E8A', '#00F0FF', '#78003C'],
+    // Variant 4: Royal Violet, Solar Amber & White
+    ['#FFFFFF', '#EADCFF', '#A63BFF', '#FFB800', '#4A0E80'],
+    // Variant 5: Solar Orange, Platinum & White
+    ['#FFFFFF', '#FFE8D8', '#FF5E00', '#80F8FF', '#7A2800']
+  ];
+
+  let rawPal = PRESET_PALETTES[((VARIANT % PRESET_PALETTES.length) + PRESET_PALETTES.length) % PRESET_PALETTES.length];
+  if (typeof P.palette === 'string' && P.palette.trim()) {
+    const custom = P.palette.split(',').map(s => s.trim()).filter(Boolean);
+    if (custom.length >= 2) {
+      rawPal = [
+        custom[0],
+        custom[1 % custom.length],
+        custom[2 % custom.length],
+        custom[3 % custom.length],
+        custom[4 % custom.length]
+      ];
+    }
+  }
+
+  function hexToRgb(hex) {
+    let h = hex.replace('#', '').trim();
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    const n = parseInt(h, 16) || 0;
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+
+  const RGB = rawPal.map(hexToRgb);
+  function rgba(idx, a) {
+    const c = RGB[idx % RGB.length];
+    const alpha = Math.max(0, Math.min(1, a));
+    return `rgba(${c[0]},${c[1]},${c[2]},${alpha.toFixed(4)})`;
+  }
+
+  // --- 100% PROPRIETARY ROUNDED GEOMETRIC VECTOR FONT (Zero External/OS Fonts, 100% Commercial-Free) ---
+  const VECTOR_FONT = {
+    'S': { w: 0.70, p: c => {
+      c.m(0.58, 0.18);
+      c.b(0.52, -0.02, 0.10, -0.02, 0.10, 0.24);
+      c.b(0.10, 0.49, 0.62, 0.49, 0.62, 0.76);
+      c.b(0.62, 1.02, 0.16, 1.02, 0.08, 0.82);
+    }},
+    'H': { w: 0.76, p: c => {
+      c.m(0.10, 0); c.l(0.10, 1);
+      c.m(0.66, 0); c.l(0.66, 1);
+      c.m(0.10, 0.49); c.l(0.66, 0.49);
+    }},
+    'A': { w: 0.82, p: c => {
+      c.m(0.06, 1); c.l(0.41, 0); c.l(0.76, 1);
+      c.m(0.18, 0.65); c.l(0.64, 0.65);
+    }},
+    'R': { w: 0.74, p: c => {
+      c.m(0.10, 1); c.l(0.10, 0); c.l(0.41, 0);
+      c.arc(0.41, 0.26, 0.24, 0.26, -Math.PI * 0.5, Math.PI * 0.5, false);
+      c.l(0.10, 0.52);
+      c.m(0.36, 0.52); c.l(0.66, 1);
+    }},
+    'E': { w: 0.66, p: c => {
+      c.m(0.58, 0); c.l(0.10, 0); c.l(0.10, 1); c.l(0.58, 1);
+      c.m(0.10, 0.49); c.l(0.48, 0.49);
+    }},
+    'T': { w: 0.70, p: c => {
+      c.m(0.04, 0); c.l(0.66, 0);
+      c.m(0.35, 0); c.l(0.35, 1);
+    }},
+    'I': { w: 0.28, p: c => { c.m(0.14, 0); c.l(0.14, 1); } },
+    ' ': { w: 0.36, p: () => {} }
+  };
+
+  function createGlyphContext(ox, oy, scaleX, scaleY, slant) {
+    const tx = (x, y) => ox + (x + (1 - y) * slant) * scaleX;
+    const ty = (x, y) => oy + y * scaleY;
+    return {
+      m(x, y) { ctx.moveTo(tx(x, y), ty(x, y)); },
+      l(x, y) { ctx.lineTo(tx(x, y), ty(x, y)); },
+      b(x1, y1, x2, y2, x3, y3) {
+        ctx.bezierCurveTo(tx(x1, y1), ty(x1, y1), tx(x2, y2), ty(x2, y2), tx(x3, y3), ty(x3, y3));
+      },
+      arc(cx, cy, rx, ry, a0, a1, ccw) {
+        const steps = 28;
+        let delta = a1 - a0;
+        if (ccw && delta > 0) delta -= TAU;
+        if (!ccw && delta < 0) delta += TAU;
+        for (let i = 0; i <= steps; i++) {
+          const a = a0 + (i / steps) * delta;
+          const px = cx + Math.cos(a) * rx;
+          const py = cy + Math.sin(a) * ry;
+          if (i === 0) ctx.moveTo(tx(px, py), ty(px, py));
+          else ctx.lineTo(tx(px, py), ty(px, py));
+        }
+      }
+    };
+  }
+
+  function measureVectorText(str, capH, tracking) {
+    let total = 0;
+    for (let i = 0; i < str.length; i++) {
+      const g = VECTOR_FONT[str[i]] || VECTOR_FONT[' '];
+      total += g.w * capH;
+      if (i < str.length - 1) total += tracking;
+    }
+    return total;
+  }
+
+  function drawBespokeTextCentered(str, centerX, centerY, capH, tracking, opts) {
+    const totalW = measureVectorText(str, capH, tracking);
+    let curX = centerX - totalW * 0.5;
+    const slant = opts.slant || 0;
+    const wavePhase = opts.wavePhase || 0;
+    const waveAmp = opts.waveAmp || 0;
+    const strokeW = Math.max(opts.strokeW, capH * 0.165);
+    const mainIdx = opts.colorIdx !== undefined ? opts.colorIdx : 0;
+    const glowIdx = opts.glowIdx !== undefined ? opts.glowIdx : 2;
+    const alpha = opts.alpha !== undefined ? opts.alpha : 1;
+
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    for (let i = 0; i < str.length; i++) {
+      const ch = str[i];
+      const g = VECTOR_FONT[ch] || VECTOR_FONT[' '];
+      const yWave = Math.sin(wavePhase - i * 0.45) * waveAmp;
+      const topY = centerY - capH * 0.5 + yWave;
+
+      if (ch !== ' ') {
+        const helper = createGlyphContext(curX, topY, capH, capH, slant);
+
+        ctx.beginPath();
+        g.p(helper);
+        ctx.strokeStyle = rgba(glowIdx, alpha * 0.22);
+        ctx.lineWidth = strokeW * 1.9;
+        ctx.stroke();
+
+        ctx.beginPath();
+        g.p(helper);
+        ctx.strokeStyle = rgba(mainIdx, alpha);
+        ctx.lineWidth = strokeW;
+        ctx.stroke();
+      }
+
+      curX += g.w * capH + tracking;
+    }
+  }
+
+  function drawRadialGlow(x, y, r, colorIdx, alpha) {
+    if (r <= 0.5 || alpha <= 0.002) return;
+    const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
+    grad.addColorStop(0, rgba(colorIdx, alpha));
+    grad.addColorStop(0.35, rgba(colorIdx, alpha * 0.45));
+    grad.addColorStop(0.70, rgba(colorIdx, alpha * 0.12));
+    grad.addColorStop(1, rgba(colorIdx, 0));
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, TAU);
+    ctx.fill();
+  }
+
+  // --- ICONIC DIRECT-SEND / PAPER PLANE VECTOR DART ---
+  // Designed in local coordinates where +X is the flight direction, then rotated by flightAngle (-26 deg)
+  // so the wings, center fold, and underside drop-fold have 100% accurate perspective & symmetry!
+  function drawIconicPaperPlane(cx, cy, size, flightAngle, banking, phase, u, isBlackBg) {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(flightAngle);
+
+    // Subtle 3D wing-banking illusion (compresses/expands top vs bottom wing slightly)
+    const topSpread = 1.0 - 0.12 * banking;
+    const botSpread = 1.0 + 0.12 * banking;
+
+    // Key vertices in flight-aligned coordinates (Nose at +X, Tail at -X):
+    const nose       = { x:  size * 1.12, y: 0 };
+    const topWingTip = { x: -size * 0.78, y: -size * 0.84 * topSpread };
+    const foldTop    = { x: -size * 0.34, y: -size * 0.11 };
+    const foldBot    = { x: -size * 0.34, y:  size * 0.16 };
+    const keelTip    = { x: -size * 0.52, y:  size * 0.54 };
+    const botWingTip = { x: -size * 0.62, y:  size * 0.88 * botSpread };
+
+    // 1. Twin Aerodynamic Slipstream Contrails & Exhaust Plume behind the wings
+    if (isBlackBg) ctx.globalCompositeOperation = 'lighter';
+
+    // Thruster core glow at the center fold
+    drawRadialGlow(-size * 0.38, 0, size * 1.1, 3, 0.65);
+    drawRadialGlow(0, 0, size * 2.1, 2, 0.42);
+
+    // 3 Streaming Slipstream Contrails (Center Jet + Top/Bottom Wingtip Vortices)
+    const trails = [
+      { y0: 0,                  len: size * 1.55, amp: size * 0.06, col: 3, w: u * 3.0 },
+      { y0: topWingTip.y * 0.8, len: size * 1.10, amp: size * 0.04, col: 2, w: u * 1.8 },
+      { y0: botWingTip.y * 0.8, len: size * 1.10, amp: size * 0.04, col: 2, w: u * 1.8 }
+    ];
+
+    for (let tIdx = 0; tIdx < trails.length; tIdx++) {
+      const tr = trails[tIdx];
+      const startX = (tIdx === 0) ? foldTop.x - size * 0.08 : -size * 0.75;
+      const steps = 24;
+      for (let s = 0; s < steps; s++) {
+        const f0 = s / steps;
+        const f1 = (s + 1) / steps;
+        const x0 = startX - f0 * tr.len;
+        const x1 = startX - f1 * tr.len;
+        const y0 = tr.y0 + Math.sin(f0 * 8 - phase * TAU * 4 + tIdx) * tr.amp * f0;
+        const y1 = tr.y0 + Math.sin(f1 * 8 - phase * TAU * 4 + tIdx) * tr.amp * f1;
+        const fade = Math.pow(1 - f0, 1.8);
+
+        ctx.beginPath();
+        ctx.moveTo(x0, y0);
+        ctx.lineTo(x1, y1);
+        ctx.strokeStyle = rgba(tr.col, fade * 0.85);
+        ctx.lineWidth = tr.w * fade;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+      }
+    }
+
+    // 2. Sculpted 3-Facet Paper Plane Body (Top Wing, Deep Center Keel, Bottom Wing)
+    ctx.globalCompositeOperation = 'source-over';
+
+    // Facet A: Deep Shaded Center Keel Fold (gives unmistakable 3D paper-plane depth)
+    const keelGrad = ctx.createLinearGradient(nose.x, 0, keelTip.x, keelTip.y);
+    keelGrad.addColorStop(0, rgba(2, 0.95));
+    keelGrad.addColorStop(0.5, rgba(4, 0.98));
+    keelGrad.addColorStop(1, '#05080C');
+
+    ctx.beginPath();
+    ctx.moveTo(nose.x, nose.y);
+    ctx.lineTo(foldTop.x, foldTop.y);
+    ctx.lineTo(keelTip.x, keelTip.y);
+    ctx.lineTo(foldBot.x, foldBot.y);
+    ctx.closePath();
+    ctx.fillStyle = keelGrad;
+    ctx.fill();
+
+    // Facet B: Upper Left Wing (Luminous Gold-White Gradient)
+    const topGrad = ctx.createLinearGradient(nose.x, nose.y, topWingTip.x, topWingTip.y);
+    topGrad.addColorStop(0, rgba(0, 0.98));
+    topGrad.addColorStop(0.45, rgba(1, 0.96));
+    topGrad.addColorStop(1, rgba(2, 0.92));
+
+    ctx.beginPath();
+    ctx.moveTo(nose.x, nose.y);
+    ctx.lineTo(topWingTip.x, topWingTip.y);
+    ctx.lineTo(foldTop.x, foldTop.y);
+    ctx.closePath();
+    ctx.fillStyle = topGrad;
+    ctx.fill();
+
+    // Facet C: Lower Right Wing (Rich Imperial Gold / Accent Gradient)
+    const botGrad = ctx.createLinearGradient(nose.x, nose.y, botWingTip.x, botWingTip.y);
+    botGrad.addColorStop(0, rgba(0, 0.98));
+    botGrad.addColorStop(0.35, rgba(2, 0.96));
+    botGrad.addColorStop(1, rgba(4, 0.94));
+
+    ctx.beginPath();
+    ctx.moveTo(nose.x, nose.y);
+    ctx.lineTo(foldBot.x, foldBot.y);
+    ctx.lineTo(botWingTip.x, botWingTip.y);
+    ctx.closePath();
+    ctx.fillStyle = botGrad;
+    ctx.fill();
+
+    // 3. Precision Glowing Vector Creases & Wireframe Trim
+    if (isBlackBg) ctx.globalCompositeOperation = 'lighter';
+
+    const tracePlaneCreases = () => {
+      ctx.beginPath();
+      // Outer silhouette
+      ctx.moveTo(nose.x, nose.y);
+      ctx.lineTo(topWingTip.x, topWingTip.y);
+      ctx.lineTo(foldTop.x, foldTop.y);
+      ctx.lineTo(keelTip.x, keelTip.y);
+      ctx.lineTo(foldBot.x, foldBot.y);
+      ctx.lineTo(botWingTip.x, botWingTip.y);
+      ctx.closePath();
+      // Internal origami fold creases from nose to tail
+      ctx.moveTo(nose.x, nose.y);
+      ctx.lineTo(foldTop.x, foldTop.y);
+      ctx.moveTo(nose.x, nose.y);
+      ctx.lineTo(foldBot.x, foldBot.y);
+      ctx.moveTo(nose.x, nose.y);
+      ctx.lineTo(keelTip.x, keelTip.y);
+    };
+
+    // Pass 1: Wide gold/cyan glow
+    tracePlaneCreases();
+    ctx.strokeStyle = rgba(2, 0.38);
+    ctx.lineWidth = u * 8.0;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.stroke();
+
+    // Pass 2: Medium halo
+    tracePlaneCreases();
+    ctx.strokeStyle = rgba(3, 0.65);
+    ctx.lineWidth = u * 4.0;
+    ctx.stroke();
+
+    // Pass 3: Razor-sharp incandescent white creases
+    tracePlaneCreases();
+    ctx.strokeStyle = rgba(0, 0.98);
+    ctx.lineWidth = u * 1.9;
+    ctx.stroke();
+
+    // Decorative telemetry stripes on both wings
+    ctx.beginPath();
+    ctx.moveTo(nose.x * 0.35, -size * 0.14);
+    ctx.lineTo(topWingTip.x * 0.72, topWingTip.y * 0.68);
+    ctx.moveTo(nose.x * 0.35, size * 0.16);
+    ctx.lineTo(botWingTip.x * 0.72, botWingTip.y * 0.68);
+    ctx.strokeStyle = rgba(3, 0.85);
+    ctx.lineWidth = u * 1.3;
+    ctx.stroke();
+
+    // Nose tip beacon flare
+    drawRadialGlow(nose.x, nose.y, size * 0.45, 0, 0.92);
+
+    ctx.restore();
+  }
+
+  // --- MAIN RENDER FUNCTION ---
+  function renderFrame(t) {
+    const W = canvas.width;
+    const H = canvas.height;
+    const S = Math.min(W, H);
+    const cx = W * 0.5;
+    const cy = H * 0.5;
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.setLineDash([]);
+    ctx.lineWidth = 1;
+
+    const isBlackBg = (BG === 'black');
+    if (!isBlackBg) {
+      ctx.clearRect(0, 0, W, H);
+    } else {
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    const phase = (((t % DURATION) + DURATION) % DURATION) / DURATION;
+    const p1 = TAU * 1 * phase;
+    const p2 = TAU * 2 * phase;
+    const p3 = TAU * 3 * phase;
+    const u = S * 0.001; // 2.16px at 4K
+
+    // 1. Ambient Backdrop Glow
+    drawRadialGlow(cx, cy, S * 0.47, 4, 0.22 + 0.05 * Math.sin(p2));
+
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    // 2. Top Viral Share Network Graph & Iconic Direct-Send Paper Plane
+    const topCenterY = -S * 0.115;
+    ctx.save();
+    ctx.translate(0, topCenterY);
+
+    // Origin Hub on the lower-left, 4 Recipient Nodes fanned out in the upper-right flight cone
+    const originHub = { x: -S * 0.155, y: S * 0.042 };
+    const destNodes = [
+      { x:  S * 0.125, y: -S * 0.088 },
+      { x:  S * 0.185, y: -S * 0.032 },
+      { x:  S * 0.155, y:  S * 0.038 },
+      { x: -S * 0.115, y: -S * 0.078 }
+    ];
+
+    if (isBlackBg) ctx.globalCompositeOperation = 'lighter';
+
+    // Rotating sacred-geometry compass astrolabe behind the plane
+    ctx.save();
+    ctx.rotate(p1);
+    ctx.setLineDash([u * 3.5, u * 5.5]);
+    ctx.beginPath();
+    ctx.arc(0, 0, S * 0.118, 0, TAU);
+    ctx.strokeStyle = rgba(1, 0.22);
+    ctx.lineWidth = u * 0.9;
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // 4 compass cardinal ticks
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * TAU;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * S * 0.108, Math.sin(a) * S * 0.108);
+      ctx.lineTo(Math.cos(a) * S * 0.128, Math.sin(a) * S * 0.128);
+      ctx.strokeStyle = rgba(2, 0.55);
+      ctx.lineWidth = u * 1.4;
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // Draw Curved Quadratic Bezier Share Arcs & Traveling Comet Signals
+    for (let i = 0; i < destNodes.length; i++) {
+      const dst = destNodes[i];
+      const ctrlX = (originHub.x + dst.x) * 0.5 - S * 0.02;
+      const ctrlY = Math.min(originHub.y, dst.y) - S * (0.042 + 0.01 * Math.sin(p2 + i));
+
+      // Glowing Trajectory Arc
+      ctx.beginPath();
+      ctx.moveTo(originHub.x, originHub.y);
+      ctx.quadraticCurveTo(ctrlX, ctrlY, dst.x, dst.y);
+      ctx.strokeStyle = rgba(2, 0.28);
+      ctx.lineWidth = u * 4.2;
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(originHub.x, originHub.y);
+      ctx.quadraticCurveTo(ctrlX, ctrlY, dst.x, dst.y);
+      ctx.strokeStyle = rgba(1, 0.65);
+      ctx.lineWidth = u * 1.3;
+      ctx.stroke();
+
+      // Traveling Share Packet along each Bezier Arc
+      const prog = ((phase * 2 + i * 0.25) % 1 + 1) % 1;
+      const mt = 1 - prog;
+      const px = mt * mt * originHub.x + 2 * mt * prog * ctrlX + prog * prog * dst.x;
+      const py = mt * mt * originHub.y + 2 * mt * prog * ctrlY + prog * prog * dst.y;
+      const packetAlpha = Math.sin(prog * Math.PI);
+
+      drawRadialGlow(px, py, u * 14, 3, packetAlpha * 0.95);
+      ctx.fillStyle = rgba(0, packetAlpha);
+      ctx.beginPath();
+      ctx.arc(px, py, u * 3.0, 0, TAU);
+      ctx.fill();
+
+      // Recipient Node Ring & Arrival Bloom
+      const arrival = Math.exp(-Math.pow((prog - 0.92) / 0.08, 2));
+      const nR = S * (0.013 + 0.005 * arrival);
+      drawRadialGlow(dst.x, dst.y, nR * 3.2, 3, 0.45 + 0.50 * arrival);
+
+      ctx.beginPath();
+      ctx.arc(dst.x, dst.y, nR, 0, TAU);
+      ctx.strokeStyle = rgba(arrival > 0.3 ? 0 : 3, 0.85);
+      ctx.lineWidth = u * (1.8 + 1.2 * arrival);
+      ctx.stroke();
+
+      ctx.fillStyle = rgba(0, 0.95);
+      ctx.beginPath();
+      ctx.arc(dst.x, dst.y, nR * 0.38, 0, TAU);
+      ctx.fill();
+    }
+
+    // Origin Hub Node
+    drawRadialGlow(originHub.x, originHub.y, S * 0.042, 2, 0.65);
+    ctx.beginPath();
+    ctx.arc(originHub.x, originHub.y, S * 0.014, 0, TAU);
+    ctx.strokeStyle = rgba(0, 0.95);
+    ctx.lineWidth = u * 2.0;
+    ctx.stroke();
+
+    // Central Iconic Paper Plane (Cruising at -26 deg upward-right with smooth harmonic hover & banking)
+    const baseFlightAngle = -0.46; // -26.3 degrees upward-right
+    const planeX = Math.cos(p1) * (S * 0.014);
+    const planeY = Math.sin(p2) * (S * 0.010);
+    const pitchOsc = 0.05 * Math.cos(p2);
+    const bankOsc = Math.sin(p2);
+
+    drawIconicPaperPlane(planeX, planeY, S * 0.068, baseFlightAngle + pitchOsc, bankOsc, phase, u, isBlackBg);
+
+    ctx.restore(); // end top share network
+
+    // 3. Lower Hexagonal-Chamfered Banner & Bespoke Vector Typography: "SHARE THIS"
+    const bannerY = S * 0.115;
+    const bw = S * 0.64;
+    const bh = S * 0.132;
+    const cut = S * 0.028;
+
+    const buildBannerPath = (pad) => {
+      const x = -bw * 0.5 + pad;
+      const y = bannerY - bh * 0.5 + pad;
+      const w = bw - pad * 2;
+      const h = bh - pad * 2;
+      const c = Math.max(2, cut - pad * 0.5);
+      ctx.beginPath();
+      ctx.moveTo(x + c, y);
+      ctx.lineTo(x + w - c, y);
+      ctx.lineTo(x + w, y + h * 0.5);
+      ctx.lineTo(x + w - c, y + h);
+      ctx.lineTo(x + c, y + h);
+      ctx.lineTo(x, y + h * 0.5);
+      ctx.closePath();
+    };
+
+    // Dark chamber fill
+    ctx.fillStyle = !isBlackBg ? 'rgba(9, 6, 0, 0.92)' : '#070500';
+    buildBannerPath(0);
+    ctx.fill();
+
+    // Inner recessed line
+    buildBannerPath(u * 6.5);
+    ctx.strokeStyle = rgba(4, 0.55);
+    ctx.lineWidth = u * 1.0;
+    ctx.stroke();
+
+    if (isBlackBg) ctx.globalCompositeOperation = 'lighter';
+
+    // Glowing Outer Hexagonal Banner Rim
+    buildBannerPath(0);
+    ctx.strokeStyle = rgba(2, 0.28);
+    ctx.lineWidth = u * 9.0;
+    ctx.stroke();
+
+    buildBannerPath(0);
+    ctx.strokeStyle = rgba(2, 0.95);
+    ctx.lineWidth = u * 2.8;
+    ctx.stroke();
+
+    // Side Wing Chevrons flanking the Hexagonal Banner
+    for (let side of [-1, 1]) {
+      const wx = side * (bw * 0.5 + S * 0.022 + Math.sin(p2) * u * 5);
+      const wy = bannerY;
+      ctx.beginPath();
+      ctx.moveTo(wx - side * S * 0.018, wy - bh * 0.32);
+      ctx.lineTo(wx, wy);
+      ctx.lineTo(wx - side * S * 0.018, wy + bh * 0.32);
+      ctx.strokeStyle = rgba(3, 0.85);
+      ctx.lineWidth = u * 2.8;
+      ctx.stroke();
+    }
+
+    // Bespoke Sculptural Double-Rail Vector Typography: "SHARE THIS"
+    const capH = S * 0.056;
+    const track = S * 0.0135;
+    drawBespokeTextCentered('SHARE THIS', 0, bannerY, capH, track, {
+      strokeW: u * 6.4,
+      colorIdx: 0,
+      glowIdx: 2,
+      inlineIdx: 3,
+      doubleRail: true,
+      wavePhase: p2,
+      waveAmp: u * 2.2,
+      alpha: 0.98
+    });
+
+    ctx.restore();
+  }
+
+  window.renderFrame = renderFrame;
+  window.renderAtTime = renderFrame;
+
+  let startTime = null;
+  function loop(now) {
+    if (startTime === null) startTime = now;
+    renderFrame((now - startTime) * 0.001);
+    requestAnimationFrame(loop);
+  }
+
+  renderFrame(0);
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

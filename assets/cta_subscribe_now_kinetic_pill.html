@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Subscribe Now — Bespoke Vector Kinetic CTA</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: #000000;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  canvas {
+    display: block;
+    width: 100vw;
+    height: 56.25vw;
+    max-height: 100vh;
+    max-width: 177.78vh;
+    object-fit: contain;
+  }
+</style>
+</head>
+<body>
+<canvas id="stage" width="3840" height="2160"></canvas>
+<script>
+(function() {
+  'use strict';
+
+  const canvas = document.getElementById('stage');
+  const ctx = canvas.getContext('2d');
+
+  // --- CLI & URL PARAMETERS ---
+  const P = window.__cliParams || {};
+  const BG = P.bg || 'black';
+  const SEED = Number(P.seed) || 1;
+  const VARIANT = Number(P.variant) || 0;
+
+  const DURATION = 10;
+  const FPS = 30;
+  const TAU = Math.PI * 2;
+
+  window.DURATION = DURATION;
+  window.FPS = FPS;
+
+  // --- SEEDED PRNG ---
+  function mulberry32(a) {
+    return function() {
+      let t = a += 0x6D2B79F5;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  const rng = mulberry32(SEED * 2654435761 + VARIANT * 1013904223 + 23);
+
+  // --- PALETTE PRESETS ---
+  const PRESET_PALETTES = [
+    // Variant 0: Crimson Ruby, Solar Gold & Pure White
+    ['#FFFFFF', '#FFD6DF', '#FF1E42', '#FFC83B', '#8A001A'],
+    // Variant 1: Electric Magenta, Cyan & White
+    ['#FFFFFF', '#F8D8FF', '#FF007A', '#00F0FF', '#7A003C'],
+    // Variant 2: Hyper Orange, Gold & White
+    ['#FFFFFF', '#FFE6D4', '#FF5500', '#FFD000', '#8A2800'],
+    // Variant 3: Cyber Emerald, Lime & White
+    ['#FFFFFF', '#D8FFEC', '#00E676', '#C6FF00', '#006E36'],
+    // Variant 4: Royal Cobalt, Electric Gold & White
+    ['#FFFFFF', '#DCE8FF', '#2979FF', '#FFD600', '#0D388A'],
+    // Variant 5: Ultraviolet, Neon Coral & White
+    ['#FFFFFF', '#EAD8FF', '#8C30FF', '#FF5277', '#420B8A']
+  ];
+
+  let rawPal = PRESET_PALETTES[((VARIANT % PRESET_PALETTES.length) + PRESET_PALETTES.length) % PRESET_PALETTES.length];
+  if (typeof P.palette === 'string' && P.palette.trim()) {
+    const custom = P.palette.split(',').map(s => s.trim()).filter(Boolean);
+    if (custom.length >= 2) {
+      rawPal = [
+        custom[0],
+        custom[1 % custom.length],
+        custom[2 % custom.length],
+        custom[3 % custom.length],
+        custom[4 % custom.length]
+      ];
+    }
+  }
+
+  function hexToRgb(hex) {
+    let h = hex.replace('#', '').trim();
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    const n = parseInt(h, 16) || 0;
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+
+  const RGB = rawPal.map(hexToRgb);
+  function rgba(idx, a) {
+    const c = RGB[idx % RGB.length];
+    const alpha = Math.max(0, Math.min(1, a));
+    return `rgba(${c[0]},${c[1]},${c[2]},${alpha.toFixed(4)})`;
+  }
+
+  // --- 100% PROPRIETARY ROUNDED GEOMETRIC VECTOR FONT (Zero External/OS Fonts, 100% Commercial-Free) ---
+  const VECTOR_FONT = {
+    'S': { w: 0.70, p: c => {
+      c.m(0.58, 0.18);
+      c.b(0.52, -0.02, 0.10, -0.02, 0.10, 0.24);
+      c.b(0.10, 0.49, 0.62, 0.49, 0.62, 0.76);
+      c.b(0.62, 1.02, 0.16, 1.02, 0.08, 0.82);
+    }},
+    'U': { w: 0.76, p: c => {
+      c.m(0.10, 0); c.l(0.10, 0.64);
+      c.arc(0.38, 0.64, 0.28, 0.36, Math.PI, 0, true);
+      c.l(0.66, 0);
+    }},
+    'B': { w: 0.74, p: c => {
+      c.m(0.10, 0); c.l(0.10, 1);
+      c.m(0.10, 0); c.l(0.42, 0); c.arc(0.42, 0.24, 0.24, 0.24, -Math.PI * 0.5, Math.PI * 0.5, false); c.l(0.10, 0.48);
+      c.m(0.10, 0.48); c.l(0.44, 0.48); c.arc(0.44, 0.74, 0.26, 0.26, -Math.PI * 0.5, Math.PI * 0.5, false); c.l(0.10, 1);
+    }},
+    'C': { w: 0.76, p: c => { c.arc(0.42, 0.50, 0.34, 0.50, -Math.PI * 0.22, Math.PI * 0.22, true); } },
+    'R': { w: 0.74, p: c => {
+      c.m(0.10, 1); c.l(0.10, 0); c.l(0.41, 0);
+      c.arc(0.41, 0.26, 0.24, 0.26, -Math.PI * 0.5, Math.PI * 0.5, false);
+      c.l(0.10, 0.52);
+      c.m(0.36, 0.52); c.l(0.66, 1);
+    }},
+    'I': { w: 0.28, p: c => { c.m(0.14, 0); c.l(0.14, 1); } },
+    'E': { w: 0.66, p: c => {
+      c.m(0.58, 0); c.l(0.10, 0); c.l(0.10, 1); c.l(0.58, 1);
+      c.m(0.10, 0.49); c.l(0.48, 0.49);
+    }},
+    'N': { w: 0.78, p: c => { c.m(0.10, 1); c.l(0.10, 0); c.l(0.68, 1); c.l(0.68, 0); } },
+    'O': { w: 0.84, p: c => { c.arc(0.42, 0.50, 0.34, 0.50, 0, TAU, false); } },
+    'W': { w: 1.02, p: c => {
+      c.m(0.04, 0); c.l(0.25, 1); c.l(0.51, 0.28); c.l(0.77, 1); c.l(0.98, 0);
+    }},
+    ' ': { w: 0.34, p: () => {} }
+  };
+
+  function createGlyphPathHelper(ox, oy, scaleX, scaleY) {
+    const tx = x => ox + x * scaleX;
+    const ty = y => oy + y * scaleY;
+    return {
+      m(x, y) { ctx.moveTo(tx(x), ty(y)); },
+      l(x, y) { ctx.lineTo(tx(x), ty(y)); },
+      b(x1, y1, x2, y2, x3, y3) {
+        ctx.bezierCurveTo(tx(x1), ty(y1), tx(x2), ty(y2), tx(x3), ty(y3));
+      },
+      arc(cx, cy, rx, ry, a0, a1, ccw) {
+        const steps = 28;
+        let delta = a1 - a0;
+        if (ccw && delta > 0) delta -= TAU;
+        if (!ccw && delta < 0) delta += TAU;
+        for (let i = 0; i <= steps; i++) {
+          const a = a0 + (i / steps) * delta;
+          const px = cx + Math.cos(a) * rx;
+          const py = cy + Math.sin(a) * ry;
+          if (i === 0) ctx.moveTo(tx(px), ty(py));
+          else ctx.lineTo(tx(px), ty(py));
+        }
+      }
+    };
+  }
+
+  function measureVectorText(str, capHeight, tracking) {
+    let total = 0;
+    for (let i = 0; i < str.length; i++) {
+      const g = VECTOR_FONT[str[i]] || VECTOR_FONT[' '];
+      total += g.w * capHeight;
+      if (i < str.length - 1) total += tracking;
+    }
+    return total;
+  }
+
+  function drawVectorString(str, startX, centerY, capHeight, tracking, options) {
+    const wavePhase = options.wavePhase || 0;
+    const waveAmp = options.waveAmp || 0;
+    const strokeW = Math.max(options.strokeW, capHeight * 0.165);
+    const mainColorIdx = options.colorIdx;
+    const glowColorIdx = options.glowColorIdx !== undefined ? options.glowColorIdx : mainColorIdx;
+    const alpha = options.alpha !== undefined ? options.alpha : 1;
+
+    let curX = startX;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    for (let i = 0; i < str.length; i++) {
+      const ch = str[i];
+      const g = VECTOR_FONT[ch] || VECTOR_FONT[' '];
+      const yWave = Math.sin(wavePhase - i * 0.42) * waveAmp;
+      const topY = centerY - capHeight * 0.5 + yWave;
+
+      if (ch !== ' ') {
+        const helper = createGlyphPathHelper(curX, topY, capHeight, capHeight);
+
+        ctx.beginPath();
+        g.p(helper);
+        ctx.strokeStyle = rgba(glowColorIdx, alpha * 0.22);
+        ctx.lineWidth = strokeW * 1.9;
+        ctx.stroke();
+
+        ctx.beginPath();
+        g.p(helper);
+        ctx.strokeStyle = rgba(mainColorIdx, alpha);
+        ctx.lineWidth = strokeW;
+        ctx.stroke();
+      }
+
+      curX += g.w * capHeight + tracking;
+    }
+  }
+
+  function drawRadialGlow(x, y, r, colorIdx, alpha) {
+    if (r <= 0.5 || alpha <= 0.002) return;
+    const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
+    grad.addColorStop(0, rgba(colorIdx, alpha));
+    grad.addColorStop(0.35, rgba(colorIdx, alpha * 0.45));
+    grad.addColorStop(0.70, rgba(colorIdx, alpha * 0.12));
+    grad.addColorStop(1, rgba(colorIdx, 0));
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, TAU);
+    ctx.fill();
+  }
+
+  // --- PRECOMPUTE RADIAL SPARKS ---
+  const SPARK_RAYS = [];
+  for (let i = 0; i < 20; i++) {
+    SPARK_RAYS.push({
+      angle: (i / 20) * TAU + (rng() - 0.5) * 0.06,
+      lenScale: 0.75 + 0.45 * rng(),
+      isGold: (i % 2 === 0)
+    });
+  }
+
+  // --- MAIN RENDER FUNCTION ---
+  function renderFrame(t) {
+    const W = canvas.width;
+    const H = canvas.height;
+    const S = Math.min(W, H);
+    const cx = W * 0.5;
+    const cy = H * 0.5;
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.setLineDash([]);
+    ctx.lineWidth = 1;
+
+    if (BG === 'alpha') {
+      ctx.clearRect(0, 0, W, H);
+    } else {
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    const phase = (((t % DURATION) + DURATION) % DURATION) / DURATION;
+    const p1 = TAU * 1 * phase;
+    const p2 = TAU * 2 * phase;
+    const u = S * 0.001; // 2.16px at 4K
+
+    // 2 clicks per 10s loop: one at phase = 0.25 and one at phase = 0.50 (thumbnail frame!)
+    // Let's use k = 2 so clicks happen at phase = 0.25 and phase = 0.75, OR k = 1 centered at phase = 0.50!
+    // Centering the main click at phase = 0.50 makes the thumbnail at phase = 0.50 super dynamic!
+    // We also add a secondary harmonic pulse at phase = 0.0/1.0 that is zero, so centering at 0.50 is 100% periodic.
+    const dClick = phase - 0.46; // Click impact at 0.46 so at phase = 0.50 the shockwave is in full bloom!
+    const clickCompress = Math.exp(-Math.pow(dClick / 0.042, 2));
+
+    // Shockwave progress after click (from phase = 0.44 to 0.88)
+    let shockP = 0;
+    let shockAlpha = 0;
+    if (phase > 0.44 && phase < 0.90) {
+      shockP = (phase - 0.44) / 0.46;
+      shockAlpha = Math.sin(shockP * Math.PI) * (1 - shockP * 0.35);
+    }
+
+    // 1. Ambient Backdrop Glow
+    drawRadialGlow(cx, cy, S * 0.47, 4, 0.22 + 0.12 * shockAlpha);
+    if (shockAlpha > 0.01) {
+      drawRadialGlow(cx, cy, S * 0.36 * (0.8 + 0.4 * shockP), 2, 0.26 * shockAlpha);
+    }
+
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    const btnW = S * 0.68;
+    const btnH = S * 0.168;
+    const btnR = btnH * 0.5;
+
+    // 2. Shockwave Concentric Capsule Ripples & Radial Spark Burst
+    if (shockAlpha > 0.005) {
+      ctx.save();
+      if (BG === 'black') ctx.globalCompositeOperation = 'lighter';
+
+      for (let r = 0; r < 2; r++) {
+        const rp = Math.max(0, Math.min(1, shockP - r * 0.12));
+        if (rp <= 0) continue;
+        const expX = rp * S * 0.14;
+        const expY = rp * S * 0.09;
+        const rAlpha = shockAlpha * (1 - rp) * (r === 0 ? 0.85 : 0.55);
+
+        ctx.beginPath();
+        ctx.roundRect(-btnW * 0.5 - expX, -btnH * 0.5 - expY, btnW + expX * 2, btnH + expY * 2, btnR + expY);
+        ctx.strokeStyle = rgba(r === 0 ? 2 : 3, rAlpha);
+        ctx.lineWidth = u * (4.5 * (1 - rp) + 0.8);
+        ctx.stroke();
+      }
+
+      // 20 Radial Spark Rays & Particles
+      for (let i = 0; i < SPARK_RAYS.length; i++) {
+        const sp = SPARK_RAYS[i];
+        const ang = sp.angle;
+        const rInner = (0.20 + shockP * 0.18 * sp.lenScale) * S;
+        const rOuter = rInner + (0.045 * (1 - shockP) * sp.lenScale) * S;
+
+        const x0 = Math.cos(ang) * rInner * 1.48;
+        const y0 = Math.sin(ang) * rInner * 0.68;
+        const x1 = Math.cos(ang) * rOuter * 1.48;
+        const y1 = Math.sin(ang) * rOuter * 0.68;
+
+        ctx.beginPath();
+        ctx.moveTo(x0, y0);
+        ctx.lineTo(x1, y1);
+        ctx.strokeStyle = rgba(sp.isGold ? 3 : 2, shockAlpha * 0.90);
+        ctx.lineWidth = u * (3.2 * (1 - shockP * 0.5));
+        ctx.lineCap = 'round';
+        ctx.stroke();
+
+        // Spark tip orb
+        drawRadialGlow(x1, y1, u * 7, sp.isGold ? 3 : 0, shockAlpha * 0.85);
+      }
+      ctx.restore();
+    }
+
+    // 3. Main Button Capsule with Elastic Click Physics
+    const btnScale = 1 - 0.068 * clickCompress + 0.015 * Math.sin(p2);
+    ctx.save();
+    ctx.scale(btnScale, btnScale);
+
+    // Dark high-contrast capsule body (flashes rich ruby-crimson on click impact)
+    ctx.fillStyle = (BG === 'alpha') ? 'rgba(12, 2, 5, 0.92)' : '#090103';
+    ctx.beginPath();
+    ctx.roundRect(-btnW * 0.5, -btnH * 0.5, btnW, btnH, btnR);
+    ctx.fill();
+
+    if (clickCompress > 0.02 || shockAlpha > 0.05) {
+      const flashAlpha = Math.max(clickCompress * 0.55, shockAlpha * 0.25);
+      const flashGrad = ctx.createLinearGradient(-btnW * 0.5, 0, btnW * 0.5, 0);
+      flashGrad.addColorStop(0, rgba(2, flashAlpha));
+      flashGrad.addColorStop(0.5, rgba(4, flashAlpha * 0.7));
+      flashGrad.addColorStop(1, rgba(2, flashAlpha));
+      ctx.fillStyle = flashGrad;
+      ctx.beginPath();
+      ctx.roundRect(-btnW * 0.5 + u * 4, -btnH * 0.5 + u * 4, btnW - u * 8, btnH - u * 8, btnR - u * 4);
+      ctx.fill();
+    }
+
+    // Inner precision telemetry track
+    const inMargin = u * 6;
+    ctx.beginPath();
+    ctx.roundRect(-btnW * 0.5 + inMargin, -btnH * 0.5 + inMargin, btnW - inMargin * 2, btnH - inMargin * 2, btnR - inMargin);
+    ctx.strokeStyle = rgba(2, 0.35 + 0.45 * clickCompress);
+    ctx.lineWidth = u * 1.0;
+    ctx.stroke();
+
+    // Outer Luminous Button Rim
+    if (BG === 'black') ctx.globalCompositeOperation = 'lighter';
+
+    ctx.beginPath();
+    ctx.roundRect(-btnW * 0.5, -btnH * 0.5, btnW, btnH, btnR);
+    ctx.strokeStyle = rgba(2, 0.28 + 0.35 * clickCompress);
+    ctx.lineWidth = u * 9.0;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.roundRect(-btnW * 0.5, -btnH * 0.5, btnW, btnH, btnR);
+    ctx.strokeStyle = rgba(clickCompress > 0.35 ? 0 : 2, 0.95);
+    ctx.lineWidth = u * 3.0;
+    ctx.stroke();
+
+    // 4. Left Play Emblem with Acoustic Ring & Sacred Geometry Triangle
+    const badgeX = -btnW * 0.5 + btnR + u * 6;
+    const badgeR = btnR * 0.66;
+
+    ctx.save();
+    ctx.translate(badgeX, 0);
+
+    drawRadialGlow(0, 0, badgeR * 2.1, 2, 0.52 + 0.35 * clickCompress);
+
+    // Rotating segmented outer ring
+    ctx.save();
+    ctx.rotate(p1);
+    for (let a = 0; a < 3; a++) {
+      const a0 = (a / 3) * TAU;
+      ctx.beginPath();
+      ctx.arc(0, 0, badgeR * 1.16, a0, a0 + TAU * 0.20);
+      ctx.strokeStyle = rgba(3, 0.78);
+      ctx.lineWidth = u * 1.6;
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // Solid Crimson/White Play Disc
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = clickCompress > 0.35 ? rgba(0, 1) : rgba(2, 1);
+    ctx.beginPath();
+    ctx.arc(0, 0, badgeR * 0.88, 0, TAU);
+    ctx.fill();
+
+    ctx.strokeStyle = rgba(0, 0.92);
+    ctx.lineWidth = u * 1.6;
+    ctx.stroke();
+
+    // Custom Vector Play Triangle with inner precision cutout
+    const triR = badgeR * 0.44;
+    ctx.fillStyle = clickCompress > 0.35 ? rgba(2, 1) : '#FFFFFF';
+    ctx.beginPath();
+    ctx.moveTo(triR * 0.95, 0);
+    ctx.lineTo(-triR * 0.60, -triR * 0.82);
+    ctx.lineTo(-triR * 0.60, triR * 0.82);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
+
+    // 5. BESPOKE PROCEDURAL VECTOR TYPOGRAPHY: "SUBSCRIBE NOW"
+    if (BG === 'black') ctx.globalCompositeOperation = 'lighter';
+
+    const label = 'SUBSCRIBE NOW';
+    const capH = S * 0.044;
+    const track = S * 0.0082;
+    const textStartX = badgeX + badgeR * 1.42;
+
+    drawVectorString(label, textStartX, 0, capH, track, {
+      strokeW: u * 5.0,
+      colorIdx: 0,
+      glowColorIdx: 2,
+      inlineIdx: 3,
+      wavePhase: p2,
+      waveAmp: u * 2.2,
+      alpha: 0.98
+    });
+
+    ctx.restore(); // End button scale group
+
+    // 6. Animated Precision Vector Cursor (Seamless Periodic Orbit that clicks at phase = 0.46)
+    // At phase = 0.46, cursor lands near the right side of the button and compresses
+    const orbitAngle = (phase - 0.46) * TAU;
+    const cursorX = S * 0.14 + Math.sin(orbitAngle) * (S * 0.12);
+    const cursorY = S * 0.035 + (1 - Math.cos(orbitAngle)) * (S * 0.085);
+    const cursorScale = 1 - 0.20 * clickCompress;
+
+    ctx.save();
+    ctx.translate(cursorX, cursorY);
+    ctx.scale(cursorScale, cursorScale);
+
+    // Cursor click contact ring
+    if (clickCompress > 0.05) {
+      if (BG === 'black') ctx.globalCompositeOperation = 'lighter';
+      drawRadialGlow(0, 0, u * 28, 3, clickCompress * 0.85);
+      ctx.beginPath();
+      ctx.arc(0, 0, u * (10 + (1 - clickCompress) * 22), 0, TAU);
+      ctx.strokeStyle = rgba(3, clickCompress * 0.9);
+      ctx.lineWidth = u * 2.0;
+      ctx.stroke();
+    }
+
+    // Crisp custom geometric pointer arrow
+    ctx.globalCompositeOperation = 'source-over';
+    const cSize = S * 0.046;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(0, cSize * 1.05);
+    ctx.lineTo(cSize * 0.28, cSize * 0.78);
+    ctx.lineTo(cSize * 0.50, cSize * 1.24);
+    ctx.lineTo(cSize * 0.70, cSize * 1.14);
+    ctx.lineTo(cSize * 0.48, cSize * 0.68);
+    ctx.lineTo(cSize * 0.86, cSize * 0.68);
+    ctx.closePath();
+
+    ctx.fillStyle = rgba(3, 1);
+    ctx.fill();
+    ctx.lineWidth = u * 2.4;
+    ctx.strokeStyle = '#050102';
+    ctx.stroke();
+
+    // Inner white highlight rim on cursor
+    ctx.lineWidth = u * 1.0;
+    ctx.strokeStyle = rgba(0, 0.9);
+    ctx.stroke();
+
+    ctx.restore();
+    ctx.restore();
+  }
+
+  window.renderFrame = renderFrame;
+  window.renderAtTime = renderFrame;
+
+  let startTime = null;
+  function loop(now) {
+    if (startTime === null) startTime = now;
+    renderFrame((now - startTime) * 0.001);
+    requestAnimationFrame(loop);
+  }
+
+  renderFrame(0);
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pro Cinema 4K RAW Viewfinder Overlay</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: #000000;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  canvas {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+    object-fit: contain;
+  }
+</style>
+</head>
+<body>
+<canvas id="stage" width="3840" height="2160"></canvas>
+<script>
+(function() {
+  'use strict';
+
+  const canvas = document.getElementById('stage');
+  const ctx = canvas.getContext('2d');
+
+  const DURATION = 4.0;
+  const FPS = 30;
+  const TAU = Math.PI * 2;
+
+  function resize() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    if (w > 0 && h > 0) {
+      if (h > w) {
+        canvas.width = 2160;
+        canvas.height = 3840;
+      } else {
+        canvas.width = 3840;
+        canvas.height = 2160;
+      }
+    }
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  function renderAtTime(t) {
+    const W = canvas.width;
+    const H = canvas.height;
+    const S = Math.min(W, H);
+    const u = S / 2160; // 1.0 unit scale at standard 4K 2160p
+
+    // 1. Clear Pure Black for Blend Mode Overlay
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, W, H);
+
+    // 2. Compute Periodic Loop Phase
+    const phase = ((t % DURATION) + DURATION) % DURATION / DURATION;
+    const p1 = phase * TAU;
+    const p2 = phase * TAU * 2;
+    const p4 = phase * TAU * 4;
+
+    const marginX = 180 * u;
+    const marginY = 180 * u;
+
+    // Rule of Thirds Grid (Subtle Construction Lines)
+    ctx.save();
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.globalAlpha = 0.12;
+    ctx.lineWidth = 2 * u;
+    ctx.setLineDash([16 * u, 16 * u]);
+
+    const x1 = W * (1 / 3);
+    const x2 = W * (2 / 3);
+    const y1 = H * (1 / 3);
+    const y2 = H * (2 / 3);
+
+    ctx.beginPath();
+    ctx.moveTo(x1, marginY); ctx.lineTo(x1, H - marginY);
+    ctx.moveTo(x2, marginY); ctx.lineTo(x2, H - marginY);
+    ctx.moveTo(marginX, y1); ctx.lineTo(W - marginX, y1);
+    ctx.moveTo(marginX, y2); ctx.lineTo(W - marginX, y2);
+    ctx.stroke();
+    ctx.restore();
+
+    // Four L-Shaped Viewfinder Corner Brackets
+    ctx.save();
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = 6 * u;
+    ctx.lineCap = 'square';
+    ctx.lineJoin = 'miter';
+    const bLen = 140 * u;
+
+    // Top-Left
+    ctx.beginPath();
+    ctx.moveTo(marginX, marginY + bLen);
+    ctx.lineTo(marginX, marginY);
+    ctx.lineTo(marginX + bLen, marginY);
+    // Top-Right
+    ctx.moveTo(W - marginX - bLen, marginY);
+    ctx.lineTo(W - marginX, marginY);
+    ctx.lineTo(W - marginX, marginY + bLen);
+    // Bottom-Left
+    ctx.moveTo(marginX, H - marginY - bLen);
+    ctx.lineTo(marginX, H - marginY);
+    ctx.lineTo(marginX + bLen, H - marginY);
+    // Bottom-Right
+    ctx.moveTo(W - marginX - bLen, H - marginY);
+    ctx.lineTo(W - marginX, H - marginY);
+    ctx.lineTo(W - marginX, H - marginY - bLen);
+    ctx.stroke();
+    ctx.restore();
+
+    // Top Left: Glowing Pulsing REC Dot & Badges
+    const recPulse = 0.5 + 0.5 * Math.sin(p2);
+    const recDotX = marginX + 30 * u;
+    const recDotY = marginY + 45 * u;
+    const dotR = 16 * u;
+
+    // Soft outer glow for REC dot
+    ctx.save();
+    const glowGrad = ctx.createRadialGradient(recDotX, recDotY, 0, recDotX, recDotY, dotR * 3.5);
+    glowGrad.addColorStop(0, `rgba(255, 36, 36, ${0.85 * recPulse})`);
+    glowGrad.addColorStop(0.5, `rgba(255, 36, 36, ${0.35 * recPulse})`);
+    glowGrad.addColorStop(1, 'rgba(255, 36, 36, 0)');
+    ctx.fillStyle = glowGrad;
+    ctx.beginPath();
+    ctx.arc(recDotX, recDotY, dotR * 3.5, 0, TAU);
+    ctx.fill();
+
+    // Solid core red circle
+    ctx.fillStyle = '#FF2424';
+    ctx.beginPath();
+    ctx.arc(recDotX, recDotY, dotR, 0, TAU);
+    ctx.fill();
+
+    // REC Text
+    ctx.font = `800 ${36 * u}px "JetBrains Mono", monospace`;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('REC', recDotX + 32 * u, recDotY + 1 * u);
+
+    // Framed RAW 4K 60FPS Badge
+    const badgeX = recDotX + 160 * u;
+    const badgeY = recDotY - 26 * u;
+    const badgeW = 280 * u;
+    const badgeH = 52 * u;
+
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = 3 * u;
+    ctx.strokeRect(badgeX, badgeY, badgeW, badgeH);
+
+    ctx.fillStyle = '#00F0FF';
+    ctx.fillRect(badgeX + 6 * u, badgeY + 6 * u, 40 * u, badgeH - 12 * u);
+
+    ctx.font = `700 ${22 * u}px "JetBrains Mono", monospace`;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText('RAW 4K 60FPS', badgeX + 58 * u, badgeY + badgeH * 0.5 + 1 * u);
+    ctx.restore();
+
+    // Top Right: Vector Battery Icon & Telemetry
+    const topRtX = W - marginX - 30 * u;
+    const topRtY = marginY + 45 * u;
+
+    ctx.save();
+    ctx.font = `700 ${26 * u}px "JetBrains Mono", monospace`;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('STBY / LOCK', topRtX - 250 * u, topRtY);
+
+    // Battery Body
+    const battW = 90 * u;
+    const battH = 44 * u;
+    const battX = topRtX - battW;
+    const battY = topRtY - battH * 0.5;
+
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = 4 * u;
+    ctx.strokeRect(battX, battY, battW, battH);
+
+    // Battery Positive Terminal Nub
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(topRtX + 4 * u, topRtY - 12 * u, 8 * u, 24 * u);
+
+    // 4 Charge Bars
+    const barPad = 6 * u;
+    const segW = (battW - barPad * 5) / 4;
+    const segH = battH - barPad * 2;
+    ctx.fillStyle = '#10B981';
+    for (let i = 0; i < 4; i++) {
+      ctx.fillRect(battX + barPad + i * (segW + barPad), battY + barPad, segW, segH);
+    }
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = `800 ${28 * u}px "JetBrains Mono", monospace`;
+    ctx.textAlign = 'right';
+    ctx.fillText('94%', battX - 18 * u, topRtY);
+    ctx.restore();
+
+    // Center Reticle: Breathing Focus Brackets & Crosshair
+    const cx = W * 0.5;
+    const cy = H * 0.5;
+    const breath = 1 + 0.04 * Math.sin(p2);
+    const reticleR = 110 * u * breath;
+
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    // Subtle Central Dot
+    ctx.fillStyle = '#00F0FF';
+    ctx.beginPath();
+    ctx.arc(0, 0, 5 * u, 0, TAU);
+    ctx.fill();
+
+    // Central Crosshair Ticks
+    const chGap = 20 * u;
+    const chLen = 42 * u;
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = 3.5 * u;
+    ctx.beginPath();
+    ctx.moveTo(-chGap - chLen, 0); ctx.lineTo(-chGap, 0);
+    ctx.moveTo(chGap, 0); ctx.lineTo(chGap + chLen, 0);
+    ctx.moveTo(0, -chGap - chLen); ctx.lineTo(0, -chGap);
+    ctx.moveTo(0, chGap); ctx.lineTo(0, chGap + chLen);
+    ctx.stroke();
+
+    // Corner Focus Brackets
+    const brLen = 32 * u;
+    ctx.strokeStyle = '#00F0FF';
+    ctx.lineWidth = 4 * u;
+    ctx.lineCap = 'square';
+    ctx.beginPath();
+    // TL
+    ctx.moveTo(-reticleR, -reticleR + brLen); ctx.lineTo(-reticleR, -reticleR); ctx.lineTo(-reticleR + brLen, -reticleR);
+    // TR
+    ctx.moveTo(reticleR - brLen, -reticleR); ctx.lineTo(reticleR, -reticleR); ctx.lineTo(reticleR, -reticleR + brLen);
+    // BL
+    ctx.moveTo(-reticleR, reticleR - brLen); ctx.lineTo(-reticleR, reticleR); ctx.lineTo(-reticleR + brLen, reticleR);
+    // BR
+    ctx.moveTo(reticleR - brLen, reticleR); ctx.lineTo(reticleR, reticleR); ctx.lineTo(reticleR, reticleR - brLen);
+    ctx.stroke();
+
+    // AF-C Status Pill
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(-64 * u, reticleR + 24 * u, 128 * u, 38 * u);
+    ctx.strokeStyle = '#00F0FF';
+    ctx.lineWidth = 2 * u;
+    ctx.strokeRect(-64 * u, reticleR + 24 * u, 128 * u, 38 * u);
+
+    ctx.font = `700 ${20 * u}px "JetBrains Mono", monospace`;
+    ctx.fillStyle = '#00F0FF';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('[ AF-C ]', 0, reticleR + 43 * u);
+    ctx.restore();
+
+    // Right Edge Vertical Dual Stereo dB Meter (24 Segmented Bars)
+    const meterX = W - marginX - 100 * u;
+    const meterY = cy - 260 * u;
+    const totalBars = 24;
+    const segBarW = 28 * u;
+    const segBarH = 16 * u;
+    const segBarGap = 5 * u;
+
+    // Harmonic Audio Level Calculation (Multi-Frequency Sine Waves)
+    const audioLevelL = 0.58 + 0.28 * Math.sin(phase * TAU * 3) + 0.12 * Math.cos(phase * TAU * 5);
+    const audioLevelR = 0.54 + 0.26 * Math.sin(phase * TAU * 3 + 0.8) + 0.14 * Math.cos(phase * TAU * 6);
+
+    const activeBarsL = Math.max(2, Math.min(totalBars, Math.round(audioLevelL * totalBars)));
+    const activeBarsR = Math.max(2, Math.min(totalBars, Math.round(audioLevelR * totalBars)));
+
+    ctx.save();
+    ctx.font = `700 ${18 * u}px "Share Tech Mono", monospace`;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.textAlign = 'center';
+    ctx.fillText('CH 1', meterX + segBarW * 0.5, meterY - 24 * u);
+    ctx.fillText('CH 2', meterX + segBarW * 1.5 + 10 * u, meterY - 24 * u);
+
+    for (let i = 0; i < totalBars; i++) {
+      // Draw from bottom (i = 0) to top (i = totalBars - 1)
+      const bY = meterY + (totalBars - 1 - i) * (segBarH + segBarGap);
+
+      let barColor = '#10B981'; // Green
+      if (i >= 16 && i < 21) barColor = '#F5A623'; // Yellow / Amber
+      else if (i >= 21) barColor = '#FF2424'; // Red Peak
+
+      // Channel 1 (Left)
+      if (i < activeBarsL) {
+        ctx.fillStyle = barColor;
+        ctx.fillRect(meterX, bY, segBarW, segBarH);
+      } else {
+        ctx.strokeStyle = '#282828';
+        ctx.lineWidth = 1.5 * u;
+        ctx.strokeRect(meterX, bY, segBarW, segBarH);
+      }
+
+      // Channel 2 (Right)
+      if (i < activeBarsR) {
+        ctx.fillStyle = barColor;
+        ctx.fillRect(meterX + segBarW + 10 * u, bY, segBarW, segBarH);
+      } else {
+        ctx.strokeStyle = '#282828';
+        ctx.lineWidth = 1.5 * u;
+        ctx.strokeRect(meterX + segBarW + 10 * u, bY, segBarW, segBarH);
+      }
+    }
+
+    // dB Markers
+    ctx.font = `400 ${14 * u}px "Share Tech Mono", monospace`;
+    ctx.fillStyle = '#888888';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(' 0dB', meterX + segBarW * 2 + 18 * u, meterY + 8 * u);
+    ctx.fillText('-12dB', meterX + segBarW * 2 + 18 * u, meterY + (totalBars - 16) * (segBarH + segBarGap));
+    ctx.fillText('-24dB', meterX + segBarW * 2 + 18 * u, meterY + (totalBars - 8) * (segBarH + segBarGap));
+    ctx.fillText('-48dB', meterX + segBarW * 2 + 18 * u, meterY + (totalBars - 1) * (segBarH + segBarGap));
+    ctx.restore();
+
+    // Bottom Bar: Cinematography Telemetry & Seamless Timecode
+    const btmY = H - marginY - 40 * u;
+    ctx.save();
+    ctx.textBaseline = 'middle';
+
+    // Left Telemetry Readouts
+    const specs = [
+      { k: 'ISO', v: '800' },
+      { k: 'SHUTTER', v: '1/120' },
+      { k: 'IRIS', v: 'F2.8' },
+      { k: 'WB', v: '5600K' },
+      { k: 'LUT', v: 'REC.709' }
+    ];
+
+    let specX = marginX + 30 * u;
+    for (let s of specs) {
+      ctx.font = `500 ${18 * u}px "JetBrains Mono", monospace`;
+      ctx.fillStyle = '#888888';
+      ctx.textAlign = 'left';
+      ctx.fillText(s.k, specX, btmY - 18 * u);
+
+      ctx.font = `800 ${32 * u}px "JetBrains Mono", monospace`;
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText(s.v, specX, btmY + 16 * u);
+
+      specX += 175 * u;
+    }
+
+    // Right Side: Seamless Looping Timecode (Cycles 00-29 frames every 1.0s, loop repeats exactly at 4s)
+    const frameIndex = Math.floor((phase * 4 % 1) * 30);
+    const ffStr = String(frameIndex).padStart(2, '0');
+    const tcStr = `01:24:08:${ffStr}`;
+
+    ctx.font = `800 ${46 * u}px "JetBrains Mono", monospace`;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.textAlign = 'right';
+    ctx.fillText(tcStr, W - marginX - 30 * u, btmY + 4 * u);
+
+    ctx.font = `700 ${20 * u}px "JetBrains Mono", monospace`;
+    ctx.fillStyle = '#00F0FF';
+    ctx.fillText('TIMECODE // 29.97ND', W - marginX - 30 * u, btmY - 32 * u);
+    ctx.restore();
+  }
+
+  window.DURATION = DURATION;
+  window.FPS = FPS;
+  window.renderAtTime = renderAtTime;
+  window.renderFrame = renderAtTime;
+  window.asset = {
+    canvas: canvas,
+    render: renderAtTime,
+    params: { duration: DURATION, fps: FPS },
+    meta: { duration: DURATION, fps: FPS }
+  };
+  window.__assetReady = true;
+
+  // Auto-run interactive preview loop once web fonts are ready
+  document.fonts.ready.then(() => {
+    let start = null;
+    function loop(now) {
+      if (!start) start = now;
+      const t = (now - start) / 1000;
+      renderAtTime(t);
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  });
+})();
+</script>
+</body>
+</html>
+

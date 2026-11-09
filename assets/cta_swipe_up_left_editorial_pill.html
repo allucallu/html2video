@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Swipe Up / Swipe Left — Minimalist Editorial Pill CTA</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: #000000;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  canvas {
+    display: block;
+    width: 100vw;
+    height: 56.25vw;
+    max-height: 100vh;
+    max-width: 177.78vh;
+    object-fit: contain;
+  }
+</style>
+</head>
+<body>
+<canvas id="stage" width="3840" height="2160"></canvas>
+<script>
+(function() {
+  'use strict';
+
+  const canvas = document.getElementById('stage');
+  const ctx = canvas.getContext('2d');
+
+  // --- CLI & URL PARAMETERS ---
+  const P = window.__cliParams || {};
+  const BG = P.bg || 'black';
+  const SEED = Number(P.seed) || 1;
+  const VARIANT = Number(P.variant) || 0;
+  // Default (even variants: 0, 2, 4) = "SWIPE UP"; odd variants (1, 3, 5) or P.mode === 'left' = "SWIPE LEFT"
+  const IS_LEFT = P.mode === 'left' || (VARIANT % 2 === 1);
+
+  const DURATION = 10;
+  const FPS = 30;
+  const TAU = Math.PI * 2;
+
+  window.DURATION = DURATION;
+  window.FPS = FPS;
+
+  // --- EDITORIAL MINIMALIST PALETTE PRESETS (Matte, Zero Neon) ---
+  // [0: Text Primary, 1: Text Muted/Secondary, 2: Editorial Accent, 3: Hairline Rule, 4: Pill Surface]
+  const PRESET_PALETTES = [
+    // Variant 0: Warm Alabaster, Muted Stone, Brushed Champagne Gold on Matte Espresso-Charcoal
+    ['#F5F2EB', '#A39E93', '#D4AF7A', '#33302B', '#141311'],
+    // Variant 1: Crisp Paper White, Warm Grey, Terracotta Rust on Deep Obsidian
+    ['#F7F5F0', '#9E9A95', '#C86D51', '#302D2A', '#131211'],
+    // Variant 2: Ivory Cream, Sage Grey, Botanical Olive on Deep Forest Charcoal
+    ['#F4F5F0', '#98A096', '#8FA882', '#2B302A', '#111411'],
+    // Variant 3: Pure Alabaster, Cool Pewter, Editorial Cobalt-Slate on Deep Ink
+    ['#F4F6F8', '#949CA8', '#7A9EC2', '#282E36', '#101317'],
+    // Variant 4: Monochrome Swiss Editorial (Pure White, Silver Grey, Warm Sand on Matte Black-Charcoal)
+    ['#FFFFFF', '#999999', '#E0D5C1', '#2E2E2E', '#121212'],
+    // Variant 5: Soft Parchment, Taupe, Muted Rose-Clay on Warm Umber
+    ['#F7F2F0', '#A89B96', '#C98A82', '#332B28', '#151110']
+  ];
+
+  let PAL = PRESET_PALETTES[((VARIANT % PRESET_PALETTES.length) + PRESET_PALETTES.length) % PRESET_PALETTES.length];
+  if (typeof P.palette === 'string' && P.palette.trim()) {
+    const custom = P.palette.split(',').map(s => s.trim()).filter(Boolean);
+    if (custom.length >= 2) {
+      PAL = [
+        custom[0],
+        custom[1 % custom.length],
+        custom[2 % custom.length],
+        custom[3 % custom.length],
+        custom[4 % custom.length]
+      ];
+    }
+  }
+
+  // --- 100% PROPRIETARY ROUNDED GEOMETRIC SANS VECTOR FONT (Zero External/OS Fonts, 100% Commercial-Free) ---
+  const ROUNDED_FONT = {
+    'A': { w: 0.82, p: c => { c.m(0.06, 1); c.l(0.41, 0); c.l(0.76, 1); c.m(0.18, 0.65); c.l(0.64, 0.65); } },
+    'B': { w: 0.74, p: c => {
+      c.m(0.10, 0); c.l(0.10, 1);
+      c.m(0.10, 0); c.l(0.42, 0); c.arc(0.42, 0.24, 0.24, 0.24, -Math.PI * 0.5, Math.PI * 0.5, false); c.l(0.10, 0.48);
+      c.m(0.10, 0.48); c.l(0.44, 0.48); c.arc(0.44, 0.74, 0.26, 0.26, -Math.PI * 0.5, Math.PI * 0.5, false); c.l(0.10, 1);
+    }},
+    'C': { w: 0.76, p: c => { c.arc(0.42, 0.50, 0.34, 0.50, -Math.PI * 0.22, Math.PI * 0.22, true); } },
+    'D': { w: 0.78, p: c => {
+      c.m(0.10, 0); c.l(0.38, 0); c.arc(0.38, 0.50, 0.34, 0.50, -Math.PI * 0.5, Math.PI * 0.5, false); c.l(0.10, 1); c.l(0.10, 0);
+    }},
+    'E': { w: 0.66, p: c => { c.m(0.58, 0); c.l(0.10, 0); c.l(0.10, 1); c.l(0.58, 1); c.m(0.10, 0.49); c.l(0.48, 0.49); } },
+    'F': { w: 0.62, p: c => { c.m(0.56, 0); c.l(0.10, 0); c.l(0.10, 1); c.m(0.10, 0.49); c.l(0.46, 0.49); } },
+    'G': { w: 0.80, p: c => {
+      c.arc(0.42, 0.50, 0.34, 0.50, -Math.PI * 0.20, Math.PI * 0.18, true);
+      c.l(0.72, 0.52); c.l(0.45, 0.52);
+    }},
+    'H': { w: 0.76, p: c => { c.m(0.10, 0); c.l(0.10, 1); c.m(0.66, 0); c.l(0.66, 1); c.m(0.10, 0.49); c.l(0.66, 0.49); } },
+    'I': { w: 0.28, p: c => { c.m(0.14, 0); c.l(0.14, 1); } },
+    'J': { w: 0.62, p: c => { c.m(0.52, 0); c.l(0.52, 0.68); c.arc(0.30, 0.68, 0.22, 0.32, 0, Math.PI, false); } },
+    'K': { w: 0.74, p: c => { c.m(0.10, 0); c.l(0.10, 1); c.m(0.64, 0); c.l(0.12, 0.52); c.m(0.28, 0.36); c.l(0.66, 1); } },
+    'L': { w: 0.60, p: c => { c.m(0.10, 0); c.l(0.10, 1); c.l(0.54, 1); } },
+    'M': { w: 0.94, p: c => { c.m(0.08, 1); c.l(0.08, 0); c.l(0.47, 0.66); c.l(0.86, 0); c.l(0.86, 1); } },
+    'N': { w: 0.78, p: c => { c.m(0.10, 1); c.l(0.10, 0); c.l(0.68, 1); c.l(0.68, 0); } },
+    'O': { w: 0.84, p: c => { c.arc(0.42, 0.50, 0.34, 0.50, 0, TAU, false); } },
+    'P': { w: 0.72, p: c => {
+      c.m(0.10, 1); c.l(0.10, 0); c.l(0.41, 0);
+      c.arc(0.41, 0.27, 0.24, 0.27, -Math.PI * 0.5, Math.PI * 0.5, false);
+      c.l(0.10, 0.54);
+    }},
+    'R': { w: 0.74, p: c => {
+      c.m(0.10, 1); c.l(0.10, 0); c.l(0.41, 0);
+      c.arc(0.41, 0.26, 0.24, 0.26, -Math.PI * 0.5, Math.PI * 0.5, false);
+      c.l(0.10, 0.52);
+      c.m(0.36, 0.52); c.l(0.66, 1);
+    }},
+    'S': { w: 0.70, p: c => {
+      c.m(0.58, 0.18);
+      c.b(0.52, -0.02, 0.10, -0.02, 0.10, 0.24);
+      c.b(0.10, 0.49, 0.62, 0.49, 0.62, 0.76);
+      c.b(0.62, 1.02, 0.16, 1.02, 0.08, 0.82);
+    }},
+    'T': { w: 0.70, p: c => { c.m(0.04, 0); c.l(0.66, 0); c.m(0.35, 0); c.l(0.35, 1); } },
+    'U': { w: 0.76, p: c => { c.m(0.10, 0); c.l(0.10, 0.64); c.arc(0.38, 0.64, 0.28, 0.36, Math.PI, 0, true); c.l(0.66, 0); } },
+    'V': { w: 0.76, p: c => { c.m(0.06, 0); c.l(0.38, 1); c.l(0.70, 0); } },
+    'W': { w: 1.02, p: c => { c.m(0.04, 0); c.l(0.25, 1); c.l(0.51, 0.28); c.l(0.77, 1); c.l(0.98, 0); } },
+    'X': { w: 0.74, p: c => { c.m(0.08, 0); c.l(0.66, 1); c.m(0.66, 0); c.l(0.08, 1); } },
+    'Y': { w: 0.74, p: c => { c.m(0.06, 0); c.l(0.37, 0.52); c.l(0.68, 0); c.m(0.37, 0.52); c.l(0.37, 1); } },
+    ' ': { w: 0.34, p: () => {} }
+  };
+
+  function easeInOutQuart(t) {
+    t = Math.max(0, Math.min(1, t));
+    return t < 0.5 ? 8 * t * t * t * t : 1 - Math.pow(-2 * t + 2, 4) / 2;
+  }
+
+  function makeGlyphHelper(ox, oy, capH) {
+    const tx = x => ox + x * capH;
+    const ty = y => oy + y * capH;
+    return {
+      m(x, y) { ctx.moveTo(tx(x), ty(y)); },
+      l(x, y) { ctx.lineTo(tx(x), ty(y)); },
+      b(x1, y1, x2, y2, x3, y3) {
+        ctx.bezierCurveTo(tx(x1), ty(y1), tx(x2), ty(y2), tx(x3), ty(y3));
+      },
+      arc(cx, cy, rx, ry, a0, a1, ccw) {
+        const steps = 28;
+        let delta = a1 - a0;
+        if (ccw && delta > 0) delta -= TAU;
+        if (!ccw && delta < 0) delta += TAU;
+        for (let s = 0; s <= steps; s++) {
+          const a = a0 + (s / steps) * delta;
+          const px = tx(cx + Math.cos(a) * rx);
+          const py = ty(cy + Math.sin(a) * ry);
+          if (s === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+      }
+    };
+  }
+
+  function measureRoundedText(str, capH, tracking) {
+    let total = 0;
+    const up = str.toUpperCase();
+    for (let i = 0; i < up.length; i++) {
+      const g = ROUNDED_FONT[up[i]] || ROUNDED_FONT[' '];
+      total += g.w * capH;
+      if (i < up.length - 1) total += tracking;
+    }
+    return total;
+  }
+
+  function drawRoundedText(str, startX, centerY, capH, tracking, strokeW, color) {
+    const up = str.toUpperCase();
+    let curX = startX;
+    const topY = centerY - capH * 0.5;
+
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = strokeW;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    for (let i = 0; i < up.length; i++) {
+      const ch = up[i];
+      const g = ROUNDED_FONT[ch] || ROUNDED_FONT[' '];
+      if (ch !== ' ') {
+        ctx.beginPath();
+        g.p(makeGlyphHelper(curX, topY, capH));
+        ctx.stroke();
+      }
+      curX += g.w * capH + tracking;
+    }
+    ctx.restore();
+    return curX - startX - tracking;
+  }
+
+  function drawEditorialHeadline(leadText, badgeText, zoneLeft, zoneRight, centerY, baseCapH, phase, u) {
+    const availW = zoneRight - zoneLeft;
+    const baseTrack = baseCapH * 0.20;
+    const baseBadgeCapH = baseCapH * 0.82;
+    const baseBadgeTrack = baseBadgeCapH * 0.22;
+    const baseGap = baseCapH * 0.52;
+    const basePadX = baseCapH * 0.56;
+    const baseBadgeH = baseCapH * 1.62;
+
+    const leadW0 = measureRoundedText(leadText, baseCapH, baseTrack);
+    const badgeTextW0 = measureRoundedText(badgeText, baseBadgeCapH, baseBadgeTrack);
+    const totalW0 = leadW0 + baseGap + badgeTextW0 + basePadX * 2;
+
+    const fit = Math.min(1, (availW * 0.94) / Math.max(1, totalW0));
+    const capH = baseCapH * fit;
+    const track = baseTrack * fit;
+    const badgeCapH = baseBadgeCapH * fit;
+    const badgeTrack = baseBadgeTrack * fit;
+    const gap = baseGap * fit;
+    const padX = basePadX * fit;
+    const badgeH = baseBadgeH * fit;
+
+    const leadW = measureRoundedText(leadText, capH, track);
+    const badgeTextW = measureRoundedText(badgeText, badgeCapH, badgeTrack);
+    const badgeW = badgeTextW + padX * 2;
+
+    const liftLead = Math.sin(phase * TAU * 2) * (u * 1.0);
+    const liftBadge = Math.sin(phase * TAU * 2 - 0.9) * (u * 1.2);
+
+    // 1. Lead Phrase ("SWIPE") in bold rounded geometric vector strokes
+    drawRoundedText(leadText, zoneLeft, centerY + liftLead, capH, track, capH * 0.165, PAL[0]);
+
+    // 2. Solid Matte Accent Pill Badge ([ UP ] or [ LEFT ])
+    const bx = zoneLeft + leadW + gap;
+    const by = centerY + liftBadge - badgeH * 0.5;
+    const br = badgeH * 0.5;
+
+    ctx.save();
+    ctx.fillStyle = PAL[2];
+    ctx.beginPath();
+    ctx.roundRect(bx, by, badgeW, badgeH, br);
+    ctx.fill();
+    ctx.restore();
+
+    drawRoundedText(badgeText, bx + padX, centerY + liftBadge, badgeCapH, badgeTrack, badgeCapH * 0.185, PAL[4]);
+  }
+
+  function drawEditorialSwipeMedallion(ctx, cx, cy, radius, swipeCycle, isLeft, S) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, TAU);
+    ctx.lineWidth = 0.0014 * S;
+    ctx.strokeStyle = PAL[3];
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius * 0.82, 0, TAU);
+    ctx.clip();
+
+    if (isLeft) {
+      ctx.translate(cx, cy);
+      ctx.rotate(-Math.PI * 0.5);
+      ctx.translate(-cx, -cy);
+    }
+
+    const trackW = radius * 0.44;
+    const trackH = radius * 1.12;
+    ctx.beginPath();
+    ctx.roundRect(cx - trackW * 0.5, cy - trackH * 0.5, trackW, trackH, trackW * 0.5);
+    ctx.lineWidth = 0.0018 * S;
+    ctx.strokeStyle = PAL[3];
+    ctx.stroke();
+
+    const glide = easeInOutQuart(Math.min(1, swipeCycle * 1.25));
+    const fade = swipeCycle < 0.15
+      ? swipeCycle / 0.15
+      : (swipeCycle > 0.82 ? (1 - swipeCycle) / 0.18 : 1);
+
+    const startY = cy + radius * 0.30;
+    const endY = cy - radius * 0.30;
+    const dotY = startY + (endY - startY) * glide;
+
+    ctx.save();
+    ctx.globalAlpha = fade * 0.85;
+    ctx.beginPath();
+    ctx.moveTo(cx, startY);
+    ctx.lineTo(cx, dotY);
+    ctx.lineWidth = 0.0036 * S;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = PAL[2];
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(cx, dotY, radius * 0.13, 0, TAU);
+    ctx.fillStyle = PAL[0];
+    ctx.fill();
+    ctx.lineWidth = 0.0020 * S;
+    ctx.strokeStyle = PAL[2];
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.restore();
+  }
+
+  function drawEditorialChevronStack(ctx, cx, cy, rightR, swipeCycle, isLeft, S) {
+    ctx.save();
+    ctx.translate(cx, cy);
+    if (isLeft) {
+      ctx.rotate(-Math.PI * 0.5);
+    }
+
+    ctx.beginPath();
+    ctx.arc(0, 0, rightR, 0, TAU);
+    ctx.lineWidth = 0.0014 * S;
+    ctx.strokeStyle = PAL[3];
+    ctx.stroke();
+
+    const chevronW = rightR * 0.38;
+    const chevronH = rightR * 0.22;
+
+    for (let i = 0; i < 2; i++) {
+      const localPhase = (swipeCycle + i * 0.5) % 1;
+      const yOffset = (0.5 - localPhase) * rightR * 0.72;
+      const alpha = Math.sin(localPhase * Math.PI);
+
+      ctx.save();
+      ctx.globalAlpha *= alpha;
+      ctx.beginPath();
+      ctx.moveTo(-chevronW, yOffset + chevronH * 0.5);
+      ctx.lineTo(0, yOffset - chevronH * 0.5);
+      ctx.lineTo(chevronW, yOffset + chevronH * 0.5);
+      ctx.lineWidth = 0.0028 * S;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = i === 0 ? PAL[2] : PAL[0];
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    ctx.restore();
+  }
+
+  function renderFrame(t) {
+    const W = canvas.width;
+    const H = canvas.height;
+    const S = Math.min(W, H);
+    const cx = W * 0.5;
+    const cy = H * 0.5;
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.setLineDash([]);
+    ctx.lineWidth = 1;
+
+    if (BG === 'alpha') {
+      ctx.clearRect(0, 0, W, H);
+    } else {
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    const phase = (((t % DURATION) + DURATION) % DURATION) / DURATION;
+    const p1 = TAU * 1 * phase;
+    const swipeCycle = (phase * 4) % 1;
+    const u = S * 0.001; // 2.16px at 4K
+
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    const scale = 1 + 0.007 * Math.sin(p1);
+    ctx.scale(scale, scale);
+
+    // 1. Main Minimalist Editorial Pill Container
+    const pillW = S * 0.64;
+    const pillH = S * 0.148;
+    const pillR = pillH * 0.5;
+
+    ctx.fillStyle = PAL[4];
+    ctx.beginPath();
+    ctx.roundRect(-pillW * 0.5, -pillH * 0.5, pillW, pillH, pillR);
+    ctx.fill();
+
+    ctx.strokeStyle = PAL[3];
+    ctx.lineWidth = u * 1.8;
+    ctx.beginPath();
+    ctx.roundRect(-pillW * 0.5, -pillH * 0.5, pillW, pillH, pillR);
+    ctx.stroke();
+
+    const inset = u * 6.5;
+    ctx.strokeStyle = PAL[3];
+    ctx.lineWidth = u * 0.9;
+    ctx.beginPath();
+    ctx.roundRect(-pillW * 0.5 + inset, -pillH * 0.5 + inset, pillW - inset * 2, pillH - inset * 2, pillR - inset);
+    ctx.stroke();
+
+    // 2. Left Swipe Gesture Track Medallion
+    const badgeX = -pillW * 0.5 + pillR + u * 5;
+    const badgeR = pillH * 0.35;
+    drawEditorialSwipeMedallion(ctx, badgeX, 0, badgeR, swipeCycle, IS_LEFT, S);
+
+    // Vertical Hairline Divider
+    const divX = badgeX + badgeR + S * 0.024;
+    ctx.strokeStyle = PAL[3];
+    ctx.lineWidth = u * 1.2;
+    ctx.beginPath();
+    ctx.moveTo(divX, -pillH * 0.28);
+    ctx.lineTo(divX, pillH * 0.28);
+    ctx.stroke();
+
+    // 3. Right Directional Chevron Stack Medallion
+    const rightX = pillW * 0.5 - pillR - u * 5;
+    const rightR = pillH * 0.32;
+    drawEditorialChevronStack(ctx, rightX, 0, rightR, swipeCycle, IS_LEFT, S);
+
+    // 4. Custom Rounded Geometric Typography Zone (100% Commercial-Free, Auto-Fitted)
+    const zoneLeft = divX + S * 0.026;
+    const zoneRight = rightX - rightR - S * 0.026;
+
+    // Eyebrow Label: "EXPLORE MORE" + Sliding Progress Rule
+    const eyeY = -pillH * 0.24;
+    const eyeCapH = S * 0.0115;
+    const eyeW = drawRoundedText('EXPLORE MORE', zoneLeft, eyeY, eyeCapH, eyeCapH * 0.45, eyeCapH * 0.16, PAL[1]);
+    const ruleStartX = zoneLeft + eyeW + S * 0.016;
+    const ruleMaxLen = Math.max(S * 0.04, zoneRight - ruleStartX - S * 0.015);
+
+    ctx.strokeStyle = PAL[3];
+    ctx.lineWidth = u * 1.2;
+    ctx.beginPath();
+    ctx.moveTo(ruleStartX, eyeY);
+    ctx.lineTo(ruleStartX + ruleMaxLen, eyeY);
+    ctx.stroke();
+
+    const glideProgress = easeInOutQuart(Math.min(1, swipeCycle * 1.25));
+    const segW = ruleMaxLen * 0.34;
+    const segX = IS_LEFT
+      ? ruleStartX + (ruleMaxLen - segW) * (1 - glideProgress)
+      : ruleStartX + (ruleMaxLen - segW) * glideProgress;
+    ctx.strokeStyle = PAL[2];
+    ctx.lineWidth = u * 2.0;
+    ctx.beginPath();
+    ctx.moveTo(segX, eyeY);
+    ctx.lineTo(segX + segW, eyeY);
+    ctx.stroke();
+
+    // Main Headline: "SWIPE" + [ UP ] (or [ LEFT ])
+    drawEditorialHeadline('SWIPE', IS_LEFT ? 'LEFT' : 'UP', zoneLeft, zoneRight, pillH * 0.11, S * 0.033, phase, u);
+
+    ctx.restore();
+  }
+
+  window.renderFrame = renderFrame;
+  window.renderAtTime = renderFrame;
+
+  let startTime = null;
+  function loop(now) {
+    if (startTime === null) startTime = now;
+    renderFrame((now - startTime) * 0.001);
+    requestAnimationFrame(loop);
+  }
+
+  renderFrame(0);
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

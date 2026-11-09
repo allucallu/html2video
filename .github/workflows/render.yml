@@ -4,9 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       asset:
-        description: 'Aset yang dirender (pilih "all" untuk SEMUA aset sekaligus, atau ketik path spesifik misal: assets/asset5.html)'
+        description: 'Target: "all" (semua), "hud" (5 HUD Viewfinder), "cta" (15 Social CTA), "tech" (10 Math/Science/AI), atau nama file spesifik (misal: cinema_camera_raw_viewfinder_overlay.html atau cta_follow_for_more_kinetic_pill.html)'
         required: false
         default: 'all'
+      duration:
+        description: 'Durasi video dalam detik (mis. 4, 8, atau 10; kosongkan untuk menggunakan durasi bawaan aset)'
+        required: false
+        default: ''
       bg:
         description: 'Latar Belakang (black | alpha)'
         type: choice
@@ -24,14 +28,14 @@ on:
           - prores4444
         default: auto
       res:
-        description: 'Resolusi (mis. 3840x2160; kosongkan untuk default 4K)'
+        description: 'Resolusi (mis. 3840x2160; kosongkan untuk default 4K UHD)'
         default: ''
       fps:
-        description: 'FPS (mis. 30; kosongkan untuk default 30)'
+        description: 'FPS (mis. 30 atau 60; kosongkan untuk default 30)'
         default: ''
 
 jobs:
-  # Tahap 1: Deteksi otomatis semua file HTML di assets/
+  # Tahap 1: Deteksi dan filter daftar aset HTML yang akan dirender
   discover:
     name: Deteksi Daftar Aset
     runs-on: ubuntu-latest
@@ -43,36 +47,61 @@ jobs:
       - id: set-matrix
         run: |
           ASSET_INPUT="${{ inputs.asset }}"
+          FILES=""
+
           if [ -z "$ASSET_INPUT" ] || [ "$ASSET_INPUT" = "all" ]; then
             # Ambil seluruh file .html di folder assets/
             FILES=$(find assets -maxdepth 1 -name "*.html" -type f | sort)
-            COUNT=$(echo "$FILES" | grep -c . || true)
-            JSON_ARRAY=$(echo "$FILES" | jq -R -s -c 'split("\n")[:-1]')
-            echo "matrix=$JSON_ARRAY" >> "$GITHUB_OUTPUT"
-            echo "count=$COUNT" >> "$GITHUB_OUTPUT"
-            echo "Menemukan $COUNT aset untuk dirender sekaligus secara paralel:"
-            echo "$FILES"
+          elif [ "$ASSET_INPUT" = "hud" ]; then
+            # Khusus HUD overlay viewfinder
+            FILES=$(find assets -maxdepth 1 \( -name "*hud*" -o -name "*overlay*" -o -name "*viewfinder*" \) -type f | sort)
+          elif [ "$ASSET_INPUT" = "cta" ]; then
+            # Khusus CTA Social Media
+            FILES=$(find assets -maxdepth 1 -name "cta_*.html" -type f | sort)
+          elif [ "$ASSET_INPUT" = "tech" ] || [ "$ASSET_INPUT" = "science" ]; then
+            # Khusus Science, AI, & Math
+            FILES=$(find assets -maxdepth 1 \( -name "*neuron*" -o -name "*network*" -o -name "*transformer*" -o -name "*cymatics*" -o -name "*wave*" -o -name "*lattice*" -o -name "*spirograph*" -o -name "*lissajous*" -o -name "*mandala*" -o -name "*washi*" \) -type f | sort)
           else
-            # Single asset mode jika user memilih file spesifik
-            JSON_ARRAY=$(jq -nc --arg asset "$ASSET_INPUT" '[$asset]')
-            echo "matrix=$JSON_ARRAY" >> "$GITHUB_OUTPUT"
-            echo "count=1" >> "$GITHUB_OUTPUT"
-            echo "Mode single asset: $ASSET_INPUT"
+            # Single asset atau pola kustom
+            if [ -f "$ASSET_INPUT" ]; then
+              FILES="$ASSET_INPUT"
+            elif [ -f "assets/$ASSET_INPUT" ]; then
+              FILES="assets/$ASSET_INPUT"
+            elif [ -f "assets/${ASSET_INPUT}.html" ]; then
+              FILES="assets/${ASSET_INPUT}.html"
+            else
+              MATCHES=$(find assets -maxdepth 1 -name "*$ASSET_INPUT*" -type f | sort)
+              if [ -n "$MATCHES" ]; then
+                FILES="$MATCHES"
+              else
+                echo "Error: File atau pola '$ASSET_INPUT' tidak ditemukan di assets/"
+                exit 1
+              fi
+            fi
           fi
 
-  # Tahap 2: Render seluruh aset secara paralel (Matrix)
+          COUNT=$(echo "$FILES" | grep -c . || true)
+          JSON_ARRAY=$(echo "$FILES" | jq -R -s -c 'split("\n")[:-1]')
+          echo "matrix=$JSON_ARRAY" >> "$GITHUB_OUTPUT"
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+          echo "Menemukan $COUNT aset untuk dirender:"
+          echo "$FILES"
+
+  # Tahap 2: Render seluruh aset terpilih secara paralel
   render-matrix:
     name: Render ${{ matrix.asset }}
     needs: discover
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      max-parallel: 10
       matrix:
         asset: ${{ fromJSON(needs.discover.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 22 }
+        with:
+          node-version: 22
 
       - name: Cache Node Modules
         uses: actions/cache@v4
@@ -97,7 +126,16 @@ jobs:
         if: steps.playwright-cache.outputs.cache-hit == 'true'
         run: npx playwright install-deps chromium
 
-      - run: command -v ffmpeg || (sudo apt-get update && sudo apt-get install -y ffmpeg)
+      - name: Install System Fonts & FFmpeg
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            fonts-noto-core \
+            fonts-freefont-ttf \
+            fonts-dejavu-core \
+            fontconfig \
+            ffmpeg
+          sudo fc-cache -f -v
 
       - id: asset-name
         run: |
@@ -110,6 +148,7 @@ jobs:
           CMD_ARGS=()
           [ -n "${{ inputs.res }}" ] && CMD_ARGS+=(--res "${{ inputs.res }}")
           [ -n "${{ inputs.fps }}" ] && CMD_ARGS+=(--fps "${{ inputs.fps }}")
+          [ -n "${{ inputs.duration }}" ] && CMD_ARGS+=(--duration "${{ inputs.duration }}")
           [ -n "${{ inputs.bg }}" ] && CMD_ARGS+=(--bg "${{ inputs.bg }}")
           [ "${{ inputs.codec }}" != "auto" ] && CMD_ARGS+=(--codec "${{ inputs.codec }}")
 
@@ -125,7 +164,8 @@ jobs:
   # Tahap 3: Gabungkan semua hasil video ke satu artefak download sekaligus
   bundle-all:
     name: Paket Semua Video Sekaligus
-    needs: render-matrix
+    if: always() && needs.discover.result == 'success' && !cancelled()
+    needs: [discover, render-matrix]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -137,12 +177,12 @@ jobs:
           merge-multiple: true
           path: all-rendered-videos
 
-      - name: Sertakan Metadata Adobe Stock CSV
+      - name: Sertakan Metadata Adobe Stock CSV jika Ada
         run: |
           if [ -f "metadata/adobe_stock_metadata.csv" ]; then
             cp metadata/adobe_stock_metadata.csv all-rendered-videos/
           fi
-          echo "Isi paket all-rendered-videos yang siap diunduh:"
+          echo "Daftar file dalam paket all-rendered-videos:"
           ls -la all-rendered-videos/
 
       - name: Upload Artefak All-In-One (Download Semua Sekaligus)

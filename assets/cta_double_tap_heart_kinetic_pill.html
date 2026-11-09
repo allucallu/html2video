@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Double Tap — Bespoke Vector Kinetic Engagement CTA</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: #000000;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  canvas {
+    display: block;
+    width: 100vw;
+    height: 56.25vw;
+    max-height: 100vh;
+    max-width: 177.78vh;
+    object-fit: contain;
+  }
+</style>
+</head>
+<body>
+<canvas id="stage" width="3840" height="2160"></canvas>
+<script>
+(function() {
+  'use strict';
+
+  const canvas = document.getElementById('stage');
+  const ctx = canvas.getContext('2d');
+
+  // --- CLI & URL PARAMETERS ---
+  const P = window.__cliParams || {};
+  const BG = P.bg || 'black';
+  const SEED = Number(P.seed) || 1;
+  const VARIANT = Number(P.variant) || 0;
+
+  const DURATION = 10;
+  const FPS = 30;
+  const TAU = Math.PI * 2;
+
+  window.DURATION = DURATION;
+  window.FPS = FPS;
+
+  // --- SEEDED PRNG ---
+  function mulberry32(a) {
+    return function() {
+      let t = a += 0x6D2B79F5;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  const rng = mulberry32(SEED * 2654435761 + VARIANT * 1013904223 + 101);
+
+  // --- PALETTE PRESETS ---
+  const PRESET_PALETTES = [
+    // Variant 0: Neon Ruby-Rose, Champagne Gold & Pure White
+    ['#FFFFFF', '#FFD8E6', '#FF1458', '#FFD058', '#7A0024'],
+    // Variant 1: Electric Magenta, Ice Cyan & White
+    ['#FFFFFF', '#F8D8FF', '#FF0088', '#00F0FF', '#750040'],
+    // Variant 2: Coral Sunset, Solar Gold & White
+    ['#FFFFFF', '#FFE4D8', '#FF4528', '#FFC800', '#801800'],
+    // Variant 3: Royal Amethyst, Rose Gold & White
+    ['#FFFFFF', '#F0DCFF', '#A838FF', '#FF85B8', '#480A80'],
+    // Variant 4: Cyber Emerald, Gold & White
+    ['#FFFFFF', '#DCFFEE', '#00E682', '#FFD638', '#006838'],
+    // Variant 5: Electric Cyan, Neon Rose & White
+    ['#FFFFFF', '#DCF8FF', '#00E5FF', '#FF2878', '#005C70']
+  ];
+
+  let rawPal = PRESET_PALETTES[((VARIANT % PRESET_PALETTES.length) + PRESET_PALETTES.length) % PRESET_PALETTES.length];
+  if (typeof P.palette === 'string' && P.palette.trim()) {
+    const custom = P.palette.split(',').map(s => s.trim()).filter(Boolean);
+    if (custom.length >= 2) {
+      rawPal = [
+        custom[0],
+        custom[1 % custom.length],
+        custom[2 % custom.length],
+        custom[3 % custom.length],
+        custom[4 % custom.length]
+      ];
+    }
+  }
+
+  function hexToRgb(hex) {
+    let h = hex.replace('#', '').trim();
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    const n = parseInt(h, 16) || 0;
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+
+  const RGB = rawPal.map(hexToRgb);
+  function rgba(idx, a) {
+    const c = RGB[idx % RGB.length];
+    const alpha = Math.max(0, Math.min(1, a));
+    return `rgba(${c[0]},${c[1]},${c[2]},${alpha.toFixed(4)})`;
+  }
+
+  // --- 100% PROPRIETARY ROUNDED GEOMETRIC VECTOR FONT (Zero External/OS Fonts, 100% Commercial-Free) ---
+  const VECTOR_FONT = {
+    'D': { w: 0.78, p: c => {
+      c.m(0.10, 0); c.l(0.38, 0);
+      c.arc(0.38, 0.50, 0.34, 0.50, -Math.PI * 0.5, Math.PI * 0.5, false);
+      c.l(0.10, 1); c.l(0.10, 0);
+    }},
+    'O': { w: 0.84, p: c => { c.arc(0.42, 0.50, 0.34, 0.50, 0, TAU, false); } },
+    'U': { w: 0.76, p: c => {
+      c.m(0.10, 0); c.l(0.10, 0.64);
+      c.arc(0.38, 0.64, 0.28, 0.36, Math.PI, 0, true);
+      c.l(0.66, 0);
+    }},
+    'B': { w: 0.74, p: c => {
+      c.m(0.10, 0); c.l(0.10, 1);
+      c.m(0.10, 0); c.l(0.42, 0); c.arc(0.42, 0.24, 0.24, 0.24, -Math.PI * 0.5, Math.PI * 0.5, false); c.l(0.10, 0.48);
+      c.m(0.10, 0.48); c.l(0.44, 0.48); c.arc(0.44, 0.74, 0.26, 0.26, -Math.PI * 0.5, Math.PI * 0.5, false); c.l(0.10, 1);
+    }},
+    'L': { w: 0.60, p: c => { c.m(0.10, 0); c.l(0.10, 1); c.l(0.54, 1); } },
+    'E': { w: 0.66, p: c => {
+      c.m(0.58, 0); c.l(0.10, 0); c.l(0.10, 1); c.l(0.58, 1);
+      c.m(0.10, 0.49); c.l(0.48, 0.49);
+    }},
+    'T': { w: 0.70, p: c => {
+      c.m(0.04, 0); c.l(0.66, 0);
+      c.m(0.35, 0); c.l(0.35, 1);
+    }},
+    'A': { w: 0.82, p: c => {
+      c.m(0.06, 1); c.l(0.41, 0); c.l(0.76, 1);
+      c.m(0.18, 0.65); c.l(0.64, 0.65);
+    }},
+    'P': { w: 0.72, p: c => {
+      c.m(0.10, 1); c.l(0.10, 0); c.l(0.41, 0);
+      c.arc(0.41, 0.27, 0.24, 0.27, -Math.PI * 0.5, Math.PI * 0.5, false);
+      c.l(0.10, 0.54);
+    }},
+    'I': { w: 0.28, p: c => { c.m(0.14, 0); c.l(0.14, 1); } },
+    'K': { w: 0.74, p: c => {
+      c.m(0.10, 0); c.l(0.10, 1);
+      c.m(0.64, 0); c.l(0.12, 0.52);
+      c.m(0.28, 0.36); c.l(0.66, 1);
+    }},
+    ' ': { w: 0.36, p: () => {} }
+  };
+
+  function createGlyphContext(ox, oy, scaleX, scaleY, slant) {
+    const tx = (x, y) => ox + (x + (1 - y) * slant) * scaleX;
+    const ty = (x, y) => oy + y * scaleY;
+    return {
+      m(x, y) { ctx.moveTo(tx(x, y), ty(x, y)); },
+      l(x, y) { ctx.lineTo(tx(x, y), ty(x, y)); },
+      b(x1, y1, x2, y2, x3, y3) {
+        ctx.bezierCurveTo(tx(x1, y1), ty(x1, y1), tx(x2, y2), ty(x2, y2), tx(x3, y3), ty(x3, y3));
+      },
+      arc(cx, cy, rx, ry, a0, a1, ccw) {
+        const steps = 28;
+        let delta = a1 - a0;
+        if (ccw && delta > 0) delta -= TAU;
+        if (!ccw && delta < 0) delta += TAU;
+        for (let i = 0; i <= steps; i++) {
+          const a = a0 + (i / steps) * delta;
+          const px = cx + Math.cos(a) * rx;
+          const py = cy + Math.sin(a) * ry;
+          if (i === 0) ctx.moveTo(tx(px, py), ty(px, py));
+          else ctx.lineTo(tx(px, py), ty(px, py));
+        }
+      }
+    };
+  }
+
+  function measureVectorText(str, capH, tracking) {
+    let total = 0;
+    for (let i = 0; i < str.length; i++) {
+      const g = VECTOR_FONT[str[i]] || VECTOR_FONT[' '];
+      total += g.w * capH;
+      if (i < str.length - 1) total += tracking;
+    }
+    return total;
+  }
+
+  function drawBespokeTextCentered(str, centerX, centerY, capH, tracking, opts) {
+    const totalW = measureVectorText(str, capH, tracking);
+    let curX = centerX - totalW * 0.5;
+    const slant = opts.slant || 0;
+    const wavePhase = opts.wavePhase || 0;
+    const waveAmp = opts.waveAmp || 0;
+    const strokeW = Math.max(opts.strokeW, capH * 0.165);
+    const mainIdx = opts.colorIdx !== undefined ? opts.colorIdx : 0;
+    const glowIdx = opts.glowIdx !== undefined ? opts.glowIdx : 2;
+    const alpha = opts.alpha !== undefined ? opts.alpha : 1;
+    const bounceScale = opts.bounceScale || 0;
+
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    for (let i = 0; i < str.length; i++) {
+      const ch = str[i];
+      const g = VECTOR_FONT[ch] || VECTOR_FONT[' '];
+      const charWave = Math.sin(wavePhase - i * 0.45);
+      const yWave = charWave * waveAmp - bounceScale * capH * 0.14 * Math.max(0, Math.cos(i * 0.35 - wavePhase));
+      const topY = centerY - capH * 0.5 + yWave;
+
+      if (ch !== ' ') {
+        const helper = createGlyphContext(curX, topY, capH, capH, slant);
+
+        ctx.beginPath();
+        g.p(helper);
+        ctx.strokeStyle = rgba(glowIdx, alpha * 0.22);
+        ctx.lineWidth = strokeW * 1.9;
+        ctx.stroke();
+
+        ctx.beginPath();
+        g.p(helper);
+        ctx.strokeStyle = rgba(mainIdx, alpha);
+        ctx.lineWidth = strokeW;
+        ctx.stroke();
+      }
+
+      curX += g.w * capH + tracking;
+    }
+  }
+
+  function drawRadialGlow(x, y, r, colorIdx, alpha) {
+    if (r <= 0.5 || alpha <= 0.002) return;
+    const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
+    grad.addColorStop(0, rgba(colorIdx, alpha));
+    grad.addColorStop(0.35, rgba(colorIdx, alpha * 0.45));
+    grad.addColorStop(0.70, rgba(colorIdx, alpha * 0.12));
+    grad.addColorStop(1, rgba(colorIdx, 0));
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, TAU);
+    ctx.fill();
+  }
+
+  // Parametric Heart Path Builder
+  function buildHeartPath(cx, cy, size) {
+    ctx.beginPath();
+    const steps = 72;
+    for (let i = 0; i <= steps; i++) {
+      const t = (i / steps) * TAU;
+      const sx = 16 * Math.pow(Math.sin(t), 3);
+      const sy = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
+      const px = cx + (sx / 16) * size;
+      const py = cy + (sy / 16) * size;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+  }
+
+  // Precompute satellite mini-hearts & burst particles
+  const BURST_ITEMS = [];
+  for (let i = 0; i < 16; i++) {
+    BURST_ITEMS.push({
+      angle: (i / 16) * TAU + (rng() - 0.5) * 0.08,
+      distScale: 0.78 + 0.38 * rng(),
+      isMiniHeart: (i % 2 === 0),
+      size: 0.011 + 0.006 * rng(),
+      rotSpeed: (i % 2 === 0 ? 1 : -1)
+    });
+  }
+
+  // --- MAIN RENDER FUNCTION ---
+  function renderFrame(t) {
+    const W = canvas.width;
+    const H = canvas.height;
+    const S = Math.min(W, H);
+    const cx = W * 0.5;
+    const cy = H * 0.5;
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.setLineDash([]);
+    ctx.lineWidth = 1;
+
+    const isBlackBg = (BG === 'black');
+    if (!isBlackBg) {
+      ctx.clearRect(0, 0, W, H);
+    } else {
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    const phase = (((t % DURATION) + DURATION) % DURATION) / DURATION;
+    const p1 = TAU * 1 * phase;
+    const p2 = TAU * 2 * phase;
+    const u = S * 0.001; // 2.16px at 4K
+
+    // Double-Tap Impulse Physics:
+    // Tap 1 occurs at phase = 0.36, Tap 2 occurs at phase = 0.45 so that at phase = 0.50 (thumbnail!)
+    // the heart is in peak radiant bloom with concentric double-tap ripples and floating mini-hearts!
+    const tap1 = Math.exp(-Math.pow((phase - 0.36) / 0.028, 2));
+    const tap2 = Math.exp(-Math.pow((phase - 0.45) / 0.032, 2));
+
+    // Secondary periodic double-tap around phase = 0.86 & 0.95 -> let's keep a clean single hero double-tap
+    // plus a continuous harmonic heartbeat so phase 0 and phase 1 are 100% identical!
+    let burstProg = 0;
+    let burstAlpha = 0;
+    if (phase > 0.35 && phase < 0.88) {
+      burstProg = (phase - 0.35) / 0.53;
+      burstAlpha = Math.sin(burstProg * Math.PI) * (1 - burstProg * 0.25);
+    }
+
+    const heartCompression = -0.14 * tap1 - 0.18 * tap2 + 0.16 * Math.exp(-Math.pow((phase - 0.50) / 0.055, 2));
+    const heartScale = 1 + heartCompression + 0.035 * Math.sin(p2);
+
+    // 1. Ambient Backdrop Glow
+    drawRadialGlow(cx, cy - S * 0.04, S * 0.47, 4, 0.22 + 0.16 * burstAlpha);
+
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    // 2. Top Center Sculpted Faceted Heart & Double-Tap Shockwaves
+    const heartY = -S * 0.115;
+    const baseHeartR = S * 0.088;
+
+    ctx.save();
+    ctx.translate(0, heartY);
+
+    if (isBlackBg) ctx.globalCompositeOperation = 'lighter';
+
+    // Rotating sacred-geometry astrolabe ring around the heart
+    ctx.save();
+    ctx.rotate(p1);
+    ctx.setLineDash([u * 4, u * 6]);
+    ctx.beginPath();
+    ctx.arc(0, 0, baseHeartR * 1.52, 0, TAU);
+    ctx.strokeStyle = rgba(1, 0.24);
+    ctx.lineWidth = u * 1.0;
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // 8 cardinal ticks on the astrolabe ring
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * TAU;
+      const rIn = baseHeartR * 1.44;
+      const rOut = baseHeartR * 1.60;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * rIn, Math.sin(a) * rIn);
+      ctx.lineTo(Math.cos(a) * rOut, Math.sin(a) * rOut);
+      ctx.strokeStyle = rgba(3, 0.55);
+      ctx.lineWidth = u * 1.4;
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // Double-Tap Concentric Touch Ripples (Tap 1 & Tap 2)
+    for (let w = 0; w < 2; w++) {
+      const startP = w === 0 ? 0.35 : 0.44;
+      if (phase > startP && phase < startP + 0.36) {
+        const rp = (phase - startP) / 0.36;
+        const rAlpha = Math.sin(rp * Math.PI) * (1 - rp * 0.3);
+        const rippleR = baseHeartR * (0.65 + rp * 1.95);
+
+        ctx.beginPath();
+        ctx.arc(0, 0, rippleR, 0, TAU);
+        ctx.strokeStyle = rgba(w === 0 ? 3 : 2, rAlpha * 0.85);
+        ctx.lineWidth = u * (5.5 * (1 - rp) + 1.0);
+        ctx.stroke();
+
+        // Expanding Heart Contour Wave
+        buildHeartPath(0, 0, baseHeartR * (1.05 + rp * 1.25));
+        ctx.strokeStyle = rgba(2, rAlpha * 0.55);
+        ctx.lineWidth = u * (3.5 * (1 - rp));
+        ctx.stroke();
+      }
+    }
+
+    // Floating Mini-Hearts & Gold Spark Burst (Active across phase 0.35 -> 0.88, peaking at phase = 0.50!)
+    if (burstAlpha > 0.01) {
+      for (let i = 0; i < BURST_ITEMS.length; i++) {
+        const item = BURST_ITEMS[i];
+        const easeOut = 1 - Math.pow(1 - burstProg, 2.2);
+        const dist = baseHeartR * (0.95 + easeOut * 1.85 * item.distScale);
+        const bx = Math.cos(item.angle) * dist * 1.28;
+        const by = Math.sin(item.angle) * dist * 0.92 - easeOut * S * 0.025;
+        const itemScale = (0.4 + 0.8 * Math.sin(burstProg * Math.PI));
+
+        if (item.isMiniHeart) {
+          ctx.save();
+          ctx.translate(bx, by);
+          ctx.rotate(Math.sin(p2 + i) * 0.25);
+          buildHeartPath(0, 0, item.size * S * itemScale);
+          ctx.fillStyle = rgba(i % 4 === 0 ? 3 : 2, burstAlpha * 0.85);
+          ctx.fill();
+          ctx.strokeStyle = rgba(0, burstAlpha * 0.95);
+          ctx.lineWidth = u * 1.2;
+          ctx.stroke();
+          ctx.restore();
+        } else {
+          drawRadialGlow(bx, by, item.size * S * 1.8 * itemScale, 3, burstAlpha * 0.9);
+          ctx.fillStyle = rgba(0, burstAlpha);
+          ctx.beginPath();
+          ctx.arc(bx, by, u * 2.8 * itemScale, 0, TAU);
+          ctx.fill();
+        }
+      }
+    }
+
+    // Main Sculpted Heart Emblem
+    ctx.save();
+    ctx.scale(heartScale, heartScale);
+
+    drawRadialGlow(0, 0, baseHeartR * 2.2, 2, 0.45 + 0.38 * burstAlpha);
+
+    // Rich Ruby-Crimson Gradient Fill inside Heart
+    ctx.globalCompositeOperation = 'source-over';
+    const hGrad = ctx.createRadialGradient(-baseHeartR * 0.25, -baseHeartR * 0.25, 0, 0, 0, baseHeartR * 1.2);
+    hGrad.addColorStop(0, rgba(1, 0.98));
+    hGrad.addColorStop(0.28, rgba(2, 0.98));
+    hGrad.addColorStop(0.75, rgba(4, 0.96));
+    hGrad.addColorStop(1, '#1A0008');
+
+    buildHeartPath(0, 0, baseHeartR);
+    ctx.fillStyle = hGrad;
+    ctx.fill();
+
+    if (isBlackBg) ctx.globalCompositeOperation = 'lighter';
+
+    // Faceted Geometric Gem Lines inside the Heart
+    ctx.beginPath();
+    const s = baseHeartR;
+    // Crown & pavilion crystal facets
+    ctx.moveTo(0, -s * 0.32); ctx.lineTo(-s * 0.48, -s * 0.52);
+    ctx.moveTo(0, -s * 0.32); ctx.lineTo(s * 0.48, -s * 0.52);
+    ctx.moveTo(0, -s * 0.32); ctx.lineTo(-s * 0.55, s * 0.05);
+    ctx.moveTo(0, -s * 0.32); ctx.lineTo(s * 0.55, s * 0.05);
+    ctx.moveTo(-s * 0.55, s * 0.05); ctx.lineTo(0, s * 0.42);
+    ctx.moveTo(s * 0.55, s * 0.05); ctx.lineTo(0, s * 0.42);
+    ctx.moveTo(0, -s * 0.32); ctx.lineTo(0, s * 0.95);
+    ctx.moveTo(-s * 0.92, -s * 0.18); ctx.lineTo(-s * 0.55, s * 0.05);
+    ctx.moveTo(s * 0.92, -s * 0.18); ctx.lineTo(s * 0.55, s * 0.05);
+    ctx.strokeStyle = rgba(3, 0.45 + 0.35 * burstAlpha);
+    ctx.lineWidth = u * 1.3;
+    ctx.stroke();
+
+    // Inner nested heart contour
+    buildHeartPath(0, 0, baseHeartR * 0.62);
+    ctx.strokeStyle = rgba(0, 0.55);
+    ctx.lineWidth = u * 1.4;
+    ctx.stroke();
+
+    // Multi-pass glowing outer Heart Rim
+    buildHeartPath(0, 0, baseHeartR);
+    ctx.strokeStyle = rgba(2, 0.42);
+    ctx.lineWidth = u * 9.0;
+    ctx.stroke();
+
+    buildHeartPath(0, 0, baseHeartR);
+    ctx.strokeStyle = rgba(0, 0.98);
+    ctx.lineWidth = u * 3.0;
+    ctx.stroke();
+
+    ctx.restore(); // end heartScale
+
+    // Double-Tap Touch Target Reticle overlaid on lower-right lobe of the heart
+    const touchEnv = Math.max(tap1, tap2, 0.35 + 0.25 * Math.sin(p2));
+    const tx = baseHeartR * 0.42;
+    const ty = baseHeartR * 0.22;
+    drawRadialGlow(tx, ty, u * 22 * (1 + tap2), 3, 0.75 * touchEnv);
+    ctx.beginPath();
+    ctx.arc(tx, ty, u * (8 + 8 * tap1 + 12 * tap2), 0, TAU);
+    ctx.strokeStyle = rgba(3, 0.85);
+    ctx.lineWidth = u * 2.0;
+    ctx.stroke();
+
+    ctx.restore(); // end heart group
+
+    // 3. Lower Kinetic Banner & Bespoke Vector Typography: "DOUBLE TAP" + "TO LIKE"
+    const bannerY = S * 0.115;
+    const bannerW = S * 0.64;
+    const bannerH = S * 0.125;
+    const bannerR = bannerH * 0.5;
+
+    // Dark high-contrast capsule behind "DOUBLE TAP"
+    ctx.fillStyle = !isBlackBg ? 'rgba(10, 1, 5, 0.92)' : '#080104';
+    ctx.beginPath();
+    ctx.roundRect(-bannerW * 0.5, bannerY - bannerH * 0.5, bannerW, bannerH, bannerR);
+    ctx.fill();
+
+    if (isBlackBg) ctx.globalCompositeOperation = 'lighter';
+
+    // Traveling Neon Ruby-Gold Rim around the capsule
+    const gx = Math.cos(p2) * bannerW * 0.5;
+    const gy = Math.sin(p2) * bannerH * 0.5;
+    const rimGrad = ctx.createLinearGradient(gx, bannerY + gy, -gx, bannerY - gy);
+    rimGrad.addColorStop(0, rgba(3, 0.95));
+    rimGrad.addColorStop(0.5, rgba(2, 0.75));
+    rimGrad.addColorStop(1, rgba(0, 0.95));
+
+    ctx.beginPath();
+    ctx.roundRect(-bannerW * 0.5, bannerY - bannerH * 0.5, bannerW, bannerH, bannerR);
+    ctx.strokeStyle = rgba(2, 0.28 + 0.25 * burstAlpha);
+    ctx.lineWidth = u * 8.5;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.roundRect(-bannerW * 0.5, bannerY - bannerH * 0.5, bannerW, bannerH, bannerR);
+    ctx.strokeStyle = rimGrad;
+    ctx.lineWidth = u * 2.6;
+    ctx.stroke();
+
+    // Main Headline: "DOUBLE TAP" (Sculptural Double-Rail Vector Font)
+    const capHMain = S * 0.056;
+    const trackMain = S * 0.013;
+    drawBespokeTextCentered('DOUBLE TAP', 0, bannerY, capHMain, trackMain, {
+      strokeW: u * 6.4,
+      colorIdx: 0,
+      glowIdx: 2,
+      inlineIdx: 3,
+      doubleRail: true,
+      wavePhase: p2,
+      waveAmp: u * 2.2,
+      bounceScale: Math.max(tap1, tap2),
+      alpha: 0.98
+    });
+
+    // Sub-tag pill below banner: "TO LIKE"
+    const subY = bannerY + bannerH * 0.5 + S * 0.038;
+    const subCapH = S * 0.022;
+    const subTrack = S * 0.009;
+    drawBespokeTextCentered('TO LIKE', 0, subY, subCapH, subTrack, {
+      strokeW: u * 2.8,
+      colorIdx: 3,
+      glowIdx: 2,
+      inlineIdx: 0,
+      slant: 0.14,
+      wavePhase: p2 - 0.5,
+      waveAmp: u * 1.0,
+      alpha: 0.92
+    });
+
+    // Flanking horizontal ornament lines beside "TO LIKE"
+    for (let side of [-1, 1]) {
+      const lx0 = side * S * 0.095;
+      const lx1 = side * S * (0.20 + 0.02 * Math.sin(p2));
+      ctx.beginPath();
+      ctx.moveTo(lx0, subY);
+      ctx.lineTo(lx1, subY);
+      ctx.strokeStyle = rgba(2, 0.65);
+      ctx.lineWidth = u * 1.6;
+      ctx.stroke();
+
+      drawRadialGlow(lx1, subY, u * 8, 3, 0.85);
+    }
+
+    ctx.restore();
+  }
+
+  window.renderFrame = renderFrame;
+  window.renderAtTime = renderFrame;
+
+  let startTime = null;
+  function loop(now) {
+    if (startTime === null) startTime = now;
+    renderFrame((now - startTime) * 0.001);
+    requestAnimationFrame(loop);
+  }
+
+  renderFrame(0);
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
+

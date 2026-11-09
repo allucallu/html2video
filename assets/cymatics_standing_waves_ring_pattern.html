@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cymatics Ring Pattern — Concentric Standing Waves</title>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: #000000;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  canvas {
+    display: block;
+    width: 100vw;
+    height: 56.25vw;
+    max-height: 100vh;
+    max-width: 177.78vh;
+    object-fit: contain;
+  }
+</style>
+</head>
+<body>
+<canvas id="canvas" width="3840" height="2160"></canvas>
+<script>
+(function() {
+  'use strict';
+
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+
+  // --- CLI & URL PARAMETER PARSING (Read once at load) ---
+  const P = window.__cliParams || {};
+  const BG = P.bg || 'black';
+  const SEED = Number(P.seed) || 1;
+  const VARIANT = Number(P.variant) || 0;
+
+  const DURATION = 10;
+  const FPS = 30;
+  const TWO_PI = Math.PI * 2;
+
+  window.DURATION = DURATION;
+  window.FPS = FPS;
+
+  // --- SEEDED PRNG (Mulberry32) ---
+  function mulberry32(a) {
+    return function() {
+      let t = a += 0x6D2B79F5;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  const rng = mulberry32(SEED * 2654435761 + VARIANT * 1013904223);
+
+  // --- COLOR PALETTE ---
+  // Default: White/silver lines + Cyan acoustic accent
+  let PALETTE = [
+    '#FFFFFF', // 0: Pure white (bright nodal intersections, primary crests)
+    '#C8DCEB', // 1: Crisp silver-blue (primary concentric wave rings)
+    '#00E5FF', // 2: Electric cyan accent (resonant standing-wave loops & antinodes)
+    '#7DF9FF', // 3: Bright ice cyan (harmonic crest highlights & traveling wave packets)
+    '#0088B8'  // 4: Deep ocean cyan (construction grids, outer halos & sub-harmonics)
+  ];
+
+  if (P.palette && typeof P.palette === 'string') {
+    const custom = P.palette.split(',').map(s => s.trim()).filter(Boolean);
+    if (custom.length >= 2) {
+      PALETTE = [
+        custom[0],
+        custom[1 % custom.length],
+        custom[2 % custom.length],
+        custom[3 % custom.length],
+        custom[4 % custom.length]
+      ];
+    }
+  }
+
+  function hexToRgb(hex) {
+    let h = hex.replace('#', '').trim();
+    if (h.length === 3) {
+      h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    }
+    const num = parseInt(h, 16) || 0;
+    return {
+      r: (num >> 16) & 255,
+      g: (num >> 8) & 255,
+      b: num & 255
+    };
+  }
+
+  const RGB = PALETTE.map(hexToRgb);
+
+  function rgba(idx, alpha) {
+    const c = RGB[idx % RGB.length];
+    const a = Math.max(0, Math.min(1, alpha));
+    return `rgba(${c.r},${c.g},${c.b},${a.toFixed(4)})`;
+  }
+
+  // --- CYMATICS RESONANCE PRESETS (VARIANT LOOKUP TABLE) ---
+  // Circular Chladni / Faraday standing-wave eigenmodes:
+  // nA: primary azimuthal symmetry order (petals = 2 * nA)
+  // nB: secondary harmonic symmetry order (for mode blending)
+  // rings: number of concentric standing-wave rings
+  // radialNodes: number of stationary circular nodal boundaries
+  const PRESETS = [
+    // Variant 0 (Default): 12-fold Faraday concentric cymatics rosetta with 24-fold harmonic overtone
+    { nA: 6,  nB: 12, nC: 18, rings: 14, radialNodes: 5, ampA: 0.036, ampB: 0.018, rotCycles: 1, waveCycles: 2 },
+    // Variant 1: 8-fold octupole acoustic plate mode with 16-fold cross-standing ripples
+    { nA: 4,  nB: 8,  nC: 12, rings: 12, radialNodes: 4, ampA: 0.042, ampB: 0.021, rotCycles: 1, waveCycles: 2 },
+    // Variant 2: 10-fold decagonal Bessel standing wave with pentagrammic core
+    { nA: 5,  nB: 10, nC: 15, rings: 13, radialNodes: 5, ampA: 0.038, ampB: 0.019, rotCycles: 1, waveCycles: 3 },
+    // Variant 3: 16-fold high-frequency ultrasonic cymatics lattice
+    { nA: 8,  nB: 16, nC: 24, rings: 16, radialNodes: 6, ampA: 0.030, ampB: 0.015, rotCycles: 1, waveCycles: 2 },
+    // Variant 4: 6-fold hexagonal Chladni membrane with 18-fold fine harmonic serration
+    { nA: 3,  nB: 9,  nC: 15, rings: 12, radialNodes: 4, ampA: 0.045, ampB: 0.020, rotCycles: -1, waveCycles: 2 },
+    // Variant 5: 14-fold heptagonal dual-mode standing wave interference
+    { nA: 7,  nB: 14, nC: 21, rings: 15, radialNodes: 5, ampA: 0.034, ampB: 0.017, rotCycles: 1, waveCycles: 2 },
+    // Variant 6: 18-fold dense concentric acoustic caustic resonator
+    { nA: 9,  nB: 18, nC: 27, rings: 17, radialNodes: 6, ampA: 0.028, ampB: 0.014, rotCycles: 1, waveCycles: 3 },
+    // Variant 7: 12-fold coupled (6, 18) dual-eigenmode Chladni bloom
+    { nA: 6,  nB: 18, nC: 12, rings: 14, radialNodes: 5, ampA: 0.036, ampB: 0.022, rotCycles: -1, waveCycles: 2 }
+  ];
+
+  const cfg = PRESETS[((VARIANT % PRESETS.length) + PRESETS.length) % PRESETS.length];
+
+  // Deterministic per-seed phase offsets (static offsets so loop phase 0 === phase 1)
+  const seedAngleOffset = (SEED > 1) ? (rng() * TWO_PI) : 0;
+  const ringPhaseOffsets = [];
+  for (let i = 0; i < 24; i++) {
+    ringPhaseOffsets.push(SEED > 1 ? (rng() - 0.5) * 0.25 : 0);
+  }
+
+  // Normalized radii of exact concentric nodal circles (where radial Bessel envelope = 0)
+  // Using sin(m * PI * u) envelope for u in [0, 1], zeroes occur at u = j / radialNodes
+  const nodalRadiiNorm = [];
+  for (let j = 1; j <= cfg.radialNodes; j++) {
+    nodalRadiiNorm.push(j / (cfg.radialNodes + 0.35));
+  }
+
+  // Normalized radii of antinodal maximum rings (halfway between nodal circles)
+  const antinodalRadiiNorm = [];
+  for (let j = 0; j < cfg.radialNodes; j++) {
+    antinodalRadiiNorm.push((j + 0.5) / (cfg.radialNodes + 0.35));
+  }
+
+  // --- HELPER DRAWING FUNCTIONS ---
+  function drawMultiStrokePath(buildPathFn, colorIdx, baseAlpha, baseWidth, glowPasses) {
+    // Pass 1: Wide soft outer glow
+    if (glowPasses >= 3) {
+      ctx.beginPath();
+      buildPathFn();
+      ctx.strokeStyle = rgba(colorIdx, baseAlpha * 0.14);
+      ctx.lineWidth = baseWidth * 4.2;
+      ctx.stroke();
+    }
+    // Pass 2: Medium halo
+    if (glowPasses >= 2) {
+      ctx.beginPath();
+      buildPathFn();
+      ctx.strokeStyle = rgba(colorIdx, baseAlpha * 0.34);
+      ctx.lineWidth = baseWidth * 2.1;
+      ctx.stroke();
+    }
+    // Pass 3: Crisp core line
+    ctx.beginPath();
+    buildPathFn();
+    ctx.strokeStyle = rgba(colorIdx, baseAlpha);
+    ctx.lineWidth = baseWidth;
+    ctx.stroke();
+  }
+
+  function drawGlowingNode(x, y, radius, coreColorIdx, haloColorIdx, intensity, S) {
+    if (intensity <= 0.01) return;
+    const haloR = radius * 4.2;
+    const grad = ctx.createRadialGradient(x, y, 0, x, y, haloR);
+    grad.addColorStop(0, rgba(coreColorIdx, 0.95 * intensity));
+    grad.addColorStop(0.28, rgba(haloColorIdx, 0.55 * intensity));
+    grad.addColorStop(0.65, rgba(haloColorIdx, 0.15 * intensity));
+    grad.addColorStop(1, rgba(haloColorIdx, 0));
+
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(x, y, haloR, 0, TWO_PI);
+    ctx.fill();
+
+    ctx.fillStyle = rgba(coreColorIdx, Math.min(1, 1.1 * intensity));
+    ctx.beginPath();
+    ctx.arc(x, y, radius * 0.75, 0, TWO_PI);
+    ctx.fill();
+  }
+
+  // --- MAIN FRAME RENDERER ---
+  function renderFrame(t) {
+    const W = canvas.width;
+    const H = canvas.height;
+    const S = Math.min(W, H);
+    const cx = 0.5 * W;
+    const cy = 0.5 * H;
+
+    // 1. Reset canvas state completely
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.setLineDash([]);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 1;
+
+    // 2. Background handling (strictly black or alpha)
+    if (BG === 'alpha') {
+      ctx.clearRect(0, 0, W, H);
+    } else {
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // 3. Exact seamless loop phase in [0, 1)
+    const phase = (((t % DURATION) + DURATION) % DURATION) / DURATION;
+
+    // Primary, secondary, and ambient harmonic oscillators (all integer frequencies)
+    const p1 = TWO_PI * 1 * phase;                     // k = 1 primary cycle
+    const p2 = TWO_PI * cfg.waveCycles * phase;        // k = 2 or 3 standing-wave oscillation
+    const p3 = TWO_PI * 3 * phase;                     // k = 3 secondary harmonic modulation
+    const p4 = TWO_PI * 4 * phase;                     // k = 4 ambient node shimmer
+    const p6 = TWO_PI * 6 * phase;                     // k = 6 high-frequency fine carrier
+
+    // Mode-blending weights: f = cos(2*PI*phase)*modeA + sin(2*PI*phase)*modeB
+    const modeWeightA = Math.cos(p1);
+    const modeWeightB = Math.sin(p1);
+    const breathEnvelope = 0.82 + 0.18 * Math.sin(p2);
+
+    // Master radius: outer acoustic resonator occupies ~70% of shorter canvas side (radius = 0.35 * S)
+    const R_MAX = 0.345 * S;
+    const strokeUnit = S * 0.001; // 2.16px at 4K
+
+    // 4. Soft ambient radial background glow (fades strictly to alpha 0 inside R_MAX * 1.18)
+    {
+      const ambGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, R_MAX * 1.15);
+      ambGrad.addColorStop(0, rgba(4, 0.16));
+      ambGrad.addColorStop(0.45, rgba(2, 0.09));
+      ambGrad.addColorStop(0.78, rgba(4, 0.03));
+      ambGrad.addColorStop(1, rgba(4, 0));
+      ctx.fillStyle = ambGrad;
+      ctx.beginPath();
+      ctx.arc(cx, cy, R_MAX * 1.15, 0, TWO_PI);
+      ctx.fill();
+    }
+
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    // =========================================================================
+    // LAYER 1: SCIENTIFIC POLAR CONSTRUCTION GRID & RADIAL NODAL AXES
+    // =========================================================================
+    const totalAxes = cfg.nA * 4;
+    const globalRot = (TWO_PI * cfg.rotCycles * phase) / (cfg.nA * 2) + seedAngleOffset;
+
+    // 1A. Faint polar azimuthal construction spokes
+    ctx.save();
+    ctx.rotate(globalRot * 0.5);
+    ctx.beginPath();
+    for (let i = 0; i < totalAxes; i++) {
+      const ang = (i / totalAxes) * TWO_PI;
+      const isMajor = (i % 2 === 0);
+      const rInner = isMajor ? R_MAX * 0.06 : R_MAX * 0.18;
+      const rOuter = isMajor ? R_MAX * 1.03 : R_MAX * 0.98;
+      ctx.moveTo(Math.cos(ang) * rInner, Math.sin(ang) * rInner);
+      ctx.lineTo(Math.cos(ang) * rOuter, Math.sin(ang) * rOuter);
+    }
+    ctx.strokeStyle = rgba(4, 0.22);
+    ctx.lineWidth = strokeUnit * 0.55;
+    ctx.stroke();
+
+    // Dashed secondary bisector rays
+    ctx.setLineDash([strokeUnit * 2.5, strokeUnit * 4.5]);
+    ctx.beginPath();
+    for (let i = 0; i < totalAxes; i++) {
+      const ang = ((i + 0.5) / totalAxes) * TWO_PI;
+      ctx.moveTo(Math.cos(ang) * (R_MAX * 0.22), Math.sin(ang) * (R_MAX * 0.22));
+      ctx.lineTo(Math.cos(ang) * (R_MAX * 0.96), Math.sin(ang) * (R_MAX * 0.96));
+    }
+    ctx.strokeStyle = rgba(1, 0.13);
+    ctx.lineWidth = strokeUnit * 0.45;
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+
+    // 1B. Stationary Chladni Concentric Nodal Circles (Reference circles where wave displacement = 0)
+    for (let j = 0; j < nodalRadiiNorm.length; j++) {
+      const u = nodalRadiiNorm[j];
+      const rNode = u * R_MAX;
+      const pulse = 0.5 + 0.5 * Math.cos(p2 - j * 0.9);
+
+      // Faint cyan reference ring
+      ctx.beginPath();
+      ctx.arc(0, 0, rNode, 0, TWO_PI);
+      ctx.strokeStyle = rgba(2, 0.18 + 0.12 * pulse);
+      ctx.lineWidth = strokeUnit * 0.7;
+      ctx.stroke();
+
+      // Fine dashed silver harmonic companion circle
+      ctx.setLineDash([strokeUnit * 1.8, strokeUnit * 3.6]);
+      ctx.beginPath();
+      ctx.arc(0, 0, rNode * (1 + 0.012 * Math.sin(p1 + j)), 0, TWO_PI);
+      ctx.strokeStyle = rgba(1, 0.20);
+      ctx.lineWidth = strokeUnit * 0.5;
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // =========================================================================
+    // LAYER 2: ACOUSTIC CAUSTIC RIBBONS & INTERFERENCE WEB (Between Antinodes)
+    // =========================================================================
+    if (BG === 'black') {
+      ctx.globalCompositeOperation = 'lighter';
+    }
+
+    // Interference envelope connecting adjacent radial antinodal zones
+    const webSteps = 360;
+    for (let j = 0; j < antinodalRadiiNorm.length; j++) {
+      const u = antinodalRadiiNorm[j];
+      const baseR = u * R_MAX;
+      const radialEnv = Math.sin(cfg.radialNodes * Math.PI * u);
+      const ringSign = (j % 2 === 0) ? 1 : -1;
+
+      // Dual counter-phase standing wave curves per antinodal zone (forming Faraday Crispations / eye-loops)
+      for (let polarity = -1; polarity <= 1; polarity += 2) {
+        const ampScale = R_MAX * (cfg.ampA * 0.95) * (0.45 + 0.55 * Math.abs(radialEnv));
+        const rotShift = globalRot * polarity;
+
+        const buildCausticLoop = () => {
+          for (let s = 0; s <= webSteps; s++) {
+            const theta = (s / webSteps) * TWO_PI;
+            const mA = Math.cos(cfg.nA * (theta + rotShift)) * Math.cos(p2 + j * 0.7);
+            const mB = Math.sin(cfg.nB * (theta - rotShift * 0.5)) * Math.sin(p2 - j * 0.5);
+            const mC = Math.cos(cfg.nC * theta + p3 * polarity) * 0.28;
+
+            const waveDisp = polarity * ringSign * (0.62 * mA + 0.38 * mB + mC);
+            const r = baseR + ampScale * waveDisp;
+            const x = Math.cos(theta) * r;
+            const y = Math.sin(theta) * r;
+            if (s === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+          }
+          ctx.closePath();
+        };
+
+        const colorIdx = (polarity === 1) ? 2 : 1;
+        const alphaBase = (polarity === 1) ? 0.52 : 0.38;
+        drawMultiStrokePath(buildCausticLoop, colorIdx, alphaBase, strokeUnit * 0.95, 2);
+      }
+
+      // Fine transverse acoustic filaments bridging the two counter-phase loops inside each antinode band
+      const bridgeCount = cfg.nA * 6;
+      ctx.beginPath();
+      for (let b = 0; b < bridgeCount; b++) {
+        const theta = (b / bridgeCount) * TWO_PI;
+        const ampScale = R_MAX * (cfg.ampA * 0.95) * (0.45 + 0.55 * Math.abs(radialEnv));
+
+        const mA1 = Math.cos(cfg.nA * (theta + globalRot)) * Math.cos(p2 + j * 0.7);
+        const mB1 = Math.sin(cfg.nB * (theta - globalRot * 0.5)) * Math.sin(p2 - j * 0.5);
+        const mC1 = Math.cos(cfg.nC * theta + p3) * 0.28;
+        const r1 = baseR + ampScale * ringSign * (0.62 * mA1 + 0.38 * mB1 + mC1);
+
+        const mA2 = Math.cos(cfg.nA * (theta - globalRot)) * Math.cos(p2 + j * 0.7);
+        const mB2 = Math.sin(cfg.nB * (theta + globalRot * 0.5)) * Math.sin(p2 - j * 0.5);
+        const mC2 = Math.cos(cfg.nC * theta - p3) * 0.28;
+        const r2 = baseR - ampScale * ringSign * (0.62 * mA2 + 0.38 * mB2 + mC2);
+
+        ctx.moveTo(Math.cos(theta) * r1, Math.sin(theta) * r1);
+        ctx.lineTo(Math.cos(theta) * r2, Math.sin(theta) * r2);
+      }
+      ctx.strokeStyle = rgba(3, 0.20);
+      ctx.lineWidth = strokeUnit * 0.55;
+      ctx.stroke();
+    }
+
+    // =========================================================================
+    // LAYER 3: PRIMARY CONCENTRIC STANDING-WAVE RINGS (14–17 Layered Wavefronts)
+    // =========================================================================
+    const numRings = cfg.rings;
+    const curveSteps = 480;
+
+    for (let i = 1; i <= numRings; i++) {
+      // Normalized radial coordinate u in [0.09, 0.94]
+      const u = 0.085 + 0.855 * (i / numRings);
+      const baseR = u * R_MAX;
+      const seedOff = ringPhaseOffsets[i % ringPhaseOffsets.length];
+
+      // Radial Bessel-like standing envelope: sin(k * r) + traveling radial ripple sin(k * r - 2*PI*m*phase)
+      const radialStanding = Math.sin(cfg.radialNodes * Math.PI * u + seedOff);
+      const radialTraveling = Math.cos(cfg.radialNodes * Math.PI * u - p2);
+
+      // Combined radial breathing displacement (preserves concentric spacing while pulsing)
+      const ringBreath = R_MAX * 0.0085 * radialTraveling * Math.sin(p1 + i * 0.4);
+
+      // Coupled Chladni angular eigenmodes:
+      // f(theta, phase) = cos(2*PI*phase) * ModeA + sin(2*PI*phase) * ModeB + harmonic overtone
+      const ampPrimary = R_MAX * cfg.ampA * (0.32 + 0.68 * Math.abs(radialStanding)) * Math.pow(u, 0.25);
+      const ampSecondary = R_MAX * cfg.ampB * (0.40 + 0.60 * Math.abs(radialTraveling)) * Math.pow(u, 0.35);
+      const parity = (i % 2 === 0) ? 1 : -1;
+
+      const buildStandingWaveRing = () => {
+        for (let s = 0; s <= curveSteps; s++) {
+          const theta = (s / curveSteps) * TWO_PI + globalRot * parity;
+
+          // Mode A: nA-fold standing petal wave oscillating with p2
+          const modeA = Math.cos(cfg.nA * theta) * Math.sin(p2 + u * Math.PI * cfg.radialNodes)
+                      + 0.45 * Math.cos(cfg.nA * 2 * theta) * Math.cos(p1 - i * 0.3);
+
+          // Mode B: nB-fold harmonic lattice oscillating with p2
+          const modeB = Math.cos(cfg.nB * theta + parity * 0.5) * Math.cos(p2 - u * Math.PI * cfg.radialNodes)
+                      + 0.40 * Math.sin(cfg.nC * theta) * Math.sin(p3);
+
+          // Smooth mode-blending + continuous standing wave carrier
+          const blendedMode = modeWeightA * modeA + modeWeightB * modeB;
+          const carrierWave = Math.cos(cfg.nA * theta + parity * Math.sin(p1)) * radialStanding;
+
+          // High-frequency cymatic micro-ripples along the ring crest
+          const microRipple = Math.cos(cfg.nC * 2 * theta - p4 * parity) * (R_MAX * 0.0032) * (0.5 + 0.5 * Math.sin(p2 + u * 6));
+
+          const r = baseR + ringBreath + ampPrimary * (0.58 * carrierWave + 0.42 * blendedMode) + ampSecondary * modeB * 0.45 + microRipple;
+          const x = Math.cos(theta) * r;
+          const y = Math.sin(theta) * r;
+
+          if (s === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+      };
+
+      // Hierarchy of brightness and color across the concentric rings:
+      // Every 3rd ring is a bright primary crest (white/ice-cyan), others alternate cyan and silver
+      const isMajorCrest = (i % 3 === 0);
+      const isAccentRing = (i % 3 === 1);
+      const colorIdx = isMajorCrest ? 0 : (isAccentRing ? 2 : 1);
+
+      const dynamicAlpha = isMajorCrest
+        ? (0.78 + 0.18 * Math.sin(p2 + i))
+        : (0.48 + 0.22 * Math.cos(p2 - i * 0.6));
+
+      const lineW = isMajorCrest
+        ? strokeUnit * 1.45
+        : (isAccentRing ? strokeUnit * 1.05 : strokeUnit * 0.80);
+
+      const glowPasses = isMajorCrest ? 3 : 2;
+      drawMultiStrokePath(buildStandingWaveRing, colorIdx, dynamicAlpha, lineW, glowPasses);
+    }
+
+    // =========================================================================
+    // LAYER 4: RADIAL ACOUSTIC WAVEGUIDES (Curved Nodal Phase Filaments)
+    // =========================================================================
+    const numFilaments = cfg.nA * 2;
+    const radialSteps = 90;
+
+    for (let f = 0; f < numFilaments; f++) {
+      const baseTheta = (f / numFilaments) * TWO_PI + globalRot;
+      const filParity = (f % 2 === 0) ? 1 : -1;
+
+      const buildRadialFilament = () => {
+        for (let s = 0; s <= radialSteps; s++) {
+          const u = 0.07 + 0.89 * (s / radialSteps);
+          const r = u * R_MAX;
+          // Transverse standing wave deflection along the radius
+          const angularDeflect = (0.038 / cfg.nA) * Math.sin(cfg.radialNodes * Math.PI * u) * Math.sin(p2 + filParity * 0.8)
+                               + (0.016 / cfg.nA) * Math.cos(cfg.radialNodes * 2 * Math.PI * u - p3);
+          const theta = baseTheta + filParity * angularDeflect;
+          const x = Math.cos(theta) * r;
+          const y = Math.sin(theta) * r;
+          if (s === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+      };
+
+      const filColor = (f % 2 === 0) ? 1 : 2;
+      const filAlpha = (f % 2 === 0) ? 0.42 : 0.32;
+      drawMultiStrokePath(buildRadialFilament, filColor, filAlpha, strokeUnit * 0.75, 2);
+    }
+
+    // =========================================================================
+    // LAYER 5: INNER CORE CYMATICS ROSETTA (Central Acoustic Transducer)
+    // =========================================================================
+    const coreR = R_MAX * 0.135;
+
+    // Central transducer glowing aura
+    {
+      const coreGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, coreR * 1.6);
+      coreGrad.addColorStop(0, rgba(0, 0.85 * breathEnvelope));
+      coreGrad.addColorStop(0.22, rgba(3, 0.55 * breathEnvelope));
+      coreGrad.addColorStop(0.55, rgba(2, 0.22 * breathEnvelope));
+      coreGrad.addColorStop(1, rgba(4, 0));
+      ctx.fillStyle = coreGrad;
+      ctx.beginPath();
+      ctx.arc(0, 0, coreR * 1.6, 0, TWO_PI);
+      ctx.fill();
+    }
+
+    // High-precision inner standing-wave star rosetta
+    for (let layer = 0; layer < 3; layer++) {
+      const rLayer = coreR * (0.42 + layer * 0.28);
+      const ampLayer = rLayer * (0.28 - layer * 0.05);
+      const dir = (layer % 2 === 0) ? 1 : -1;
+
+      const buildCoreRosetta = () => {
+        const steps = 240;
+        for (let s = 0; s <= steps; s++) {
+          const theta = (s / steps) * TWO_PI;
+          const wave = Math.cos(cfg.nA * theta + dir * p1) * Math.cos(p2 + layer)
+                     + 0.5 * Math.sin(cfg.nB * theta - dir * p2);
+          const r = rLayer + ampLayer * wave;
+          const x = Math.cos(theta) * r;
+          const y = Math.sin(theta) * r;
+          if (s === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+      };
+
+      const col = (layer === 1) ? 2 : 0;
+      drawMultiStrokePath(buildCoreRosetta, col, 0.82 - layer * 0.12, strokeUnit * (1.3 - layer * 0.2), 2);
+    }
+
+    // Central emitter singularity point & precision ring
+    ctx.beginPath();
+    ctx.arc(0, 0, coreR * 0.16, 0, TWO_PI);
+    ctx.strokeStyle = rgba(0, 0.95);
+    ctx.lineWidth = strokeUnit * 1.2;
+    ctx.stroke();
+
+    drawGlowingNode(0, 0, strokeUnit * 3.0, 0, 2, 1.0, S);
+
+    // =========================================================================
+    // LAYER 6: NODAL INTERSECTION BEACONS & TRAVELING ACOUSTIC ENERGY PULSES
+    // =========================================================================
+    // 6A. Stationary Nodal Intersection Points (Where radial nodal lines cross concentric nodal circles)
+    for (let j = 0; j < nodalRadiiNorm.length; j++) {
+      const u = nodalRadiiNorm[j];
+      const rNode = u * R_MAX;
+      const nodeCount = cfg.nA * 2;
+
+      for (let k = 0; k < nodeCount; k++) {
+        // Nodes sit at the zeroes of cos(nA * theta), i.e., (k + 0.5) * PI / nA
+        const theta = ((k + 0.5) / nodeCount) * TWO_PI + globalRot * ((j % 2 === 0) ? 1 : -1);
+        const x = Math.cos(theta) * rNode;
+        const y = Math.sin(theta) * rNode;
+
+        const shimmer = 0.65 + 0.35 * Math.sin(p4 + j * 1.3 + k * 0.7);
+        const nodeRadius = strokeUnit * (1.6 + 0.5 * Math.cos(p2 - j));
+
+        // Crisp node halo & bright white center
+        drawGlowingNode(x, y, nodeRadius, 0, 2, shimmer, S);
+
+        // Every other nodal ring gets a delicate surrounding target ringlet
+        if ((j + k) % 2 === 0) {
+          ctx.beginPath();
+          ctx.arc(x, y, nodeRadius * 2.6, 0, TWO_PI);
+          ctx.strokeStyle = rgba(3, 0.35 * shimmer);
+          ctx.lineWidth = strokeUnit * 0.55;
+          ctx.stroke();
+        }
+      }
+    }
+
+    // 6B. Antinodal Crest Maxima Beacons (Pulsing cyan/white acoustic focal points at crest peaks)
+    for (let j = 0; j < antinodalRadiiNorm.length; j++) {
+      const u = antinodalRadiiNorm[j];
+      const baseR = u * R_MAX;
+      const radialEnv = Math.sin(cfg.radialNodes * Math.PI * u);
+      const ampScale = R_MAX * (cfg.ampA * 0.95) * (0.45 + 0.55 * Math.abs(radialEnv));
+      const ringSign = (j % 2 === 0) ? 1 : -1;
+
+      const crestCount = cfg.nA * 2;
+      for (let k = 0; k < crestCount; k++) {
+        const theta = (k / crestCount) * TWO_PI + globalRot;
+        const mA = Math.cos(cfg.nA * (theta + globalRot)) * Math.cos(p2 + j * 0.7);
+        const mB = Math.sin(cfg.nB * (theta - globalRot * 0.5)) * Math.sin(p2 - j * 0.5);
+        const mC = Math.cos(cfg.nC * theta + p3) * 0.28;
+        const r = baseR + ampScale * ringSign * (0.62 * mA + 0.38 * mB + mC);
+
+        const x = Math.cos(theta) * r;
+        const y = Math.sin(theta) * r;
+        const crestPulse = 0.5 + 0.5 * Math.sin(p3 + k * 0.5 - j * 1.1);
+
+        drawGlowingNode(x, y, strokeUnit * 1.45, 3, 2, 0.75 * crestPulse, S);
+      }
+    }
+
+    // 6C. Traveling Acoustic Wave Packets along Radial Waveguides (position = fract(s0 + m * phase))
+    const packetCycles = 2; // integer m = 2 full radial transits per 10s loop
+    for (let f = 0; f < numFilaments; f++) {
+      const baseTheta = (f / numFilaments) * TWO_PI + globalRot;
+      const filParity = (f % 2 === 0) ? 1 : -1;
+      const s0 = (f % 4) * 0.25;
+      const prog = ((s0 + packetCycles * phase) % 1 + 1) % 1;
+
+      // Smooth fade-in near center and fade-out at outer boundary so packets never pop
+      const edgeFade = Math.sin(prog * Math.PI);
+      const u = 0.08 + 0.86 * prog;
+      const r = u * R_MAX;
+      const angularDeflect = (0.038 / cfg.nA) * Math.sin(cfg.radialNodes * Math.PI * u) * Math.sin(p2 + filParity * 0.8);
+      const theta = baseTheta + filParity * angularDeflect;
+
+      const px = Math.cos(theta) * r;
+      const py = Math.sin(theta) * r;
+      drawGlowingNode(px, py, strokeUnit * 1.85, 0, 3, 0.9 * edgeFade, S);
+    }
+
+    // =========================================================================
+    // LAYER 7: OUTER CYMATICS RESONATOR BOUNDARY & HARMONIC VERNIER BEZEL
+    // =========================================================================
+    const rimR1 = R_MAX * 0.985;
+    const rimR2 = R_MAX * 1.025;
+    const rimR3 = R_MAX * 1.055;
+
+    // 7A. Standing boundary wave hugged inside the resonator wall
+    {
+      const buildBoundaryWave = () => {
+        const steps = 360;
+        for (let s = 0; s <= steps; s++) {
+          const theta = (s / steps) * TWO_PI;
+          const rimWave = R_MAX * 0.0075 * Math.cos(cfg.nB * 2 * theta - p2) * Math.sin(cfg.nA * theta + p1);
+          const r = rimR1 + rimWave;
+          const x = Math.cos(theta) * r;
+          const y = Math.sin(theta) * r;
+          if (s === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+      };
+      drawMultiStrokePath(buildBoundaryWave, 2, 0.65, strokeUnit * 1.0, 2);
+    }
+
+    // 7B. Primary acoustic containment ring (double-line precision rim)
+    drawMultiStrokePath(() => {
+      ctx.arc(0, 0, rimR2, 0, TWO_PI);
+    }, 1, 0.78, strokeUnit * 1.35, 3);
+
+    ctx.beginPath();
+    ctx.arc(0, 0, rimR3, 0, TWO_PI);
+    ctx.strokeStyle = rgba(4, 0.45);
+    ctx.lineWidth = strokeUnit * 0.75;
+    ctx.stroke();
+
+    // 7C. Radial acoustic degree ticks around the resonator bezel
+    const totalTicks = cfg.nA * 24;
+    ctx.save();
+    ctx.rotate(-globalRot * 0.25);
+    for (let i = 0; i < totalTicks; i++) {
+      const ang = (i / totalTicks) * TWO_PI;
+      const isCardinal = (i % 12 === 0);
+      const isMedium = (i % 4 === 0);
+
+      const rIn = rimR2 + strokeUnit * 1.5;
+      const tickLen = isCardinal ? (R_MAX * 0.026) : (isMedium ? (R_MAX * 0.015) : (R_MAX * 0.008));
+      const rOut = rIn + tickLen;
+
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(ang) * rIn, Math.sin(ang) * rIn);
+      ctx.lineTo(Math.cos(ang) * rOut, Math.sin(ang) * rOut);
+      ctx.strokeStyle = isCardinal ? rgba(0, 0.85) : (isMedium ? rgba(2, 0.55) : rgba(1, 0.28));
+      ctx.lineWidth = isCardinal ? strokeUnit * 1.2 : strokeUnit * 0.65;
+      ctx.stroke();
+
+      // Glowing node on cardinal resonance clamping points
+      if (isCardinal) {
+        const clampR = rOut + strokeUnit * 2.2;
+        const clampPulse = 0.7 + 0.3 * Math.cos(p2 + (i / 12) * Math.PI);
+        drawGlowingNode(
+          Math.cos(ang) * clampR,
+          Math.sin(ang) * clampR,
+          strokeUnit * 1.7,
+          0,
+          2,
+          clampPulse,
+          S
+        );
+      }
+    }
+    ctx.restore();
+
+    // 7D. Segmented outer phase-measurement arcs
+    const arcCount = cfg.nA * 2;
+    const arcSpan = (TWO_PI / arcCount) * 0.55;
+    ctx.save();
+    ctx.rotate(globalRot * 0.5);
+    for (let i = 0; i < arcCount; i++) {
+      const startAng = (i / arcCount) * TWO_PI - arcSpan * 0.5;
+      const endAng = startAng + arcSpan;
+      ctx.beginPath();
+      ctx.arc(0, 0, rimR3 + strokeUnit * 3.5, startAng, endAng);
+      ctx.strokeStyle = rgba((i % 2 === 0) ? 2 : 1, 0.38);
+      ctx.lineWidth = strokeUnit * 0.85;
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    ctx.restore();
+  }
+
+  window.renderFrame = renderFrame;
+
+  // --- REALTIME REQUESTANIMATIONFRAME LOOP ---
+  let startTime = null;
+  function tick(timestamp) {
+    if (startTime === null) startTime = timestamp;
+    const elapsedSeconds = (timestamp - startTime) / 1000;
+    renderFrame(elapsedSeconds);
+    requestAnimationFrame(tick);
+  }
+
+  // Initial render at t = 0 and start animation loop
+  renderFrame(0);
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>

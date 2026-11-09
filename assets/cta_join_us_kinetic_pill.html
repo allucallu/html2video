@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Join Us — Bespoke Vector Kinetic CTA</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: #000000;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  canvas {
+    display: block;
+    width: 100vw;
+    height: 56.25vw;
+    max-height: 100vh;
+    max-width: 177.78vh;
+    object-fit: contain;
+  }
+</style>
+</head>
+<body>
+<canvas id="stage" width="3840" height="2160"></canvas>
+<script>
+(function() {
+  'use strict';
+
+  const canvas = document.getElementById('stage');
+  const ctx = canvas.getContext('2d');
+
+  // --- CLI & URL PARAMETERS ---
+  const P = window.__cliParams || {};
+  const BG = P.bg || 'black';
+  const SEED = Number(P.seed) || 1;
+  const VARIANT = Number(P.variant) || 0;
+
+  const DURATION = 10;
+  const FPS = 30;
+  const TAU = Math.PI * 2;
+
+  window.DURATION = DURATION;
+  window.FPS = FPS;
+
+  // --- SEEDED PRNG ---
+  function mulberry32(a) {
+    return function() {
+      let t = a += 0x6D2B79F5;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  const rng = mulberry32(SEED * 2654435761 + VARIANT * 1013904223 + 37);
+
+  // --- PALETTE PRESETS ---
+  const PRESET_PALETTES = [
+    // Variant 0: Electric Cyan, Imperial Gold & White
+    ['#FFFFFF', '#D8F5FF', '#00F0FF', '#FFB800', '#005F78'],
+    // Variant 1: Neon Emerald, Solar Amber & White
+    ['#FFFFFF', '#D8FFE8', '#00E676', '#FFC400', '#006332'],
+    // Variant 2: Hyper Magenta, Electric Cyan & White
+    ['#FFFFFF', '#FFD8F2', '#FF1E96', '#00F0FF', '#780042'],
+    // Variant 3: Solar Gold, Platinum & White
+    ['#FFFFFF', '#FFF4D8', '#FFB800', '#70F0FF', '#785000'],
+    // Variant 4: Ultraviolet, Electric Mint & White
+    ['#FFFFFF', '#EAD8FF', '#A23BFF', '#00F5A0', '#4A0E82'],
+    // Variant 5: Ice Blue, Crimson Accent & White
+    ['#FFFFFF', '#DCEBFF', '#3898FF', '#FF2A55', '#104080']
+  ];
+
+  let rawPal = PRESET_PALETTES[((VARIANT % PRESET_PALETTES.length) + PRESET_PALETTES.length) % PRESET_PALETTES.length];
+  if (typeof P.palette === 'string' && P.palette.trim()) {
+    const custom = P.palette.split(',').map(s => s.trim()).filter(Boolean);
+    if (custom.length >= 2) {
+      rawPal = [
+        custom[0],
+        custom[1 % custom.length],
+        custom[2 % custom.length],
+        custom[3 % custom.length],
+        custom[4 % custom.length]
+      ];
+    }
+  }
+
+  function hexToRgb(hex) {
+    let h = hex.replace('#', '').trim();
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    const n = parseInt(h, 16) || 0;
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+
+  const RGB = rawPal.map(hexToRgb);
+  function rgba(idx, a) {
+    const c = RGB[idx % RGB.length];
+    const alpha = Math.max(0, Math.min(1, a));
+    return `rgba(${c[0]},${c[1]},${c[2]},${alpha.toFixed(4)})`;
+  }
+
+  // --- 100% PROPRIETARY ROUNDED GEOMETRIC VECTOR FONT (Zero External/OS Fonts, 100% Commercial-Free) ---
+  const VECTOR_FONT = {
+    'J': { w: 0.62, p: c => { c.m(0.52, 0); c.l(0.52, 0.68); c.arc(0.30, 0.68, 0.22, 0.32, 0, Math.PI, false); } },
+    'O': { w: 0.84, p: c => { c.arc(0.42, 0.50, 0.34, 0.50, 0, TAU, false); } },
+    'I': { w: 0.28, p: c => { c.m(0.14, 0); c.l(0.14, 1); } },
+    'N': { w: 0.78, p: c => { c.m(0.10, 1); c.l(0.10, 0); c.l(0.68, 1); c.l(0.68, 0); } },
+    'U': { w: 0.76, p: c => {
+      c.m(0.10, 0); c.l(0.10, 0.64);
+      c.arc(0.38, 0.64, 0.28, 0.36, Math.PI, 0, true);
+      c.l(0.66, 0);
+    }},
+    'S': { w: 0.70, p: c => {
+      c.m(0.58, 0.18);
+      c.b(0.52, -0.02, 0.10, -0.02, 0.10, 0.24);
+      c.b(0.10, 0.49, 0.62, 0.49, 0.62, 0.76);
+      c.b(0.62, 1.02, 0.16, 1.02, 0.08, 0.82);
+    }},
+    ' ': { w: 0.36, p: () => {} }
+  };
+
+  function createGlyphPathHelper(ox, oy, scaleX, scaleY) {
+    const tx = x => ox + x * scaleX;
+    const ty = y => oy + y * scaleY;
+    return {
+      m(x, y) { ctx.moveTo(tx(x), ty(y)); },
+      l(x, y) { ctx.lineTo(tx(x), ty(y)); },
+      b(x1, y1, x2, y2, x3, y3) {
+        ctx.bezierCurveTo(tx(x1), ty(y1), tx(x2), ty(y2), tx(x3), ty(y3));
+      },
+      arc(cx, cy, rx, ry, a0, a1, ccw) {
+        const steps = 28;
+        let delta = a1 - a0;
+        if (ccw && delta > 0) delta -= TAU;
+        if (!ccw && delta < 0) delta += TAU;
+        for (let i = 0; i <= steps; i++) {
+          const a = a0 + (i / steps) * delta;
+          const px = cx + Math.cos(a) * rx;
+          const py = cy + Math.sin(a) * ry;
+          if (i === 0) ctx.moveTo(tx(px), ty(py));
+          else ctx.lineTo(tx(px), ty(py));
+        }
+      }
+    };
+  }
+
+  function measureVectorText(str, capHeight, tracking) {
+    let total = 0;
+    for (let i = 0; i < str.length; i++) {
+      const g = VECTOR_FONT[str[i]] || VECTOR_FONT[' '];
+      total += g.w * capHeight;
+      if (i < str.length - 1) total += tracking;
+    }
+    return total;
+  }
+
+  function drawVectorString(str, startX, centerY, capHeight, tracking, options) {
+    const wavePhase = options.wavePhase || 0;
+    const waveAmp = options.waveAmp || 0;
+    const strokeW = Math.max(options.strokeW, capHeight * 0.165);
+    const mainColorIdx = options.colorIdx;
+    const glowColorIdx = options.glowColorIdx !== undefined ? options.glowColorIdx : mainColorIdx;
+    const alpha = options.alpha !== undefined ? options.alpha : 1;
+
+    let curX = startX;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    for (let i = 0; i < str.length; i++) {
+      const ch = str[i];
+      const g = VECTOR_FONT[ch] || VECTOR_FONT[' '];
+      const yWave = Math.sin(wavePhase - i * 0.48) * waveAmp;
+      const topY = centerY - capHeight * 0.5 + yWave;
+
+      if (ch !== ' ') {
+        const helper = createGlyphPathHelper(curX, topY, capHeight, capHeight);
+
+        ctx.beginPath();
+        g.p(helper);
+        ctx.strokeStyle = rgba(glowColorIdx, alpha * 0.22);
+        ctx.lineWidth = strokeW * 1.9;
+        ctx.stroke();
+
+        ctx.beginPath();
+        g.p(helper);
+        ctx.strokeStyle = rgba(mainColorIdx, alpha);
+        ctx.lineWidth = strokeW;
+        ctx.stroke();
+      }
+
+      curX += g.w * capHeight + tracking;
+    }
+  }
+
+  function drawRadialGlow(x, y, r, colorIdx, alpha) {
+    if (r <= 0.5 || alpha <= 0.002) return;
+    const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
+    grad.addColorStop(0, rgba(colorIdx, alpha));
+    grad.addColorStop(0.35, rgba(colorIdx, alpha * 0.45));
+    grad.addColorStop(0.70, rgba(colorIdx, alpha * 0.12));
+    grad.addColorStop(1, rgba(colorIdx, 0));
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, TAU);
+    ctx.fill();
+  }
+
+  // --- PRECOMPUTE CONSTELLATION NETWORK NODES ---
+  const CONSTELLATION = [];
+  for (let i = 0; i < 32; i++) {
+    const tier = i % 3;
+    CONSTELLATION.push({
+      baseAngle: (i / 32) * TAU + (rng() - 0.5) * 0.08,
+      rx: 0.25 + tier * 0.065 + rng() * 0.025,
+      ry: 0.11 + tier * 0.042 + rng() * 0.018,
+      speed: (i % 2 === 0) ? 1 : -1,
+      phaseOff: rng() * TAU,
+      isGold: (i % 4 === 0),
+      size: 0.0024 + 0.0018 * rng()
+    });
+  }
+
+  function buildChamferRect(x, y, w, h, cut) {
+    ctx.beginPath();
+    ctx.moveTo(x + cut, y);
+    ctx.lineTo(x + w - cut, y);
+    ctx.lineTo(x + w, y + cut);
+    ctx.lineTo(x + w, y + h - cut);
+    ctx.lineTo(x + w - cut, y + h);
+    ctx.lineTo(x + cut, y + h);
+    ctx.lineTo(x, y + h - cut);
+    ctx.lineTo(x, y + cut);
+    ctx.closePath();
+  }
+
+  // --- MAIN RENDER FUNCTION ---
+  function renderFrame(t) {
+    const W = canvas.width;
+    const H = canvas.height;
+    const S = Math.min(W, H);
+    const cx = W * 0.5;
+    const cy = H * 0.5;
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.setLineDash([]);
+    ctx.lineWidth = 1;
+
+    if (BG === 'alpha') {
+      ctx.clearRect(0, 0, W, H);
+    } else {
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    const phase = (((t % DURATION) + DURATION) % DURATION) / DURATION;
+    const p1 = TAU * 1 * phase;
+    const p2 = TAU * 2 * phase;
+    const p3 = TAU * 3 * phase;
+    const u = S * 0.001; // 2.16px at 4K
+
+    // 1. Ambient Portal Aura
+    drawRadialGlow(cx, cy, S * 0.47, 4, 0.22 + 0.05 * Math.sin(p2));
+
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    // 2. Orbiting Community Constellation Web (Surrounding the HUD Frame)
+    ctx.save();
+    if (BG === 'black') ctx.globalCompositeOperation = 'lighter';
+
+    const pts = [];
+    for (let i = 0; i < CONSTELLATION.length; i++) {
+      const n = CONSTELLATION[i];
+      const ang = n.baseAngle + n.speed * p1;
+      const rMod = 1 + 0.06 * Math.sin(p2 + n.phaseOff);
+      pts.push({
+        x: Math.cos(ang) * n.rx * S * rMod,
+        y: Math.sin(ang) * n.ry * S * rMod,
+        isGold: n.isGold,
+        size: n.size * S,
+        phaseOff: n.phaseOff
+      });
+    }
+
+    const maxDist = S * 0.175;
+    for (let i = 0; i < pts.length; i++) {
+      for (let j = i + 1; j < pts.length; j++) {
+        const dx = pts[i].x - pts[j].x;
+        const dy = pts[i].y - pts[j].y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < maxDist) {
+          const proximity = 1 - dist / maxDist;
+          ctx.beginPath();
+          ctx.moveTo(pts[i].x, pts[i].y);
+          ctx.lineTo(pts[j].x, pts[j].y);
+          ctx.strokeStyle = rgba((pts[i].isGold || pts[j].isGold) ? 3 : 2, proximity * 0.45);
+          ctx.lineWidth = u * (0.6 + 1.4 * proximity);
+          ctx.stroke();
+        }
+      }
+    }
+
+    for (let i = 0; i < pts.length; i++) {
+      const pt = pts[i];
+      const tw = 0.6 + 0.4 * Math.sin(p3 + pt.phaseOff);
+      drawRadialGlow(pt.x, pt.y, pt.size * 3.8, pt.isGold ? 3 : 2, 0.55 * tw);
+      ctx.fillStyle = rgba(0, 0.90);
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, pt.size * 0.75, 0, TAU);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // 3. Chamfered Sci-Fi HUD Portal Frame
+    const fw = S * 0.58;
+    const fh = S * 0.165;
+    const cut = S * 0.026;
+
+    // Dark chamber fill so constellation lines behind the frame never obscure the text
+    ctx.fillStyle = (BG === 'alpha') ? 'rgba(1, 8, 12, 0.92)' : '#010609';
+    buildChamferRect(-fw * 0.5, -fh * 0.5, fw, fh, cut);
+    ctx.fill();
+
+    // Inner recessed HUD grid lines
+    const inPad = u * 6.5;
+    buildChamferRect(-fw * 0.5 + inPad, -fh * 0.5 + inPad, fw - inPad * 2, fh - inPad * 2, cut * 0.8);
+    ctx.strokeStyle = rgba(4, 0.55);
+    ctx.lineWidth = u * 1.0;
+    ctx.stroke();
+
+    if (BG === 'black') ctx.globalCompositeOperation = 'lighter';
+
+    // Outer Glowing Chamfered Border (3-pass glow)
+    buildChamferRect(-fw * 0.5, -fh * 0.5, fw, fh, cut);
+    ctx.strokeStyle = rgba(2, 0.25);
+    ctx.lineWidth = u * 9.0;
+    ctx.stroke();
+
+    buildChamferRect(-fw * 0.5, -fh * 0.5, fw, fh, cut);
+    ctx.strokeStyle = rgba(2, 0.55);
+    ctx.lineWidth = u * 4.2;
+    ctx.stroke();
+
+    buildChamferRect(-fw * 0.5, -fh * 0.5, fw, fh, cut);
+    ctx.strokeStyle = rgba(1, 0.95);
+    ctx.lineWidth = u * 2.2;
+    ctx.stroke();
+
+    // 4. Expanding Gold Corner Telemetry Brackets
+    const bGap = u * (11 + 4 * Math.sin(p2));
+    const bLen = S * 0.032;
+    const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
+
+    ctx.strokeStyle = rgba(3, 0.92);
+    ctx.lineWidth = u * 3.0;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    for (let i = 0; i < corners.length; i++) {
+      const sx = corners[i][0];
+      const sy = corners[i][1];
+      const bx = sx * (fw * 0.5 + bGap);
+      const by = sy * (fh * 0.5 + bGap);
+
+      ctx.beginPath();
+      ctx.moveTo(bx - sx * bLen, by);
+      ctx.lineTo(bx - sx * (cut * 0.45), by);
+      ctx.lineTo(bx, by - sy * (cut * 0.45));
+      ctx.lineTo(bx, by - sy * bLen);
+      ctx.stroke();
+    }
+
+    // 5. BESPOKE PROCEDURAL VECTOR TYPOGRAPHY: "JOIN US"
+    const label = 'JOIN US';
+    const capH = S * 0.068;
+    const track = S * 0.015;
+    const textW = measureVectorText(label, capH, track);
+    const textStartX = -textW * 0.5 - S * 0.042;
+
+    // Subtle Cyan Harmonic Echo Layer behind main text
+    const echoDx = Math.cos(p2) * u * 4.5;
+    const echoDy = Math.sin(p2) * u * 2.5;
+    drawVectorString(label, textStartX + echoDx, echoDy, capH, track, {
+      strokeW: u * 2.2,
+      colorIdx: 2,
+      glowColorIdx: 2,
+      wavePhase: p2 - 0.3,
+      waveAmp: u * 2.4,
+      alpha: 0.42
+    });
+
+    // Primary Crisp White & Gold Inline Vector Typography
+    drawVectorString(label, textStartX, 0, capH, track, {
+      strokeW: u * 7.2,
+      colorIdx: 0,
+      glowColorIdx: 2,
+      inlineIdx: 3,
+      wavePhase: p2,
+      waveAmp: u * 2.4,
+      alpha: 0.98
+    });
+
+    // 6. Animated Triple Portal Chevrons (>>>) on the Right Side
+    const chevBaseX = textStartX + textW + S * 0.036;
+    const chevH = capH * 0.38;
+    const chevW = capH * 0.24;
+
+    for (let c = 0; c < 3; c++) {
+      const waveBrightness = 0.45 + 0.55 * Math.sin(p2 - c * 0.85);
+      const cxPos = chevBaseX + c * (S * 0.024) + Math.sin(p2) * u * 4;
+
+      // Glow pass
+      ctx.beginPath();
+      ctx.moveTo(cxPos - chevW, -chevH);
+      ctx.lineTo(cxPos + chevW * 0.3, 0);
+      ctx.lineTo(cxPos - chevW, chevH);
+      ctx.strokeStyle = rgba(3, waveBrightness * 0.45);
+      ctx.lineWidth = u * 9.5;
+      ctx.stroke();
+
+      // Core pass
+      ctx.beginPath();
+      ctx.moveTo(cxPos - chevW, -chevH);
+      ctx.lineTo(cxPos + chevW * 0.3, 0);
+      ctx.lineTo(cxPos - chevW, chevH);
+      ctx.strokeStyle = rgba(waveBrightness > 0.75 ? 0 : 3, 0.55 + 0.45 * waveBrightness);
+      ctx.lineWidth = u * 4.2;
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
+  window.renderFrame = renderFrame;
+  window.renderAtTime = renderFrame;
+
+  let startTime = null;
+  function loop(now) {
+    if (startTime === null) startTime = now;
+    renderFrame((now - startTime) * 0.001);
+    requestAnimationFrame(loop);
+  }
+
+  renderFrame(0);
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Biological Multipoler Neuron — Action Potential & Synaptic Arborization</title>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: #000000;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  canvas {
+    display: block;
+    width: 100vw;
+    height: 56.25vw;
+    max-height: 100vh;
+    max-width: 177.78vh;
+    object-fit: contain;
+  }
+</style>
+</head>
+<body>
+<canvas id="canvas" width="3840" height="2160"></canvas>
+<script>
+(function() {
+  'use strict';
+
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+
+  // --- CLI & URL PARAMETER PARSING (Read once at load) ---
+  const P = window.__cliParams || {};
+  const BG = P.bg || 'black';
+  const SEED = Number(P.seed) || 1;
+  const VARIANT = Number(P.variant) || 0;
+
+  const DURATION = 10;
+  const FPS = 30;
+  const TAU = Math.PI * 2;
+
+  window.DURATION = DURATION;
+  window.FPS = FPS;
+
+  function fract(x) {
+    return x - Math.floor(x);
+  }
+
+  function clamp(x, a, b) {
+    return x < a ? a : (x > b ? b : x);
+  }
+
+  function createPRNG(seed) {
+    let s = (seed | 0) ^ 0x6D2B79F5;
+    if (s === 0) s = 123456789;
+    return function() {
+      s = Math.imul(s ^ (s >>> 15), s | 1);
+      s ^= s + Math.imul(s ^ (s >>> 7), s | 61);
+      return ((s ^ (s >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function hexToRgb(hex) {
+    const clean = hex.trim().replace(/^#/, '');
+    if (clean.length === 3) {
+      return [
+        parseInt(clean[0] + clean[0], 16),
+        parseInt(clean[1] + clean[1], 16),
+        parseInt(clean[2] + clean[2], 16)
+      ];
+    }
+    const num = parseInt(clean, 16);
+    if (isNaN(num)) return null;
+    return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
+  }
+
+  function mixRgb(c1, c2, t) {
+    const u = clamp(t, 0, 1);
+    return [
+      Math.round(c1[0] + (c2[0] - c1[0]) * u),
+      Math.round(c1[1] + (c2[1] - c1[1]) * u),
+      Math.round(c1[2] + (c2[2] - c1[2]) * u)
+    ];
+  }
+
+  function rgba(c, a) {
+    return `rgba(${c[0]},${c[1]},${c[2]},${clamp(a, 0, 1).toFixed(4)})`;
+  }
+
+  // Palette: Amber / Gold on Silver-White default, overridable via P.palette
+  let silverDim = [122, 138, 164];
+  let silverMid = [196, 210, 228];
+  let silverBright = [244, 248, 255];
+  let amberDeep = [230, 108, 12];
+  let amberMain = [255, 174, 24];
+  let amberBright = [255, 242, 185];
+
+  if (typeof P.palette === 'string' && P.palette.trim().length > 0) {
+    const parsed = P.palette.split(',').map(hexToRgb).filter(Boolean);
+    if (parsed.length >= 2) {
+      silverMid = parsed[0];
+      silverDim = mixRgb(parsed[0], [80, 90, 110], 0.45);
+      silverBright = mixRgb(parsed[0], [255, 255, 255], 0.65);
+      amberMain = parsed[1];
+      amberDeep = parsed[2] || mixRgb(parsed[1], [180, 60, 0], 0.4);
+      amberBright = parsed[3] || mixRgb(parsed[1], [255, 255, 240], 0.65);
+    }
+  }
+
+  // At least 6 clearly different presets
+  const PRESETS = [
+    {
+      dendriteTrunks: 6,
+      maxDepth: 3,
+      dendriteSpread: 0.255,
+      branchAngle: 0.44,
+      myelinCount: 7,
+      axonCurveAmp: 0.022,
+      terminalDepth: 4,
+      terminalSpread: 0.56,
+      somaRadius: 0.044,
+      swayK: 1,
+      somaHarmonic: 6,
+      collateralCount: 2
+    },
+    {
+      dendriteTrunks: 8,
+      maxDepth: 3,
+      dendriteSpread: 0.265,
+      branchAngle: 0.38,
+      myelinCount: 6,
+      axonCurveAmp: 0.032,
+      terminalDepth: 4,
+      terminalSpread: 0.64,
+      somaRadius: 0.048,
+      swayK: 2,
+      somaHarmonic: 8,
+      collateralCount: 2
+    },
+    {
+      dendriteTrunks: 5,
+      maxDepth: 4,
+      dendriteSpread: 0.245,
+      branchAngle: 0.48,
+      myelinCount: 8,
+      axonCurveAmp: 0.016,
+      terminalDepth: 4,
+      terminalSpread: 0.50,
+      somaRadius: 0.042,
+      swayK: 1,
+      somaHarmonic: 5,
+      collateralCount: 3
+    },
+    {
+      dendriteTrunks: 7,
+      maxDepth: 3,
+      dendriteSpread: 0.26,
+      branchAngle: 0.42,
+      myelinCount: 9,
+      axonCurveAmp: 0.028,
+      terminalDepth: 4,
+      terminalSpread: 0.60,
+      somaRadius: 0.046,
+      swayK: 3,
+      somaHarmonic: 7,
+      collateralCount: 2
+    },
+    {
+      dendriteTrunks: 9,
+      maxDepth: 3,
+      dendriteSpread: 0.25,
+      branchAngle: 0.35,
+      myelinCount: 7,
+      axonCurveAmp: 0.020,
+      terminalDepth: 4,
+      terminalSpread: 0.54,
+      somaRadius: 0.050,
+      swayK: 2,
+      somaHarmonic: 9,
+      collateralCount: 1
+    },
+    {
+      dendriteTrunks: 6,
+      maxDepth: 4,
+      dendriteSpread: 0.24,
+      branchAngle: 0.40,
+      myelinCount: 10,
+      axonCurveAmp: 0.025,
+      terminalDepth: 4,
+      terminalSpread: 0.68,
+      somaRadius: 0.043,
+      swayK: 1,
+      somaHarmonic: 6,
+      collateralCount: 3
+    }
+  ];
+
+  const cfg = PRESETS[((VARIANT % PRESETS.length) + PRESETS.length) % PRESETS.length];
+  const rand = createPRNG(SEED * 9973 + VARIANT * 313 + 17);
+
+  // Soma center slightly offset toward (-0.052, -0.052) so the full neuron
+  // (dendritic arbor + soma + diagonal axon + terminal arbor) sits dead-center in [-0.35, +0.35]
+  const SOMA = { x: -0.052, y: -0.052, r: cfg.somaRadius };
+  const AXON_ANGLE = Math.PI * 0.25; // Diagonal (+1, +1)
+
+  const nodes = [];
+  const edges = [];
+  const paths = [];
+  const spines = [];
+  const myelinSegments = [];
+  const boutons = [];
+  const somaFilaments = [];
+
+  function addNode(x, y, type, depth, swayScale, phaseOffset, kFreq, radiusScale) {
+    const id = nodes.length;
+    const dx = x - SOMA.x;
+    const dy = y - SOMA.y;
+    const dist = Math.hypot(dx, dy) || 1;
+    // Perpendicular unit vector for organic branch sway
+    const px = -dy / dist;
+    const py = dx / dist;
+    nodes.push({
+      id,
+      x,
+      y,
+      px,
+      py,
+      type, // 'soma', 'dendrite', 'dendriteTip', 'hillock', 'ranvier', 'terminal', 'bouton', 'collateral'
+      depth,
+      swayScale, // 0..1 multiplier of 0.003 * S
+      phaseOffset,
+      kFreq,
+      radiusScale: radiusScale || 1,
+      pathRefs: [] // [{ pathId, arcCoord }]
+    });
+    return id;
+  }
+
+  function sampleCubicBezier(p0, p1, p2, p3, steps) {
+    const pts = [];
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const it = 1 - t;
+      const x = it * it * it * p0.x + 3 * it * it * t * p1.x + 3 * it * t * t * p2.x + t * t * t * p3.x;
+      const y = it * it * it * p0.y + 3 * it * it * t * p1.y + 3 * it * t * t * p2.y + t * t * t * p3.y;
+      pts.push({ x, y, t });
+    }
+    return pts;
+  }
+
+  function addEdge(u, v, category, weightTier, depth, curveCtrl1, curveCtrl2, steps) {
+    const id = edges.length;
+    const n1 = nodes[u];
+    const n2 = nodes[v];
+    const segSteps = steps || 10;
+    const p0 = { x: n1.x, y: n1.y };
+    const p3 = { x: n2.x, y: n2.y };
+    const c1 = curveCtrl1 || {
+      x: n1.x + (n2.x - n1.x) * 0.33,
+      y: n1.y + (n2.y - n1.y) * 0.33
+    };
+    const c2 = curveCtrl2 || {
+      x: n1.x + (n2.x - n1.x) * 0.66,
+      y: n1.y + (n2.y - n1.y) * 0.66
+    };
+    const samples = sampleCubicBezier(p0, c1, c2, p3, segSteps);
+    edges.push({
+      id,
+      u,
+      v,
+      category, // 'dendrite', 'axon', 'terminal', 'collateral', 'soma'
+      weightTier, // 0: heavy primary, 1: medium secondary, 2: fine tertiary
+      depth,
+      c1,
+      c2,
+      samples,
+      pathRefs: [] // [{ pathId, a0, a1 }]
+    });
+    return id;
+  }
+
+  const somaNodeId = addNode(SOMA.x, SOMA.y, 'soma', 0, 0.12, 0, cfg.swayK, 1.8);
+
+  // Build recursive dendrite tree
+  // Trunks radiate around the soma except within +-0.58 rad of AXON_ANGLE
+  const dendriteLeafPaths = [];
+  const trunkCount = cfg.dendriteTrunks;
+  const usableArc = TAU - 1.15;
+  const startArc = AXON_ANGLE + 0.575;
+
+  function buildDendriteBranch(parentId, x, y, angle, length, depth, maxDepth, nodeChain, edgeChain, trunkIdx) {
+    const steps = depth === 1 ? 12 : 9;
+    const bend = (rand() - 0.5) * 0.28;
+    const endAngle = angle + bend;
+    const nx = clamp(x + Math.cos(endAngle) * length, -0.34, 0.34);
+    const ny = clamp(y + Math.sin(endAngle) * length, -0.34, 0.34);
+
+    const distFromSoma = Math.hypot(nx - SOMA.x, ny - SOMA.y);
+    const swayScale = clamp(distFromSoma / 0.28, 0.15, 1.0);
+    const isTip = depth >= maxDepth;
+    const kFreq = ((trunkIdx + depth) % 2 === 0) ? cfg.swayK : (cfg.swayK % 3) + 1;
+    const phaseOff = trunkIdx * 0.85 + depth * 0.55 + rand() * 0.4;
+
+    const childId = addNode(
+      nx,
+      ny,
+      isTip ? 'dendriteTip' : 'dendrite',
+      depth,
+      swayScale,
+      phaseOff,
+      kFreq,
+      isTip ? 0.85 : (1.35 - depth * 0.2)
+    );
+
+    const midLen = length * 0.38;
+    const c1 = {
+      x: x + Math.cos(angle + bend * 0.2) * midLen,
+      y: y + Math.sin(angle + bend * 0.2) * midLen
+    };
+    const c2 = {
+      x: nx - Math.cos(endAngle - bend * 0.2) * midLen,
+      y: ny - Math.sin(endAngle - bend * 0.2) * midLen
+    };
+
+    const weightTier = depth === 1 ? 0 : (depth === 2 ? 1 : 2);
+    const edgeId = addEdge(parentId, childId, 'dendrite', weightTier, depth, c1, c2, steps);
+
+    // Add dendritic spines along secondary and tertiary branches
+    if (depth >= 2) {
+      const spineCount = depth === 2 ? 3 : 2;
+      const edgeObj = edges[edgeId];
+      for (let s = 1; s <= spineCount; s++) {
+        const idx = Math.min(edgeObj.samples.length - 2, Math.floor((s / (spineCount + 1)) * edgeObj.samples.length));
+        const pt = edgeObj.samples[idx];
+        const nextPt = edgeObj.samples[idx + 1];
+        const tangAngle = Math.atan2(nextPt.y - pt.y, nextPt.x - pt.x);
+        const side = (s % 2 === 0 ? 1 : -1) * (Math.PI * 0.42 + (rand() - 0.5) * 0.2);
+        const sLen = 0.009 + rand() * 0.007;
+        spines.push({
+          edgeId,
+          sampleIdx: idx,
+          angle: tangAngle + side,
+          length: sLen,
+          phaseOffset: rand() * TAU,
+          kFreq: (s % 2 === 0) ? 4 : 7
+        });
+      }
+    }
+
+    const nextNodes = nodeChain.concat([childId]);
+    const nextEdges = edgeChain.concat([edgeId]);
+
+    if (isTip) {
+      dendriteLeafPaths.push({
+        nodes: nextNodes.slice().reverse(), // Tip -> ... -> Root -> Soma
+        edges: nextEdges.slice().reverse(),
+        trunkIdx
+      });
+      return;
+    }
+
+    const numChildren = (depth === 1 || rand() < 0.78) ? 2 : 1;
+    if (numChildren === 1) {
+      buildDendriteBranch(
+        childId,
+        nx,
+        ny,
+        endAngle + (rand() - 0.5) * 0.25,
+        length * (0.76 + rand() * 0.08),
+        depth + 1,
+        maxDepth,
+        nextNodes,
+        nextEdges,
+        trunkIdx
+      );
+    } else {
+      const spread = cfg.branchAngle * (0.88 + rand() * 0.24) * Math.pow(0.86, depth - 1);
+      for (let b = -1; b <= 1; b += 2) {
+        const branchAng = endAngle + b * spread + (rand() - 0.5) * 0.09;
+        const branchLen = length * (0.68 + rand() * 0.12);
+        buildDendriteBranch(
+          childId,
+          nx,
+          ny,
+          branchAng,
+          branchLen,
+          depth + 1,
+          maxDepth,
+          nextNodes,
+          nextEdges,
+          trunkIdx
+        );
+      }
+    }
+  }
+
+  for (let i = 0; i < trunkCount; i++) {
+    const u = (i + 0.5) / trunkCount;
+    const baseAngle = startArc + u * usableArc + (rand() - 0.5) * 0.14;
+    const rootX = SOMA.x + Math.cos(baseAngle) * SOMA.r;
+    const rootY = SOMA.y + Math.sin(baseAngle) * SOMA.r;
+    const rootId = addNode(rootX, rootY, 'soma', 0, 0.15, i * 0.7, cfg.swayK, 1.15);
+    const rootEdgeId = addEdge(somaNodeId, rootId, 'soma', 0, 0, null, null, 6);
+
+    // Subtle internal soma neurofibril filament curve
+    somaFilaments.push({
+      startX: rootX,
+      startY: rootY,
+      angle: baseAngle
+    });
+
+    const firstLen = cfg.dendriteSpread * (0.37 + rand() * 0.07);
+    buildDendriteBranch(
+      rootId,
+      rootX,
+      rootY,
+      baseAngle,
+      firstLen,
+      1,
+      cfg.maxDepth,
+      [somaNodeId, rootId],
+      [rootEdgeId],
+      i
+    );
+  }
+
+  // Build the diagonal Axon from Axon Hillock to Terminal Arborization
+  const hillockX = SOMA.x + Math.cos(AXON_ANGLE) * (SOMA.r * 1.18);
+  const hillockY = SOMA.y + Math.sin(AXON_ANGLE) * (SOMA.r * 1.18);
+  const hillockId = addNode(hillockX, hillockY, 'hillock', 0, 0.15, 0.2, cfg.swayK, 1.35);
+  const hillockEdgeId = addEdge(somaNodeId, hillockId, 'axon', 0, 0, null, null, 8);
+
+  const axonNodes = [somaNodeId, hillockId];
+  const axonEdges = [hillockEdgeId];
+
+  const axonEnd = { x: 0.175, y: 0.175 };
+  const axonDirX = Math.cos(AXON_ANGLE);
+  const axonDirY = Math.sin(AXON_ANGLE);
+  const axonPerpX = -axonDirY;
+  const axonPerpY = axonDirX;
+
+  let prevAxonNode = hillockId;
+  let prevAxonPos = { x: hillockX, y: hillockY };
+  let prevTangAngle = AXON_ANGLE;
+
+  for (let m = 1; m <= cfg.myelinCount; m++) {
+    const t = m / cfg.myelinCount;
+    const baseLx = hillockX + (axonEnd.x - hillockX) * t;
+    const baseLy = hillockY + (axonEnd.y - hillockY) * t;
+    const wave = Math.sin(t * Math.PI * 2.0) * cfg.axonCurveAmp;
+    const rx = baseLx + axonPerpX * wave;
+    const ry = baseLy + axonPerpY * wave;
+
+    const tangDeriv = Math.cos(t * Math.PI * 2.0) * Math.PI * 2.0 * cfg.axonCurveAmp;
+    const segAngle = AXON_ANGLE + Math.atan2(tangDeriv, Math.hypot(axonEnd.x - hillockX, axonEnd.y - hillockY));
+
+    const ranvierId = addNode(
+      rx,
+      ry,
+      'ranvier',
+      1,
+      0.25 + 0.45 * t,
+      m * 0.45,
+      cfg.swayK,
+      1.18
+    );
+
+    const segDist = Math.hypot(rx - prevAxonPos.x, ry - prevAxonPos.y);
+    const c1 = {
+      x: prevAxonPos.x + Math.cos(prevTangAngle) * segDist * 0.35,
+      y: prevAxonPos.y + Math.sin(prevTangAngle) * segDist * 0.35
+    };
+    const c2 = {
+      x: rx - Math.cos(segAngle) * segDist * 0.35,
+      y: ry - Math.sin(segAngle) * segDist * 0.35
+    };
+
+    const edgeId = addEdge(prevAxonNode, ranvierId, 'axon', 0, 1, c1, c2, 12);
+    myelinSegments.push({
+      edgeId,
+      u: prevAxonNode,
+      v: ranvierId,
+      index: m - 1,
+      total: cfg.myelinCount
+    });
+
+    axonNodes.push(ranvierId);
+    axonEdges.push(edgeId);
+
+    // Optional Axon Collaterals on middle Nodes of Ranvier
+    if (m >= 2 && m <= cfg.myelinCount - 2 && m - 2 < cfg.collateralCount) {
+      const side = (m % 2 === 0) ? 1 : -1;
+      const colAngle = segAngle + side * (0.85 + rand() * 0.2);
+      const colLen = 0.052 + rand() * 0.015;
+      const midX = rx + Math.cos(colAngle) * colLen;
+      const midY = ry + Math.sin(colAngle) * colLen;
+      const colMidId = addNode(midX, midY, 'collateral', 2, 0.65, m * 0.9, (cfg.swayK % 3) + 1, 0.85);
+      addEdge(ranvierId, colMidId, 'collateral', 2, 2, null, null, 8);
+
+      for (let cb = -1; cb <= 1; cb += 2) {
+        const subAng = colAngle + cb * 0.38;
+        const subLen = colLen * 0.68;
+        const tipX = clamp(midX + Math.cos(subAng) * subLen, -0.35, 0.35);
+        const tipY = clamp(midY + Math.sin(subAng) * subLen, -0.35, 0.35);
+        const colTipId = addNode(tipX, tipY, 'bouton', 3, 0.85, m * 1.1 + cb * 0.4, 2, 0.95);
+        addEdge(colMidId, colTipId, 'collateral', 2, 3, null, null, 7);
+        boutons.push({
+          nodeId: colTipId,
+          angle: subAng,
+          isCollateral: true
+        });
+      }
+    }
+
+    prevAxonNode = ranvierId;
+    prevAxonPos = { x: rx, y: ry };
+    prevTangAngle = segAngle;
+  }
+
+  // Build Synaptic Terminal Arborization at the end of the Axon
+  const terminalPaths = [];
+
+  function buildTerminalTree(parentId, x, y, angle, length, depth, maxDepth, nodeChain, edgeChain, branchCode) {
+    const bend = (rand() - 0.5) * 0.22;
+    const endAngle = angle + bend;
+    const nx = clamp(x + Math.cos(endAngle) * length, -0.35, 0.355);
+    const ny = clamp(y + Math.sin(endAngle) * length, -0.35, 0.355);
+    const isBouton = depth >= maxDepth;
+
+    const kFreq = ((branchCode + depth) % 2 === 0) ? cfg.swayK : ((cfg.swayK % 3) + 1);
+    const swayScale = clamp(0.65 + depth * 0.09, 0.6, 1.0);
+    const childId = addNode(
+      nx,
+      ny,
+      isBouton ? 'bouton' : 'terminal',
+      depth,
+      swayScale,
+      branchCode * 0.37 + depth * 0.5,
+      kFreq,
+      isBouton ? 1.28 : (1.15 - depth * 0.12)
+    );
+
+    const midLen = length * 0.4;
+    const c1 = {
+      x: x + Math.cos(angle) * midLen,
+      y: y + Math.sin(angle) * midLen
+    };
+    const c2 = {
+      x: nx - Math.cos(endAngle) * midLen,
+      y: ny - Math.sin(endAngle) * midLen
+    };
+
+    const weightTier = depth <= 1 ? 1 : 2;
+    const edgeId = addEdge(parentId, childId, 'terminal', weightTier, depth, c1, c2, 9);
+
+    const nextNodes = nodeChain.concat([childId]);
+    const nextEdges = edgeChain.concat([edgeId]);
+
+    if (isBouton) {
+      boutons.push({
+        nodeId: childId,
+        angle: endAngle,
+        isCollateral: false
+      });
+      terminalPaths.push({
+        nodes: nextNodes,
+        edges: nextEdges,
+        boutonId: childId,
+        branchCode
+      });
+      return;
+    }
+
+    const spread = (cfg.terminalSpread / (depth + 0.5)) * (0.9 + rand() * 0.2);
+    for (let b = -1; b <= 1; b += 2) {
+      const childAng = endAngle + b * spread * 0.5 + (rand() - 0.5) * 0.08;
+      const childLen = length * (0.72 + rand() * 0.10);
+      buildTerminalTree(
+        childId,
+        nx,
+        ny,
+        childAng,
+        childLen,
+        depth + 1,
+        maxDepth,
+        nextNodes,
+        nextEdges,
+        branchCode * 2 + (b > 0 ? 1 : 0)
+      );
+    }
+  }
+
+  buildTerminalTree(
+    prevAxonNode,
+    prevAxonPos.x,
+    prevAxonPos.y,
+    AXON_ANGLE,
+    0.056,
+    1,
+    cfg.terminalDepth,
+    axonNodes,
+    axonEdges,
+    1
+  );
+
+  // Build Precomputed Signal Paths with cumulative arc-length tables
+  function registerSignalPath(nodeList, edgeList, kind, mSpeed, pulseOffsets) {
+    const pathId = paths.length;
+    const polyline = [];
+    const cumLen = [];
+    let totalLen = 0;
+
+    for (let i = 0; i < edgeList.length; i++) {
+      const e = edges[edgeList[i]];
+      const nStart = nodeList[i];
+      const forward = (e.u === nStart);
+      const pts = forward ? e.samples : e.samples.slice().reverse();
+
+      const startArcLen = totalLen;
+      for (let j = (i === 0 ? 0 : 1); j < pts.length; j++) {
+        const pt = pts[j];
+        if (polyline.length > 0) {
+          const prev = polyline[polyline.length - 1];
+          totalLen += Math.hypot(pt.x - prev.x, pt.y - prev.y);
+        }
+        polyline.push({
+          x: pt.x,
+          y: pt.y,
+          uNode: e.u,
+          vNode: e.v,
+          tEdge: forward ? pt.t : (1 - pt.t)
+        });
+        cumLen.push(totalLen);
+      }
+      const endArcLen = totalLen;
+      e.pathRefs.push({
+        pathId,
+        rawA0: startArcLen,
+        rawA1: endArcLen,
+        forward
+      });
+    }
+
+    const invTotal = totalLen > 0 ? 1 / totalLen : 1;
+    const normArc = cumLen.map(L => L * invTotal);
+
+    // Finalize normalized arc coordinates for edges on this path
+    for (let i = 0; i < edgeList.length; i++) {
+      const e = edges[edgeList[i]];
+      const ref = e.pathRefs[e.pathRefs.length - 1];
+      ref.a0 = ref.rawA0 * invTotal;
+      ref.a1 = ref.rawA1 * invTotal;
+    }
+
+    // Assign arc coordinates to every node along this path
+    for (let i = 0; i < nodeList.length; i++) {
+      const nid = nodeList[i];
+      let aCoord = 0;
+      if (i === 0) {
+        aCoord = 0;
+      } else {
+        const prevEdge = edges[edgeList[i - 1]];
+        const ref = prevEdge.pathRefs.find(r => r.pathId === pathId);
+        aCoord = ref ? ref.a1 : (i / (nodeList.length - 1));
+      }
+      nodes[nid].pathRefs.push({ pathId, arcCoord: aCoord });
+    }
+
+    paths.push({
+      id: pathId,
+      kind, // 'dendrite' (tip->soma, m=2 or 3) or 'axon' (soma->bouton, m=1)
+      m: mSpeed,
+      pulses: pulseOffsets, // array of s0 offsets in [0, 1)
+      polyline,
+      normArc,
+      totalLen
+    });
+  }
+
+  // Register Dendrite Signal Paths (inward: tip u=0 -> soma u=1, m=2 and m=3)
+  for (let i = 0; i < dendriteLeafPaths.length; i++) {
+    const dp = dendriteLeafPaths[i];
+    const mSpeed = (i % 2 === 0) ? 2 : 3;
+    // 3 staggered pulses per dendrite path so >=35% of dendrite nodes are lit at phase=0.5
+    const baseS0 = fract(i * 0.173 + 0.12);
+    const pulseOffsets = [
+      fract(baseS0),
+      fract(baseS0 + 0.34),
+      fract(baseS0 + 0.68)
+    ];
+    registerSignalPath(dp.nodes, dp.edges, 'dendrite', mSpeed, pulseOffsets);
+  }
+
+  // Register Axon & Synaptic Terminal Signal Paths (outward: soma u=0 -> terminal bouton u=1, m=1)
+  for (let i = 0; i < terminalPaths.length; i++) {
+    const tp = terminalPaths[i];
+    // Synchronized action potential wave train (m=1) with subtle terminal branch staggering
+    const branchLag = (i / Math.max(1, terminalPaths.length)) * 0.08;
+    const pulseOffsets = [
+      fract(0.02 - branchLag),
+      fract(0.36 - branchLag),
+      fract(0.52 - branchLag),
+      fract(0.74 - branchLag)
+    ];
+    registerSignalPath(tp.nodes, tp.edges, 'axon', 1, pulseOffsets);
+  }
+
+  // Runtime Scratch Arrays for current frame node positions and activations
+  const curNodeX = new Float64Array(nodes.length);
+  const curNodeY = new Float64Array(nodes.length);
+  const curNodeAct = new Float64Array(nodes.length);
+  const curEdgeAct = new Float64Array(edges.length);
+
+  function samplePathAtU(pathObj, u) {
+    const target = clamp(u, 0, 1);
+    const arc = pathObj.normArc;
+    const poly = pathObj.polyline;
+    let lo = 0;
+    let hi = arc.length - 1;
+    while (lo < hi - 1) {
+      const mid = (lo + hi) >> 1;
+      if (arc[mid] <= target) lo = mid;
+      else hi = mid;
+    }
+    const a0 = arc[lo];
+    const a1 = arc[hi];
+    const f = (a1 > a0) ? (target - a0) / (a1 - a0) : 0;
+
+    const p0 = poly[lo];
+    const p1 = poly[hi];
+
+    // Interpolate displaced position using current displaced node endpoints
+    const u0x = curNodeX[p0.uNode] - nodes[p0.uNode].x;
+    const u0y = curNodeY[p0.uNode] - nodes[p0.uNode].y;
+    const v0x = curNodeX[p0.vNode] - nodes[p0.vNode].x;
+    const v0y = curNodeY[p0.vNode] - nodes[p0.vNode].y;
+    const d0x = u0x + (v0x - u0x) * p0.tEdge;
+    const d0y = u0y + (v0y - u0y) * p0.tEdge;
+
+    const u1x = curNodeX[p1.uNode] - nodes[p1.uNode].x;
+    const u1y = curNodeY[p1.uNode] - nodes[p1.uNode].y;
+    const v1x = curNodeX[p1.vNode] - nodes[p1.vNode].x;
+    const v1y = curNodeY[p1.vNode] - nodes[p1.vNode].y;
+    const d1x = u1x + (v1x - u1x) * p1.tEdge;
+    const d1y = u1y + (v1y - u1y) * p1.tEdge;
+
+    const x0 = p0.x + d0x;
+    const y0 = p0.y + d0y;
+    const x1 = p1.x + d1x;
+    const y1 = p1.y + d1y;
+
+    return {
+      x: x0 + (x1 - x0) * f,
+      y: y0 + (y1 - y0) * f
+    };
+  }
+
+  function drawRadialGlow(cx, cy, radius, colorRgb, peakAlpha) {
+    if (radius <= 0.5 || peakAlpha <= 0.002) return;
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+    grad.addColorStop(0, rgba(colorRgb, peakAlpha));
+    grad.addColorStop(0.38, rgba(colorRgb, peakAlpha * 0.42));
+    grad.addColorStop(0.72, rgba(colorRgb, peakAlpha * 0.11));
+    grad.addColorStop(1, rgba(colorRgb, 0));
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, TAU);
+    ctx.fill();
+  }
+
+  function drawSubject(W, H, S, phase, isBlackBg) {
+    const CX = W * 0.5;
+    const CY = H * 0.5;
+    const toX = nx => CX + nx * S;
+    const toY = ny => CY + ny * S;
+
+    const swayAmp = 0.003; // 0.3% of S
+
+    // 1. Compute displaced node positions (pure function of phase)
+    for (let i = 0; i < nodes.length; i++) {
+      const n = nodes[i];
+      const wave = Math.sin(TAU * n.kFreq * phase + n.phaseOffset);
+      const secondaryWave = 0.35 * Math.cos(TAU * 3 * phase + n.phaseOffset * 1.7);
+      const disp = swayAmp * n.swayScale * (wave * 0.78 + secondaryWave * 0.22);
+      curNodeX[i] = n.x + n.px * disp;
+      curNodeY[i] = n.y + n.py * disp;
+      curNodeAct[i] = 0;
+    }
+
+    // 2. Compute node & edge activation brightness from traveling pulses
+    // brightness = max over pulses of exp(-(d / 0.04)^2)
+    const invSigma = 1 / 0.04;
+    for (let i = 0; i < nodes.length; i++) {
+      const refs = nodes[i].pathRefs;
+      let maxB = 0;
+      for (let r = 0; r < refs.length; r++) {
+        const ref = refs[r];
+        const pathObj = paths[ref.pathId];
+        const a = ref.arcCoord;
+        const pulses = pathObj.pulses;
+        for (let p = 0; p < pulses.length; p++) {
+          const u = fract(pulses[p] + pathObj.m * phase);
+          const diff = Math.abs(a - u);
+          const d = diff < 1 - diff ? diff : 1 - diff;
+          if (d < 0.12) {
+            const z = d * invSigma;
+            const b = Math.exp(-z * z);
+            if (b > maxB) maxB = b;
+          }
+        }
+      }
+      curNodeAct[i] = maxB;
+    }
+
+    for (let i = 0; i < edges.length; i++) {
+      const e = edges[i];
+      const refs = e.pathRefs;
+      let maxB = Math.max(curNodeAct[e.u], curNodeAct[e.v]) * 0.85;
+      for (let r = 0; r < refs.length; r++) {
+        const ref = refs[r];
+        const pathObj = paths[ref.pathId];
+        const aMid = 0.5 * (ref.a0 + ref.a1);
+        const pulses = pathObj.pulses;
+        for (let p = 0; p < pulses.length; p++) {
+          const u = fract(pulses[p] + pathObj.m * phase);
+          const diff = Math.abs(aMid - u);
+          const d = diff < 1 - diff ? diff : 1 - diff;
+          if (d < 0.12) {
+            const z = d * invSigma;
+            const b = Math.exp(-z * z);
+            if (b > maxB) maxB = b;
+          }
+        }
+      }
+      curEdgeAct[i] = maxB;
+    }
+
+    const somaScreenX = toX(curNodeX[somaNodeId]);
+    const somaScreenY = toY(curNodeY[somaNodeId]);
+    const somaAct = curNodeAct[somaNodeId];
+
+    // =========================================================================
+    // LAYER 1: FAINT MATHEMATICAL / SCIENTIFIC CONSTRUCTION GEOMETRY
+    // =========================================================================
+    ctx.save();
+    ctx.lineCap = 'round';
+
+    // Concentric diagnostic rings centered on Soma
+    const diagRadii = [0.068, 0.135, 0.215, 0.285];
+    for (let rIdx = 0; rIdx < diagRadii.length; rIdx++) {
+      const rad = diagRadii[rIdx] * S;
+      ctx.beginPath();
+      if (rIdx % 2 === 1) {
+        ctx.setLineDash([0.004 * S, 0.008 * S]);
+      } else {
+        ctx.setLineDash([]);
+      }
+      ctx.lineWidth = 0.0007 * S;
+      ctx.strokeStyle = rgba(silverDim, 0.16 - rIdx * 0.025);
+      ctx.arc(somaScreenX, somaScreenY, rad, 0, TAU);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+
+    // Rotating sacred-geometry protractor ticks around Soma (whole turn m = 1)
+    ctx.save();
+    ctx.translate(somaScreenX, somaScreenY);
+    ctx.rotate(TAU * 1 * phase);
+    const tickRingR = 0.135 * S;
+    ctx.beginPath();
+    for (let t = 0; t < 36; t++) {
+      const ang = (t / 36) * TAU;
+      const len = (t % 3 === 0) ? 0.007 * S : 0.0035 * S;
+      const c = Math.cos(ang);
+      const s = Math.sin(ang);
+      ctx.moveTo(c * (tickRingR - len), s * (tickRingR - len));
+      ctx.lineTo(c * (tickRingR + len), s * (tickRingR + len));
+    }
+    ctx.lineWidth = 0.00065 * S;
+    ctx.strokeStyle = rgba(silverDim, 0.22);
+    ctx.stroke();
+    ctx.restore();
+
+    // Counter-rotating inner biometric reticle around Soma (m = -1)
+    ctx.save();
+    ctx.translate(somaScreenX, somaScreenY);
+    ctx.rotate(-TAU * 1 * phase);
+    const innerRetR = 0.068 * S;
+    ctx.beginPath();
+    for (let t = 0; t < 12; t++) {
+      const ang = (t / 12) * TAU;
+      ctx.moveTo(Math.cos(ang) * innerRetR * 0.88, Math.sin(ang) * innerRetR * 0.88);
+      ctx.lineTo(Math.cos(ang) * innerRetR * 1.12, Math.sin(ang) * innerRetR * 1.12);
+    }
+    ctx.lineWidth = 0.00075 * S;
+    ctx.strokeStyle = rgba(amberMain, 0.22 + 0.15 * somaAct);
+    ctx.stroke();
+    ctx.restore();
+
+    // Faint radial axis chords and axon trajectory corridor rails
+    const hillockScreenX = toX(curNodeX[hillockId]);
+    const hillockScreenY = toY(curNodeY[hillockId]);
+    const lastAxonId = axonNodes[axonNodes.length - 1];
+    const termRootX = toX(curNodeX[lastAxonId]);
+    const termRootY = toY(curNodeY[lastAxonId]);
+
+    ctx.beginPath();
+    const corridorOffset = 0.026 * S;
+    const pAx = -Math.sin(AXON_ANGLE) * corridorOffset;
+    const pAy = Math.cos(AXON_ANGLE) * corridorOffset;
+    ctx.moveTo(hillockScreenX + pAx, hillockScreenY + pAy);
+    ctx.lineTo(termRootX + pAx, termRootY + pAy);
+    ctx.moveTo(hillockScreenX - pAx, hillockScreenY - pAy);
+    ctx.lineTo(termRootX - pAx, termRootY - pAy);
+    ctx.setLineDash([0.003 * S, 0.006 * S]);
+    ctx.lineWidth = 0.00065 * S;
+    ctx.strokeStyle = rgba(silverDim, 0.18);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Faint geometric web connecting neighbouring dendrite bifurcations of depth 2
+    const depth2Nodes = [];
+    for (let i = 0; i < nodes.length; i++) {
+      if (nodes[i].type === 'dendrite' && nodes[i].depth === 2) {
+        depth2Nodes.push(i);
+      }
+    }
+    ctx.beginPath();
+    for (let i = 0; i < depth2Nodes.length; i++) {
+      const idA = depth2Nodes[i];
+      const idB = depth2Nodes[(i + 1) % depth2Nodes.length];
+      ctx.moveTo(toX(curNodeX[idA]), toY(curNodeY[idA]));
+      ctx.lineTo(toX(curNodeX[idB]), toY(curNodeY[idB]));
+    }
+    ctx.lineWidth = 0.00055 * S;
+    ctx.strokeStyle = rgba(silverDim, 0.12);
+    ctx.stroke();
+
+    // Synaptic terminal zone framing arc
+    ctx.beginPath();
+    ctx.arc(termRootX, termRootY, 0.165 * S, AXON_ANGLE - 0.85, AXON_ANGLE + 0.85);
+    ctx.lineWidth = 0.0007 * S;
+    ctx.strokeStyle = rgba(silverDim, 0.16);
+    ctx.stroke();
+    ctx.restore();
+
+    // =========================================================================
+    // LAYER 2: AMBIENT SOMA HALO & MYELIN SHEATH GEOMETRY
+    // =========================================================================
+    const somaPulse = 1 + 0.04 * Math.sin(TAU * 2 * phase);
+    drawRadialGlow(
+      somaScreenX,
+      somaScreenY,
+      SOMA.r * S * 2.8 * somaPulse,
+      amberDeep,
+      0.16 + 0.18 * somaAct
+    );
+
+    // Draw Myelin Sheath capsules along the Axon Internodes
+    ctx.save();
+    for (let m = 0; m < myelinSegments.length; m++) {
+      const seg = myelinSegments[m];
+      const e = edges[seg.edgeId];
+      const uAct = curNodeAct[e.u];
+      const vAct = curNodeAct[e.v];
+      const segAct = Math.max(curEdgeAct[seg.edgeId], 0.5 * (uAct + vAct));
+
+      const pts = e.samples;
+      const dUx = curNodeX[e.u] - nodes[e.u].x;
+      const dUy = curNodeY[e.u] - nodes[e.u].y;
+      const dVx = curNodeX[e.v] - nodes[e.v].x;
+      const dVy = curNodeY[e.v] - nodes[e.v].y;
+
+      const sheathHalfWidth = 0.0068 * S * (1 + 0.08 * Math.sin(TAU * 5 * phase + m * 0.7));
+      const leftRail = [];
+      const rightRail = [];
+
+      for (let k = 1; k < pts.length - 1; k++) {
+        const pPrev = pts[k - 1];
+        const pCur = pts[k];
+        const pNext = pts[k + 1];
+
+        const tx = pNext.x - pPrev.x;
+        const ty = pNext.y - pPrev.y;
+        const tLen = Math.hypot(tx, ty) || 1;
+        const nx = -ty / tLen;
+        const ny = tx / tLen;
+
+        const t = pCur.t;
+        const taper = Math.sin(t * Math.PI);
+        const w = sheathHalfWidth * (0.45 + 0.55 * taper);
+
+        const cx = toX(pCur.x + dUx + (dVx - dUx) * t);
+        const cy = toY(pCur.y + dUy + (dVy - dUy) * t);
+
+        leftRail.push({ x: cx + nx * w, y: cy + ny * w });
+        rightRail.push({ x: cx - nx * w, y: cy - ny * w });
+      }
+
+      if (leftRail.length >= 2) {
+        ctx.beginPath();
+        ctx.moveTo(leftRail[0].x, leftRail[0].y);
+        for (let k = 1; k < leftRail.length; k++) ctx.lineTo(leftRail[k].x, leftRail[k].y);
+        for (let k = rightRail.length - 1; k >= 0; k--) ctx.lineTo(rightRail[k].x, rightRail[k].y);
+        ctx.closePath();
+
+        const sheathColor = mixRgb(silverMid, amberMain, segAct * 0.75);
+        ctx.fillStyle = rgba(sheathColor, 0.06 + 0.14 * segAct);
+        ctx.fill();
+        ctx.lineWidth = 0.0011 * S;
+        ctx.strokeStyle = rgba(sheathColor, 0.36 + 0.44 * segAct);
+        ctx.stroke();
+
+        // Cross-striation harmonic ribs inside myelin sheath
+        ctx.beginPath();
+        for (let k = 1; k < leftRail.length - 1; k += 2) {
+          ctx.moveTo(leftRail[k].x, leftRail[k].y);
+          ctx.lineTo(rightRail[k].x, rightRail[k].y);
+        }
+        ctx.lineWidth = 0.0006 * S;
+        ctx.strokeStyle = rgba(sheathColor, 0.20 + 0.35 * segAct);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+
+    // =========================================================================
+    // LAYER 3: MAIN NEURAL EDGES (3 DISTINCT LINE WEIGHT TIERS + FAKE GLOW)
+    // =========================================================================
+    ctx.save();
+    if (isBlackBg) {
+      ctx.globalCompositeOperation = 'lighter';
+    }
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    const baseWeights = [0.0028 * S, 0.0017 * S, 0.0010 * S];
+
+    for (let i = 0; i < edges.length; i++) {
+      const e = edges[i];
+      const act = curEdgeAct[i];
+      const dUx = curNodeX[e.u] - nodes[e.u].x;
+      const dUy = curNodeY[e.u] - nodes[e.u].y;
+      const dVx = curNodeX[e.v] - nodes[e.v].x;
+      const dVy = curNodeY[e.v] - nodes[e.v].y;
+
+      const pts = e.samples;
+      ctx.beginPath();
+      for (let k = 0; k < pts.length; k++) {
+        const pt = pts[k];
+        const sx = toX(pt.x + dUx + (dVx - dUx) * pt.t);
+        const sy = toY(pt.y + dUy + (dVy - dUy) * pt.t);
+        if (k === 0) ctx.moveTo(sx, sy);
+        else ctx.lineTo(sx, sy);
+      }
+
+      const w = baseWeights[e.weightTier] || baseWeights[2];
+      const baseColor = mixRgb(silverMid, amberMain, act * 0.85);
+      const coreColor = mixRgb(silverBright, amberBright, act * 0.9);
+
+      // Pass 1: Outer soft glow stroke
+      if (act > 0.08 || e.weightTier === 0) {
+        ctx.lineWidth = w * (2.6 + act * 1.4);
+        ctx.strokeStyle = rgba(act > 0.2 ? amberDeep : silverDim, 0.09 + act * 0.24);
+        ctx.stroke();
+      }
+
+      // Pass 2: Medium structural stroke
+      ctx.lineWidth = w * (1.25 + act * 0.35);
+      ctx.strokeStyle = rgba(baseColor, 0.42 + act * 0.45);
+      ctx.stroke();
+
+      // Pass 3: Crisp high-contrast core stroke
+      ctx.lineWidth = w * 0.58;
+      ctx.strokeStyle = rgba(coreColor, 0.72 + act * 0.28);
+      ctx.stroke();
+    }
+
+    // Draw Dendritic Spines (fine hairlines + twinkling micro-nodes at k = 4, 7)
+    for (let i = 0; i < spines.length; i++) {
+      const sp = spines[i];
+      const e = edges[sp.edgeId];
+      const pt = e.samples[sp.sampleIdx];
+      const dUx = curNodeX[e.u] - nodes[e.u].x;
+      const dUy = curNodeY[e.u] - nodes[e.u].y;
+      const dVx = curNodeX[e.v] - nodes[e.v].x;
+      const dVy = curNodeY[e.v] - nodes[e.v].y;
+
+      const rx = pt.x + dUx + (dVx - dUx) * pt.t;
+      const ry = pt.y + dUy + (dVy - dUy) * pt.t;
+
+      const swayAng = sp.angle + 0.08 * Math.sin(TAU * 3 * phase + sp.phaseOffset);
+      const tx = rx + Math.cos(swayAng) * sp.length;
+      const ty = ry + Math.sin(swayAng) * sp.length;
+
+      const twinkle = 0.5 + 0.5 * Math.sin(TAU * sp.kFreq * phase + sp.phaseOffset);
+      const act = Math.max(curEdgeAct[sp.edgeId], twinkle * 0.45);
+      const col = mixRgb(silverMid, amberMain, act);
+
+      const sx0 = toX(rx), sy0 = toY(ry);
+      const sx1 = toX(tx), sy1 = toY(ty);
+
+      ctx.beginPath();
+      ctx.moveTo(sx0, sy0);
+      ctx.lineTo(sx1, sy1);
+      ctx.lineWidth = 0.00065 * S;
+      ctx.strokeStyle = rgba(col, 0.38 + 0.45 * act);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(sx1, sy1, 0.0012 * S * (0.85 + 0.35 * twinkle), 0, TAU);
+      ctx.fillStyle = rgba(mixRgb(silverBright, amberBright, act), 0.55 + 0.45 * act);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // =========================================================================
+    // LAYER 4: SOMA CELL BODY, CYTOSKELETON & HARMONIC NUCLEUS
+    // =========================================================================
+    ctx.save();
+    if (isBlackBg) {
+      ctx.globalCompositeOperation = 'lighter';
+    }
+
+    // Internal neurofibril filaments sweeping from dendrite roots into axon hillock
+    for (let i = 0; i < somaFilaments.length; i++) {
+      const sf = somaFilaments[i];
+      const sx = somaScreenX + Math.cos(sf.angle) * (SOMA.r * S * 0.92);
+      const sy = somaScreenY + Math.sin(sf.angle) * (SOMA.r * S * 0.92);
+
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.quadraticCurveTo(somaScreenX, somaScreenY, hillockScreenX, hillockScreenY);
+      ctx.lineWidth = 0.00085 * S;
+      ctx.strokeStyle = rgba(mixRgb(silverMid, amberMain, somaAct), 0.25 + 0.35 * somaAct);
+      ctx.stroke();
+    }
+
+    // Outer Soma Membrane with standing-wave mode blending:
+    // f = cos(2*PI*phase)*modeA + sin(2*PI*phase)*modeB
+    const membraneSteps = 96;
+    const baseSomaR = SOMA.r * S;
+    ctx.beginPath();
+    for (let i = 0; i <= membraneSteps; i++) {
+      const theta = (i / membraneSteps) * TAU;
+      const modeA = Math.cos(cfg.somaHarmonic * theta);
+      const modeB = Math.sin((cfg.somaHarmonic + 2) * theta);
+      const standing = Math.cos(TAU * 2 * phase) * modeA + Math.sin(TAU * 2 * phase) * modeB;
+      // Subtle protrusion toward the axon hillock
+      const hillockAlign = Math.max(0, Math.cos(theta - AXON_ANGLE));
+      const hillockBulge = 0.16 * Math.pow(hillockAlign, 6);
+      const r = baseSomaR * (1 + 0.045 * standing + hillockBulge);
+      const px = somaScreenX + Math.cos(theta) * r;
+      const py = somaScreenY + Math.sin(theta) * r;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+
+    const somaBorderCol = mixRgb(silverBright, amberMain, 0.35 + 0.55 * somaAct);
+    ctx.fillStyle = rgba(mixRgb(silverDim, amberDeep, 0.5 + 0.5 * somaAct), 0.12 + 0.12 * somaAct);
+    ctx.fill();
+
+    ctx.lineWidth = 0.0034 * S;
+    ctx.strokeStyle = rgba(amberMain, 0.22 + 0.35 * somaAct);
+    ctx.stroke();
+
+    ctx.lineWidth = 0.0015 * S;
+    ctx.strokeStyle = rgba(somaBorderCol, 0.88);
+    ctx.stroke();
+
+    // Inner Nuclear Envelope & Sacred-Geometry Rosette
+    const nucR = baseSomaR * (0.52 + 0.03 * Math.sin(TAU * 3 * phase));
+    ctx.beginPath();
+    ctx.arc(somaScreenX, somaScreenY, nucR, 0, TAU);
+    ctx.lineWidth = 0.0013 * S;
+    ctx.strokeStyle = rgba(mixRgb(silverBright, amberBright, 0.6), 0.78);
+    ctx.stroke();
+
+    // Harmonic rosette inside the nucleus
+    ctx.beginPath();
+    const roseSteps = 72;
+    for (let i = 0; i <= roseSteps; i++) {
+      const ang = (i / roseSteps) * TAU;
+      const rr = nucR * (0.62 + 0.28 * Math.cos(cfg.somaHarmonic * ang + TAU * 1 * phase));
+      const px = somaScreenX + Math.cos(ang) * rr;
+      const py = somaScreenY + Math.sin(ang) * rr;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.lineWidth = 0.0008 * S;
+    ctx.strokeStyle = rgba(amberMain, 0.48 + 0.35 * somaAct);
+    ctx.stroke();
+
+    // Bright Nucleolus core
+    drawRadialGlow(somaScreenX, somaScreenY, nucR * 0.95, amberBright, 0.45 + 0.35 * somaAct);
+    ctx.beginPath();
+    ctx.arc(somaScreenX, somaScreenY, nucR * 0.22, 0, TAU);
+    ctx.fillStyle = rgba(silverBright, 0.98);
+    ctx.fill();
+    ctx.restore();
+
+    // =========================================================================
+    // LAYER 5: INTERSECTION NODES, RANVIER RINGS & BLOOMING SYNAPTIC TERMINALS
+    // =========================================================================
+    ctx.save();
+    if (isBlackBg) {
+      ctx.globalCompositeOperation = 'lighter';
+    }
+
+    for (let i = 1; i < nodes.length; i++) {
+      const n = nodes[i];
+      const sx = toX(curNodeX[i]);
+      const sy = toY(curNodeY[i]);
+      const act = curNodeAct[i];
+      const baseR = 0.0026 * S * n.radiusScale;
+
+      // Soft node halo built from alpha radial gradient
+      const haloR = baseR * (3.2 + 4.5 * act);
+      const haloColor = act > 0.25 ? amberMain : silverMid;
+      drawRadialGlow(sx, sy, haloR, haloColor, 0.14 + 0.42 * act);
+
+      if (n.type === 'ranvier') {
+        // Nodes of Ranvier: precision concentric conduction rings
+        ctx.beginPath();
+        ctx.arc(sx, sy, baseR * (1.65 + 0.45 * act), 0, TAU);
+        ctx.lineWidth = 0.0011 * S;
+        ctx.strokeStyle = rgba(mixRgb(silverMid, amberBright, act), 0.55 + 0.42 * act);
+        ctx.stroke();
+      }
+
+      // Bright node core
+      ctx.beginPath();
+      ctx.arc(sx, sy, baseR * (0.75 + 0.35 * act), 0, TAU);
+      ctx.fillStyle = rgba(mixRgb(silverBright, amberBright, act * 0.85), 0.78 + 0.22 * act);
+      ctx.fill();
+    }
+
+    // Synaptic Terminal Boutons: bloom softly on arrival of action potential pulses
+    for (let i = 0; i < boutons.length; i++) {
+      const b = boutons[i];
+      const nid = b.nodeId;
+      const sx = toX(curNodeX[nid]);
+      const sy = toY(curNodeY[nid]);
+      const act = curNodeAct[nid];
+
+      // Ambient breathing + arrival bloom
+      const ambientBloom = 0.5 + 0.5 * Math.sin(TAU * 4 * phase + nid * 0.4);
+      const bloomIntensity = clamp(act * 0.92 + ambientBloom * 0.18, 0, 1);
+      const bloomRadius = (0.014 + 0.022 * bloomIntensity) * S;
+
+      drawRadialGlow(sx, sy, bloomRadius, amberMain, 0.22 + 0.52 * bloomIntensity);
+
+      // Outer blooming synaptic vesicle ring
+      const ringR = (0.0042 + 0.0052 * bloomIntensity) * S;
+      ctx.beginPath();
+      ctx.arc(sx, sy, ringR, 0, TAU);
+      ctx.lineWidth = (0.0009 + 0.0007 * bloomIntensity) * S;
+      ctx.strokeStyle = rgba(mixRgb(silverBright, amberBright, bloomIntensity), 0.45 + 0.50 * bloomIntensity);
+      ctx.stroke();
+
+      // Neurotransmitter release wave arcs in front of the terminal bouton
+      const waveExpand = (0.007 + 0.009 * bloomIntensity) * S;
+      ctx.beginPath();
+      ctx.arc(sx, sy, waveExpand, b.angle - 0.95, b.angle + 0.95);
+      ctx.lineWidth = 0.0008 * S;
+      ctx.strokeStyle = rgba(amberBright, 0.18 + 0.62 * act);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // =========================================================================
+    // LAYER 6: TRAVELING ACTION POTENTIAL & DENDRITE PULSES WITH FADING TAILS
+    // =========================================================================
+    ctx.save();
+    if (isBlackBg) {
+      ctx.globalCompositeOperation = 'lighter';
+    }
+    ctx.lineCap = 'round';
+
+    const tailSteps = 8;
+    const tailStepU = 0.01;
+
+    for (let i = 0; i < paths.length; i++) {
+      const pathObj = paths[i];
+      const isAxon = pathObj.kind === 'axon';
+      const pulses = pathObj.pulses;
+
+      for (let p = 0; p < pulses.length; p++) {
+        // Deduplicate shared trunk segments on axon paths for earlier pulses
+        // while keeping full branch pulses visible
+        const uHead = fract(pulses[p] + pathObj.m * phase);
+        if (isAxon && uHead < 0.55 && (i % 3 !== p % 3)) {
+          continue;
+        }
+
+        const headPt = samplePathAtU(pathObj, uHead);
+        const hx = toX(headPt.x);
+        const hy = toY(headPt.y);
+
+        // Draw fading tail by sampling u, u - 0.01, u - 0.02 ...
+        let prevX = hx;
+        let prevY = hy;
+        for (let s = 1; s <= tailSteps; s++) {
+          const uSample = uHead - s * tailStepU;
+          if (uSample < 0) break;
+          const pt = samplePathAtU(pathObj, uSample);
+          const tx = toX(pt.x);
+          const ty = toY(pt.y);
+          const fade = 1 - s / (tailSteps + 1);
+
+          ctx.beginPath();
+          ctx.moveTo(prevX, prevY);
+          ctx.lineTo(tx, ty);
+          ctx.lineWidth = (isAxon ? 0.0032 : 0.0022) * S * fade;
+          ctx.strokeStyle = rgba(isAxon ? amberBright : amberMain, (isAxon ? 0.65 : 0.52) * fade * fade);
+          ctx.stroke();
+
+          prevX = tx;
+          prevY = ty;
+        }
+
+        // Bright pulse head dot + alpha radial gradient halo
+        const headHaloR = (isAxon ? 0.015 : 0.0105) * S;
+        drawRadialGlow(hx, hy, headHaloR, amberMain, isAxon ? 0.52 : 0.38);
+
+        ctx.beginPath();
+        ctx.arc(hx, hy, (isAxon ? 0.0024 : 0.0018) * S, 0, TAU);
+        ctx.fillStyle = rgba(amberBright, 0.96);
+        ctx.fill();
+      }
+    }
+    ctx.restore();
+  }
+
+  function renderFrame(t) {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.setLineDash([]);
+    ctx.lineWidth = 1;
+
+    const W = canvas.width;
+    const H = canvas.height;
+    const S = Math.min(W, H);
+
+    const phase = (((t % DURATION) + DURATION) % DURATION) / DURATION;
+
+    const isBlackBg = (BG === 'black');
+    if (isBlackBg) {
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, W, H);
+    } else {
+      ctx.clearRect(0, 0, W, H);
+    }
+
+    drawSubject(W, H, S, phase, isBlackBg);
+  }
+
+  window.renderFrame = renderFrame;
+
+  let startTime = null;
+  function loop(now) {
+    if (startTime === null) startTime = now;
+    renderFrame((now - startTime) * 0.001);
+    requestAnimationFrame(loop);
+  }
+
+  renderFrame(0);
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

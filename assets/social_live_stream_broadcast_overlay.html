@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Modern Social Broadcast LIVE Overlay</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: #000000;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  canvas {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+    object-fit: contain;
+  }
+</style>
+</head>
+<body>
+<canvas id="stage" width="3840" height="2160"></canvas>
+<script>
+(function() {
+  'use strict';
+
+  const canvas = document.getElementById('stage');
+  const ctx = canvas.getContext('2d');
+
+  const DURATION = 4.0;
+  const FPS = 30;
+  const TAU = Math.PI * 2;
+
+  function resize() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    if (w > 0 && h > 0) {
+      if (h > w) {
+        canvas.width = 2160;
+        canvas.height = 3840;
+      } else {
+        canvas.width = 3840;
+        canvas.height = 2160;
+      }
+    }
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  function renderAtTime(t) {
+    const W = canvas.width;
+    const H = canvas.height;
+    const S = Math.min(W, H);
+    const u = S / 2160;
+
+    // Clear Pure Black for Blend Mode Overlay
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, W, H);
+
+    const phase = ((t % DURATION) + DURATION) % DURATION / DURATION;
+    const p1 = phase * TAU;
+    const p2 = phase * TAU * 2;
+    const p4 = phase * TAU * 4;
+
+    const cx = W * 0.5;
+    const cy = H * 0.5;
+
+    // Central Safe Zone (1700x1500 scaled by u): Fits cleanly in both 16:9 and 9:16 portrait crops!
+    const szW = 1700 * u;
+    const szH = 1500 * u;
+    const szLeft = cx - szW * 0.5;
+    const szRight = cx + szW * 0.5;
+    const szTop = cy - szH * 0.5;
+    const szBottom = cy + szH * 0.5;
+
+    // Sleek Rounded Safe-Zone Corner Brackets
+    ctx.save();
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = 4 * u;
+    ctx.globalAlpha = 0.45;
+    const bracketLen = 80 * u;
+    const bRad = 24 * u;
+
+    // Top-Left
+    ctx.beginPath();
+    ctx.moveTo(szLeft, szTop + bracketLen);
+    ctx.lineTo(szLeft, szTop + bRad);
+    ctx.arcTo(szLeft, szTop, szLeft + bRad, szTop, bRad);
+    ctx.lineTo(szLeft + bracketLen, szTop);
+    // Top-Right
+    ctx.moveTo(szRight - bracketLen, szTop);
+    ctx.lineTo(szRight - bRad, szTop);
+    ctx.arcTo(szRight, szTop, szRight, szTop + bRad, bRad);
+    ctx.lineTo(szRight, szTop + bracketLen);
+    // Bottom-Left
+    ctx.moveTo(szLeft, szBottom - bracketLen);
+    ctx.lineTo(szLeft, szBottom - bRad);
+    ctx.arcTo(szLeft, szBottom, szLeft + bRad, szBottom, bRad);
+    ctx.lineTo(szLeft + bracketLen, szBottom);
+    // Bottom-Right
+    ctx.moveTo(szRight - bracketLen, szBottom);
+    ctx.lineTo(szRight - bRad, szBottom);
+    ctx.arcTo(szRight, szBottom, szRight, szBottom - bRad, bRad);
+    ctx.lineTo(szRight, szBottom - bracketLen);
+    ctx.stroke();
+    ctx.restore();
+
+    // --- TOP LEFT OF SAFE ZONE: LIVE BADGE + VIEWER COUNTER ---
+    const livePillX = szLeft + 20 * u;
+    const livePillY = szTop + 20 * u;
+    const livePillW = 190 * u;
+    const livePillH = 68 * u;
+    const pillRadius = livePillH * 0.5;
+
+    // 1. High-Contrast LIVE Pill Filled with #FF0044
+    ctx.save();
+    ctx.fillStyle = '#FF0044';
+    ctx.beginPath();
+    ctx.roundRect(livePillX, livePillY, livePillW, livePillH, pillRadius);
+    ctx.fill();
+
+    // Pulsing White Dot inside LIVE Pill
+    const dotX = livePillX + 32 * u;
+    const dotY = livePillY + livePillH * 0.5;
+    const dotPulse = 0.8 + 0.3 * Math.sin(p2);
+    const dotR = 8 * u * dotPulse;
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.arc(dotX, dotY, dotR, 0, TAU);
+    ctx.fill();
+
+    // Expanding Outer Radar Wave Ring from the live dot (100% Periodic)
+    const radarProgress = (phase * 2) % 1; // 2 waves per 4s loop
+    const radarR = 10 * u + radarProgress * 24 * u;
+    const radarAlpha = Math.sin(radarProgress * Math.PI) * 0.8;
+    ctx.strokeStyle = `rgba(255, 255, 255, ${radarAlpha})`;
+    ctx.lineWidth = 2.5 * u;
+    ctx.beginPath();
+    ctx.arc(dotX, dotY, radarR, 0, TAU);
+    ctx.stroke();
+
+    // Bold "LIVE" Text
+    ctx.font = `800 ${32 * u}px "Space Grotesk", sans-serif`;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+    ctx.fillText('LIVE', dotX + 22 * u, dotY + 1 * u);
+    ctx.restore();
+
+    // 2. Viewer Count Pill next to LIVE badge
+    const viewerPillX = livePillX + livePillW + 18 * u;
+    const viewerPillW = 210 * u;
+    const viewerPillH = livePillH;
+
+    ctx.save();
+    ctx.fillStyle = '#0D0D11';
+    ctx.beginPath();
+    ctx.roundRect(viewerPillX, livePillY, viewerPillW, viewerPillH, pillRadius);
+    ctx.fill();
+
+    ctx.strokeStyle = '#2A2A38';
+    ctx.lineWidth = 2.5 * u;
+    ctx.stroke();
+
+    // Vector Eye Icon
+    const eyeX = viewerPillX + 34 * u;
+    const eyeY = livePillY + viewerPillH * 0.5;
+    const ew = 18 * u;
+    const eh = 10 * u;
+
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = 3 * u;
+    ctx.beginPath();
+    ctx.moveTo(eyeX - ew, eyeY);
+    ctx.quadraticCurveTo(eyeX, eyeY - eh * 1.3, eyeX + ew, eyeY);
+    ctx.quadraticCurveTo(eyeX, eyeY + eh * 1.3, eyeX - ew, eyeY);
+    ctx.stroke();
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.arc(eyeX, eyeY, 4.5 * u, 0, TAU);
+    ctx.fill();
+
+    // Live Viewer Counter (Smoothly Oscillating between 24.1K and 24.9K)
+    const viewerVal = (24.5 + 0.4 * Math.sin(p1)).toFixed(1);
+    ctx.font = `700 ${28 * u}px "JetBrains Mono", monospace`;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`${viewerVal}K`, eyeX + 28 * u, eyeY + 1 * u);
+    ctx.restore();
+
+    // --- TOP RIGHT OF SAFE ZONE: WIRELESS SIGNAL + HD 60 BADGE ---
+    const topRtX = szRight - 20 * u;
+    const topRtY = szTop + 20 * u + livePillH * 0.5;
+
+    ctx.save();
+    // HD 60 Pill Badge
+    const hdBdgW = 125 * u;
+    const hdBdgH = 48 * u;
+    const hdBdgX = topRtX - hdBdgW;
+    const hdBdgY = topRtY - hdBdgH * 0.5;
+
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = 2.5 * u;
+    ctx.beginPath();
+    ctx.roundRect(hdBdgX, hdBdgY, hdBdgW, hdBdgH, 10 * u);
+    ctx.stroke();
+
+    ctx.font = `800 ${24 * u}px "Space Grotesk", sans-serif`;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('HD 60', hdBdgX + hdBdgW * 0.5, topRtY + 1 * u);
+
+    // 4-Bar Wireless Signal Strength Indicator
+    const sigX = hdBdgX - 85 * u;
+    const sigBarW = 7 * u;
+    const sigBarGap = 5 * u;
+    for (let s = 0; s < 4; s++) {
+      const bh = (14 + s * 8) * u;
+      const bx = sigX + s * (sigBarW + sigBarGap);
+      const by = topRtY + 18 * u - bh;
+      ctx.fillStyle = '#00F0FF';
+      ctx.fillRect(bx, by, sigBarW, bh);
+    }
+    ctx.restore();
+
+    // --- BOTTOM CENTER: AUDIO WAVEFORM VISUALIZER PILL (32 Symmetric Rounded Bars) ---
+    const wavePillW = 780 * u;
+    const wavePillH = 110 * u;
+    const wavePillX = cx - wavePillW * 0.5;
+    const wavePillY = szBottom - 30 * u - wavePillH;
+    const waveRadius = wavePillH * 0.5;
+
+    ctx.save();
+    // Pill Container
+    ctx.fillStyle = '#090A0F';
+    ctx.beginPath();
+    ctx.roundRect(wavePillX, wavePillY, wavePillW, wavePillH, waveRadius);
+    ctx.fill();
+
+    ctx.strokeStyle = '#1F2230';
+    ctx.lineWidth = 2.5 * u;
+    ctx.stroke();
+
+    // Glowing Microphone Vector Icon on Left
+    const micX = wavePillX + 54 * u;
+    const micY = wavePillY + wavePillH * 0.5;
+    const micPulse = 0.5 + 0.5 * Math.sin(p2);
+
+    // Mic Glow
+    const micGlow = ctx.createRadialGradient(micX, micY, 0, micX, micY, 32 * u);
+    micGlow.addColorStop(0, `rgba(0, 240, 255, ${0.5 * micPulse})`);
+    micGlow.addColorStop(1, 'rgba(0, 240, 255, 0)');
+    ctx.fillStyle = micGlow;
+    ctx.beginPath();
+    ctx.arc(micX, micY, 32 * u, 0, TAU);
+    ctx.fill();
+
+    // Mic Capsule
+    ctx.fillStyle = '#00F0FF';
+    ctx.beginPath();
+    ctx.roundRect(micX - 7 * u, micY - 18 * u, 14 * u, 24 * u, 7 * u);
+    ctx.fill();
+
+    // Mic Stand Arc
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = 3 * u;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.arc(micX, micY - 6 * u, 13 * u, 0, Math.PI, false);
+    ctx.moveTo(micX, micY + 7 * u);
+    ctx.lineTo(micX, micY + 18 * u);
+    ctx.moveTo(micX - 10 * u, micY + 18 * u);
+    ctx.lineTo(micX + 10 * u, micY + 18 * u);
+    ctx.stroke();
+
+    // 32 Symmetrical Audio Waveform Bars
+    const totalBars = 32;
+    const barsStartX = micX + 48 * u;
+    const maxBarH = 68 * u;
+    const barW = 8 * u;
+    const barGap = 11 * u;
+
+    for (let i = 0; i < totalBars; i++) {
+      // Harmonic voice envelope (peaks in middle, tapers to ends)
+      const distFromCenter = Math.abs((i - (totalBars - 1) * 0.5) / ((totalBars - 1) * 0.5));
+      const envelope = Math.cos(distFromCenter * Math.PI * 0.48);
+
+      // Multi-sine wave motion
+      const waveMotion = 0.55 + 0.35 * Math.sin(p4 + i * 0.42) + 0.10 * Math.cos(p2 - i * 0.25);
+      const hBar = Math.max(8 * u, maxBarH * envelope * waveMotion);
+
+      const bx = barsStartX + i * (barW + barGap);
+      const by = wavePillY + wavePillH * 0.5 - hBar * 0.5;
+
+      // Color Gradient from Cyan to Pure White
+      const barColor = i % 2 === 0 ? '#00F0FF' : '#FFFFFF';
+      ctx.fillStyle = barColor;
+      ctx.beginPath();
+      ctx.roundRect(bx, by, barW, hBar, barW * 0.5);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  window.DURATION = DURATION;
+  window.FPS = FPS;
+  window.renderAtTime = renderAtTime;
+  window.renderFrame = renderAtTime;
+  window.asset = {
+    canvas: canvas,
+    render: renderAtTime,
+    params: { duration: DURATION, fps: FPS },
+    meta: { duration: DURATION, fps: FPS }
+  };
+  window.__assetReady = true;
+
+  document.fonts.ready.then(() => {
+    let start = null;
+    function loop(now) {
+      if (!start) start = now;
+      const t = (now - start) / 1000;
+      renderAtTime(t);
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  });
+})();
+</script>
+</body>
+</html>
+

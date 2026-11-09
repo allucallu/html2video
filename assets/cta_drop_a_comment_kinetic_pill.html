@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Drop A Comment — Bespoke Vector Kinetic Engagement CTA</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: #000000;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  canvas {
+    display: block;
+    width: 100vw;
+    height: 56.25vw;
+    max-height: 100vh;
+    max-width: 177.78vh;
+    object-fit: contain;
+  }
+</style>
+</head>
+<body>
+<canvas id="stage" width="3840" height="2160"></canvas>
+<script>
+(function() {
+  'use strict';
+
+  const canvas = document.getElementById('stage');
+  const ctx = canvas.getContext('2d');
+
+  // --- CLI & URL PARAMETERS ---
+  const P = window.__cliParams || {};
+  const BG = P.bg || 'black';
+  const SEED = Number(P.seed) || 1;
+  const VARIANT = Number(P.variant) || 0;
+
+  const DURATION = 10;
+  const FPS = 30;
+  const TAU = Math.PI * 2;
+
+  window.DURATION = DURATION;
+  window.FPS = FPS;
+
+  // --- SEEDED PRNG ---
+  function mulberry32(a) {
+    return function() {
+      let t = a += 0x6D2B79F5;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  const rng = mulberry32(SEED * 2654435761 + VARIANT * 1013904223 + 107);
+
+  // --- PALETTE PRESETS ---
+  const PRESET_PALETTES = [
+    // Variant 0: Electric Cyan, Imperial Gold & Pure White
+    ['#FFFFFF', '#DCF6FF', '#00E5FF', '#FFB800', '#005C78'],
+    // Variant 1: Neon Emerald, Solar Amber & White
+    ['#FFFFFF', '#DCFFEE', '#00E682', '#FFC400', '#006338'],
+    // Variant 2: Hyper Magenta, Ice Cyan & White
+    ['#FFFFFF', '#FFD8F2', '#FF1E96', '#00F0FF', '#780042'],
+    // Variant 3: Solar Amber, Electric Cyan & White
+    ['#FFFFFF', '#FFF2DC', '#FF9800', '#00E5FF', '#7A4200'],
+    // Variant 4: Royal Violet, Gold & White
+    ['#FFFFFF', '#EADCFF', '#9D4EDD', '#FFD000', '#481078'],
+    // Variant 5: Crimson Coral, Champagne & White
+    ['#FFFFFF', '#FFE0E6', '#FF2855', '#FFE078', '#7A0822']
+  ];
+
+  let rawPal = PRESET_PALETTES[((VARIANT % PRESET_PALETTES.length) + PRESET_PALETTES.length) % PRESET_PALETTES.length];
+  if (typeof P.palette === 'string' && P.palette.trim()) {
+    const custom = P.palette.split(',').map(s => s.trim()).filter(Boolean);
+    if (custom.length >= 2) {
+      rawPal = [
+        custom[0],
+        custom[1 % custom.length],
+        custom[2 % custom.length],
+        custom[3 % custom.length],
+        custom[4 % custom.length]
+      ];
+    }
+  }
+
+  function hexToRgb(hex) {
+    let h = hex.replace('#', '').trim();
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    const n = parseInt(h, 16) || 0;
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+
+  const RGB = rawPal.map(hexToRgb);
+  function rgba(idx, a) {
+    const c = RGB[idx % RGB.length];
+    const alpha = Math.max(0, Math.min(1, a));
+    return `rgba(${c[0]},${c[1]},${c[2]},${alpha.toFixed(4)})`;
+  }
+
+  // --- 100% PROPRIETARY ROUNDED GEOMETRIC VECTOR FONT (Zero External/OS Fonts, 100% Commercial-Free) ---
+  const VECTOR_FONT = {
+    'D': { w: 0.78, p: c => {
+      c.m(0.10, 0); c.l(0.38, 0);
+      c.arc(0.38, 0.50, 0.34, 0.50, -Math.PI * 0.5, Math.PI * 0.5, false);
+      c.l(0.10, 1); c.l(0.10, 0);
+    }},
+    'R': { w: 0.74, p: c => {
+      c.m(0.10, 1); c.l(0.10, 0); c.l(0.41, 0);
+      c.arc(0.41, 0.26, 0.24, 0.26, -Math.PI * 0.5, Math.PI * 0.5, false);
+      c.l(0.10, 0.52);
+      c.m(0.36, 0.52); c.l(0.66, 1);
+    }},
+    'O': { w: 0.84, p: c => { c.arc(0.42, 0.50, 0.34, 0.50, 0, TAU, false); } },
+    'P': { w: 0.72, p: c => {
+      c.m(0.10, 1); c.l(0.10, 0); c.l(0.41, 0);
+      c.arc(0.41, 0.27, 0.24, 0.27, -Math.PI * 0.5, Math.PI * 0.5, false);
+      c.l(0.10, 0.54);
+    }},
+    'A': { w: 0.82, p: c => {
+      c.m(0.06, 1); c.l(0.41, 0); c.l(0.76, 1);
+      c.m(0.18, 0.65); c.l(0.64, 0.65);
+    }},
+    'C': { w: 0.76, p: c => { c.arc(0.42, 0.50, 0.34, 0.50, -Math.PI * 0.22, Math.PI * 0.22, true); } },
+    'M': { w: 0.94, p: c => {
+      c.m(0.08, 1); c.l(0.08, 0); c.l(0.47, 0.66); c.l(0.86, 0); c.l(0.86, 1);
+    }},
+    'E': { w: 0.66, p: c => {
+      c.m(0.58, 0); c.l(0.10, 0); c.l(0.10, 1); c.l(0.58, 1);
+      c.m(0.10, 0.49); c.l(0.48, 0.49);
+    }},
+    'N': { w: 0.78, p: c => {
+      c.m(0.10, 1); c.l(0.10, 0); c.l(0.68, 1); c.l(0.68, 0);
+    }},
+    'T': { w: 0.70, p: c => {
+      c.m(0.04, 0); c.l(0.66, 0);
+      c.m(0.35, 0); c.l(0.35, 1);
+    }},
+    ' ': { w: 0.36, p: () => {} }
+  };
+
+  function createGlyphContext(ox, oy, scaleX, scaleY, slant) {
+    const tx = (x, y) => ox + (x + (1 - y) * slant) * scaleX;
+    const ty = (x, y) => oy + y * scaleY;
+    return {
+      m(x, y) { ctx.moveTo(tx(x, y), ty(x, y)); },
+      l(x, y) { ctx.lineTo(tx(x, y), ty(x, y)); },
+      b(x1, y1, x2, y2, x3, y3) {
+        ctx.bezierCurveTo(tx(x1, y1), ty(x1, y1), tx(x2, y2), ty(x2, y2), tx(x3, y3), ty(x3, y3));
+      },
+      arc(cx, cy, rx, ry, a0, a1, ccw) {
+        const steps = 28;
+        let delta = a1 - a0;
+        if (ccw && delta > 0) delta -= TAU;
+        if (!ccw && delta < 0) delta += TAU;
+        for (let i = 0; i <= steps; i++) {
+          const a = a0 + (i / steps) * delta;
+          const px = cx + Math.cos(a) * rx;
+          const py = cy + Math.sin(a) * ry;
+          if (i === 0) ctx.moveTo(tx(px, py), ty(px, py));
+          else ctx.lineTo(tx(px, py), ty(px, py));
+        }
+      }
+    };
+  }
+
+  function measureVectorText(str, capH, tracking) {
+    let total = 0;
+    for (let i = 0; i < str.length; i++) {
+      const g = VECTOR_FONT[str[i]] || VECTOR_FONT[' '];
+      total += g.w * capH;
+      if (i < str.length - 1) total += tracking;
+    }
+    return total;
+  }
+
+  function drawBespokeText(str, startX, centerY, capH, tracking, opts) {
+    let curX = startX;
+    const slant = opts.slant || 0;
+    const wavePhase = opts.wavePhase || 0;
+    const waveAmp = opts.waveAmp || 0;
+    const strokeW = Math.max(opts.strokeW, capH * 0.165);
+    const mainIdx = opts.colorIdx !== undefined ? opts.colorIdx : 0;
+    const glowIdx = opts.glowIdx !== undefined ? opts.glowIdx : 2;
+    const alpha = opts.alpha !== undefined ? opts.alpha : 1;
+
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    for (let i = 0; i < str.length; i++) {
+      const ch = str[i];
+      const g = VECTOR_FONT[ch] || VECTOR_FONT[' '];
+      const yWave = Math.sin(wavePhase - i * 0.45) * waveAmp;
+      const topY = centerY - capH * 0.5 + yWave;
+
+      if (ch !== ' ') {
+        const helper = createGlyphContext(curX, topY, capH, capH, slant);
+
+        ctx.beginPath();
+        g.p(helper);
+        ctx.strokeStyle = rgba(glowIdx, alpha * 0.22);
+        ctx.lineWidth = strokeW * 1.9;
+        ctx.stroke();
+
+        ctx.beginPath();
+        g.p(helper);
+        ctx.strokeStyle = rgba(mainIdx, alpha);
+        ctx.lineWidth = strokeW;
+        ctx.stroke();
+      }
+
+      curX += g.w * capH + tracking;
+    }
+  }
+
+  function drawRadialGlow(x, y, r, colorIdx, alpha) {
+    if (r <= 0.5 || alpha <= 0.002) return;
+    const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
+    grad.addColorStop(0, rgba(colorIdx, alpha));
+    grad.addColorStop(0.35, rgba(colorIdx, alpha * 0.45));
+    grad.addColorStop(0.70, rgba(colorIdx, alpha * 0.12));
+    grad.addColorStop(1, rgba(colorIdx, 0));
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, TAU);
+    ctx.fill();
+  }
+
+  // Build Speech Bubble Path with a sharp curved pointer tail at the bottom-left
+  function buildSpeechBubblePath(x, y, w, h, r, tailW, tailH) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+
+    // Bottom edge with speech pointer tail on the left side
+    const tailBaseRight = x + r + tailW * 1.45;
+    const tailBaseLeft = x + r + tailW * 0.35;
+    const tailTipX = x + r - tailW * 0.25;
+    const tailTipY = y + h + tailH;
+
+    ctx.lineTo(tailBaseRight, y + h);
+    ctx.quadraticCurveTo(tailBaseLeft + tailW * 0.3, y + h + tailH * 0.65, tailTipX, tailTipY);
+    ctx.quadraticCurveTo(tailBaseLeft, y + h + tailH * 0.25, tailBaseLeft, y + h);
+
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+
+  // Precompute floating ambient chat particles
+  const PARTICLES = [];
+  for (let i = 0; i < 22; i++) {
+    PARTICLES.push({
+      ang: (i / 22) * TAU + rng() * 0.1,
+      rx: 0.36 + 0.06 * rng(),
+      ry: 0.17 + 0.05 * rng(),
+      speed: (i % 2 === 0) ? 1 : -1,
+      phaseOff: rng() * TAU,
+      isGold: (i % 3 === 0)
+    });
+  }
+
+  // --- MAIN RENDER FUNCTION ---
+  function renderFrame(t) {
+    const W = canvas.width;
+    const H = canvas.height;
+    const S = Math.min(W, H);
+    const cx = W * 0.5;
+    const cy = H * 0.5;
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.setLineDash([]);
+    ctx.lineWidth = 1;
+
+    const isBlackBg = (BG === 'black');
+    if (!isBlackBg) {
+      ctx.clearRect(0, 0, W, H);
+    } else {
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    const phase = (((t % DURATION) + DURATION) % DURATION) / DURATION;
+    const p1 = TAU * 1 * phase;
+    const p2 = TAU * 2 * phase;
+    const p3 = TAU * 3 * phase;
+    const u = S * 0.001; // 2.16px at 4K
+
+    // Drop-Bounce Impulse at phase = 0.45 so at phase = 0.50 (thumbnail!) the comment bubble
+    // is glowing brightly with an active soundwave ripple!
+    const dropImpulse = Math.exp(-Math.pow((phase - 0.45) / 0.04, 2));
+    const dropYOffset = -S * 0.018 * Math.sin(p1) + S * 0.012 * dropImpulse;
+
+    // 1. Ambient Backdrop Glow
+    drawRadialGlow(cx, cy, S * 0.47, 4, 0.22 + 0.08 * dropImpulse);
+
+    ctx.save();
+    ctx.translate(cx, cy + dropYOffset);
+
+    // 2. Orbiting Telemetry Nodes & Subtle Elliptical Guides
+    ctx.save();
+    if (isBlackBg) ctx.globalCompositeOperation = 'lighter';
+
+    ctx.setLineDash([u * 3, u * 6]);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, S * 0.39, S * 0.19, 0, 0, TAU);
+    ctx.strokeStyle = rgba(4, 0.24);
+    ctx.lineWidth = u * 0.7;
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    for (let i = 0; i < PARTICLES.length; i++) {
+      const pt = PARTICLES[i];
+      const a = pt.ang + pt.speed * p1;
+      const px = Math.cos(a) * pt.rx * S;
+      const py = Math.sin(a) * pt.ry * S;
+      const tw = 0.5 + 0.5 * Math.sin(p3 + pt.phaseOff);
+      drawRadialGlow(px, py, u * 9 * tw, pt.isGold ? 3 : 2, 0.65 * tw);
+      ctx.fillStyle = rgba(0, 0.85 * tw);
+      ctx.beginPath();
+      ctx.arc(px, py, u * 2.0, 0, TAU);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // 3. Main Speech-Bubble HUD Card & Secondary Shadow Bubble
+    const cardW = S * 0.68;
+    const cardH = S * 0.23;
+    const cardR = S * 0.042;
+    const tailW = S * 0.055;
+    const tailH = S * 0.048;
+    const cardX = -cardW * 0.5;
+    const cardY = -cardH * 0.5 - S * 0.015;
+
+    // Back offset echo speech bubble (gives layered 3D holographic depth)
+    ctx.save();
+    const echoShiftX = S * 0.018 + Math.cos(p2) * u * 3;
+    const echoShiftY = -S * 0.016 + Math.sin(p2) * u * 3;
+    buildSpeechBubblePath(cardX + echoShiftX, cardY + echoShiftY, cardW, cardH, cardR, tailW, tailH);
+    ctx.strokeStyle = rgba(4, 0.45);
+    ctx.lineWidth = u * 1.8;
+    ctx.stroke();
+    ctx.restore();
+
+    // Dark opaque chamber inside main speech bubble
+    ctx.fillStyle = !isBlackBg ? 'rgba(1, 9, 15, 0.92)' : '#01070C';
+    buildSpeechBubblePath(cardX, cardY, cardW, cardH, cardR, tailW, tailH);
+    ctx.fill();
+
+    // Inner recessed HUD border
+    const pad = u * 7;
+    buildSpeechBubblePath(cardX + pad, cardY + pad, cardW - pad * 2, cardH - pad * 2, cardR - pad * 0.6, tailW * 0.85, tailH * 0.85);
+    ctx.strokeStyle = rgba(4, 0.50);
+    ctx.lineWidth = u * 1.0;
+    ctx.stroke();
+
+    if (isBlackBg) ctx.globalCompositeOperation = 'lighter';
+
+    // Outer 3-Pass Glowing Speech Bubble Rim
+    buildSpeechBubblePath(cardX, cardY, cardW, cardH, cardR, tailW, tailH);
+    ctx.strokeStyle = rgba(2, 0.26 + 0.20 * dropImpulse);
+    ctx.lineWidth = u * 9.5;
+    ctx.stroke();
+
+    buildSpeechBubblePath(cardX, cardY, cardW, cardH, cardR, tailW, tailH);
+    ctx.strokeStyle = rgba(2, 0.62);
+    ctx.lineWidth = u * 4.2;
+    ctx.stroke();
+
+    buildSpeechBubblePath(cardX, cardY, cardW, cardH, cardR, tailW, tailH);
+    ctx.strokeStyle = rgba(0, 0.95);
+    ctx.lineWidth = u * 2.2;
+    ctx.stroke();
+
+    // 4. Left Floating Mini Chat Bubble with 3 Animated Typing Dots (...)
+    const iconX = cardX + S * 0.095;
+    const iconY = cardY + cardH * 0.5;
+    const iconR = S * 0.056;
+
+    ctx.save();
+    ctx.translate(iconX, iconY);
+
+    drawRadialGlow(0, 0, iconR * 2.1, 2, 0.48 + 0.25 * Math.sin(p2));
+
+    // Rotating outer telemetry ring
+    ctx.save();
+    ctx.rotate(-p1);
+    ctx.setLineDash([u * 4, u * 5]);
+    ctx.beginPath();
+    ctx.arc(0, 0, iconR * 1.15, 0, TAU);
+    ctx.strokeStyle = rgba(3, 0.72);
+    ctx.lineWidth = u * 1.5;
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+
+    // Solid Gold/Cyan Circular Badge
+    ctx.globalCompositeOperation = 'source-over';
+    const badgeGrad = ctx.createRadialGradient(-iconR * 0.25, -iconR * 0.25, 0, 0, 0, iconR);
+    badgeGrad.addColorStop(0, rgba(1, 1));
+    badgeGrad.addColorStop(0.45, rgba(2, 1));
+    badgeGrad.addColorStop(1, rgba(4, 1));
+    ctx.fillStyle = badgeGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, iconR * 0.90, 0, TAU);
+    ctx.fill();
+
+    ctx.strokeStyle = rgba(0, 0.95);
+    ctx.lineWidth = u * 1.8;
+    ctx.stroke();
+
+    // 3 Jumping Typing Indicator Dots inside the Left Badge
+    for (let d = -1; d <= 1; d++) {
+      const dotX = d * (iconR * 0.36);
+      const jump = Math.max(0, Math.sin(p3 - (d + 1) * 0.85));
+      const dotY = -jump * (iconR * 0.22);
+      const dotR = u * (5.2 + 1.8 * jump);
+
+      ctx.fillStyle = '#01070C';
+      ctx.beginPath();
+      ctx.arc(dotX, dotY, dotR * 1.25, 0, TAU);
+      ctx.fill();
+
+      ctx.fillStyle = rgba(jump > 0.5 ? 3 : 0, 0.98);
+      ctx.beginPath();
+      ctx.arc(dotX, dotY, dotR, 0, TAU);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // 5. BESPOKE SCULPTURAL VECTOR TYPOGRAPHY: "DROP A" & "COMMENT"
+    if (isBlackBg) ctx.globalCompositeOperation = 'lighter';
+
+    const textLeftX = iconX + iconR * 1.45;
+
+    // Top Line: "DROP A" (Gold Slanted Editorial Vector Typography)
+    const capH1 = S * 0.032;
+    const track1 = S * 0.010;
+    const topLineY = cardY + cardH * 0.28;
+
+    drawBespokeText('DROP A', textLeftX, topLineY, capH1, track1, {
+      strokeW: u * 3.8,
+      colorIdx: 3,
+      glowIdx: 3,
+      inlineIdx: 0,
+      slant: 0.14,
+      doubleRail: false,
+      wavePhase: p2,
+      waveAmp: u * 1.4,
+      alpha: 0.96
+    });
+
+    // Animated Downward Drop-In Arrow next to "DROP A"
+    const dropW = measureVectorText('DROP A', capH1, track1);
+    const arrowX = textLeftX + dropW + S * 0.035;
+    const arrowBounce = Math.sin(p3) * (u * 4.5);
+    ctx.beginPath();
+    ctx.moveTo(arrowX, topLineY - capH1 * 0.45 + arrowBounce);
+    ctx.lineTo(arrowX, topLineY + capH1 * 0.45 + arrowBounce);
+    ctx.moveTo(arrowX - u * 6.5, topLineY + capH1 * 0.12 + arrowBounce);
+    ctx.lineTo(arrowX, topLineY + capH1 * 0.45 + arrowBounce);
+    ctx.lineTo(arrowX + u * 6.5, topLineY + capH1 * 0.12 + arrowBounce);
+    ctx.strokeStyle = rgba(3, 0.95);
+    ctx.lineWidth = u * 2.8;
+    ctx.stroke();
+
+    // Main Headline: "COMMENT" (Heavy Double-Rail Sculpted Vector Font)
+    const capH2 = S * 0.058;
+    const track2 = S * 0.0115;
+    const botLineY = cardY + cardH * 0.68;
+
+    drawBespokeText('COMMENT', textLeftX, botLineY, capH2, track2, {
+      strokeW: u * 6.6,
+      colorIdx: 0,
+      glowIdx: 2,
+      inlineIdx: 3,
+      doubleRail: true,
+      wavePhase: p2 - 0.4,
+      waveAmp: u * 2.4,
+      alpha: 0.98
+    });
+
+    // Blinking Live Text Cursor Bar at the end of "COMMENT"
+    const commW = measureVectorText('COMMENT', capH2, track2);
+    const caretX = textLeftX + commW + S * 0.018;
+    const caretAlpha = 0.55 + 0.45 * Math.sin(TAU * 4 * phase);
+
+    drawRadialGlow(caretX, botLineY, capH2 * 0.75, 3, 0.65 * caretAlpha);
+    ctx.beginPath();
+    ctx.moveTo(caretX, botLineY - capH2 * 0.52);
+    ctx.lineTo(caretX, botLineY + capH2 * 0.52);
+    ctx.strokeStyle = rgba(3, caretAlpha);
+    ctx.lineWidth = u * 4.2;
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  window.renderFrame = renderFrame;
+  window.renderAtTime = renderFrame;
+
+  let startTime = null;
+  function loop(now) {
+    if (startTime === null) startTime = now;
+    renderFrame((now - startTime) * 0.001);
+    requestAnimationFrame(loop);
+  }
+
+  renderFrame(0);
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
+

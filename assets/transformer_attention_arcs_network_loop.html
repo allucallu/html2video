@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Transformer Attention Connections — Curved Quadratic Bezier Arcs</title>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: #000000;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  canvas {
+    display: block;
+    width: 100vw;
+    height: 56.25vw;
+    max-height: 100vh;
+    max-width: 177.78vh;
+    object-fit: contain;
+  }
+</style>
+</head>
+<body>
+<canvas id="canvas" width="3840" height="2160"></canvas>
+<script>
+(function() {
+  'use strict';
+
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+
+  // --- CLI & URL PARAMETER PARSING (Read once at load) ---
+  const P = window.__cliParams || {};
+  const BG = P.bg || 'black';
+  const SEED = Number(P.seed) || 1;
+  const VARIANT = Number(P.variant) || 0;
+
+  const DURATION = 10;
+  const FPS = 30;
+  const TWO_PI = Math.PI * 2;
+
+  window.DURATION = DURATION;
+  window.FPS = FPS;
+
+  // --- SEEDED PRNG (Mulberry32) ---
+  function mulberry32(a) {
+    return function() {
+      let t = a += 0x6D2B79F5;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  const rng = mulberry32(SEED * 2654435761 + VARIANT * 1013904223 + 73856093);
+
+  // --- COLOR PALETTE ---
+  // Default: White/silver lines + Gold scientific accent
+  let PALETTE = [
+    '#FFFFFF', // 0: Pure incandescent white (node cores, pulse heads, peak attention arcs)
+    '#DCE4F0', // 1: Luminous silver-platinum (token rings, secondary harmonic arcs)
+    '#FFB800', // 2: Rich imperial gold accent (primary attention arcs, node halos)
+    '#FFE27A', // 3: Brilliant champagne gold (pulse comet tails, high-attention highlights)
+    '#9E6B00'  // 4: Deep bronze-amber (construction grids, faint background weights, ticks)
+  ];
+
+  if (P.palette && typeof P.palette === 'string') {
+    const custom = P.palette.split(',').map(s => s.trim()).filter(Boolean);
+    if (custom.length >= 2) {
+      PALETTE = [
+        custom[0],
+        custom[1 % custom.length],
+        custom[2 % custom.length],
+        custom[3 % custom.length],
+        custom[4 % custom.length]
+      ];
+    }
+  }
+
+  function hexToRgb(hex) {
+    let h = hex.replace('#', '').trim();
+    if (h.length === 3) {
+      h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    }
+    const num = parseInt(h, 16) || 0;
+    return {
+      r: (num >> 16) & 255,
+      g: (num >> 8) & 255,
+      b: num & 255
+    };
+  }
+
+  const RGB = PALETTE.map(hexToRgb);
+
+  function rgba(idx, alpha) {
+    const c = RGB[idx % RGB.length];
+    const a = Math.max(0, Math.min(1, alpha));
+    return `rgba(${c.r},${c.g},${c.b},${a.toFixed(4)})`;
+  }
+
+  // --- ATTENTION TOPOLOGY PRESETS (VARIANT LOOKUP TABLE) ---
+  // Variant 0 is the exact requested 12-token facing columns with 60 quadratic Bezier arcs
+  const PRESETS = [
+    // Variant 0 (Default): 12x12 Tokens, 60 Quadratic Bezier Arcs, Dual-Head Harmonic Attention
+    { numTokens: 12, numArcs: 60, colGap: 0.56, colHeight: 0.70, archBow: 0.52, patternA: 'diagonal_hubs', patternB: 'cross_mirror', pulseCount: 16 },
+    // Variant 1: 12x12 Tokens, 64 Arcs, Syntactic Skip-Gram & Local Window Attention
+    { numTokens: 12, numArcs: 64, colGap: 0.60, colHeight: 0.70, archBow: 0.58, patternA: 'local_band', patternB: 'global_anchors', pulseCount: 18 },
+    // Variant 2: 10x10 Tokens, 56 Arcs, Wide Cathedral Arch Attention
+    { numTokens: 10, numArcs: 56, colGap: 0.62, colHeight: 0.68, archBow: 0.64, patternA: 'cross_mirror', patternB: 'harmonic_wave', pulseCount: 15 },
+    // Variant 3: 14x14 Tokens, 70 Arcs, High-Density Multi-Head Bipartite Web
+    { numTokens: 14, numArcs: 70, colGap: 0.58, colHeight: 0.72, archBow: 0.48, patternA: 'harmonic_wave', patternB: 'diagonal_hubs', pulseCount: 18 },
+    // Variant 4: 12x12 Tokens, 60 Arcs, Hourglass Focal Pinch Attention
+    { numTokens: 12, numArcs: 60, colGap: 0.54, colHeight: 0.70, archBow: -0.46, patternA: 'global_anchors', patternB: 'cross_mirror', pulseCount: 16 },
+    // Variant 5: 12x12 Tokens, 60 Arcs, Alternating Causal & Bi-Directional Braid
+    { numTokens: 12, numArcs: 60, colGap: 0.58, colHeight: 0.70, archBow: 0.55, patternA: 'causal_fan', patternB: 'diagonal_hubs', pulseCount: 16 },
+    // Variant 6: 8x8 Tokens, 48 Arcs, Bold Sacred-Geometry Octagonal Attention Lattice
+    { numTokens: 8,  numArcs: 48, colGap: 0.56, colHeight: 0.66, archBow: 0.60, patternA: 'diagonal_hubs', patternB: 'harmonic_wave', pulseCount: 14 },
+    // Variant 7: 12x12 Tokens, 62 Arcs, Deep Symmetric Resonance Bridge
+    { numTokens: 12, numArcs: 62, colGap: 0.60, colHeight: 0.70, archBow: 0.50, patternA: 'cross_mirror', patternB: 'local_band', pulseCount: 16 }
+  ];
+
+  const cfg = PRESETS[((VARIANT % PRESETS.length) + PRESETS.length) % PRESETS.length];
+  const N_TOKENS = cfg.numTokens; // 12 tokens per column
+  const TARGET_ARCS = cfg.numArcs; // ~60 quadratic Bezier arcs
+
+  // --- PRECOMPUTE FACING TOKEN COLUMNS AT LOAD TIME (Normalized relative to S) ---
+  // Left/Source column (col = 0) at xNorm = -colGap/2
+  // Right/Target column (col = 1) at xNorm = +colGap/2
+  // Token yNorm runs from -colHeight/2 to +colHeight/2
+  const leftNodes = [];
+  const rightNodes = [];
+  const allNodes = [];
+
+  for (let col = 0; col < 2; col++) {
+    const sideSign = (col === 0) ? -1 : 1;
+    const baseX = sideSign * (cfg.colGap * 0.5);
+
+    for (let i = 0; i < N_TOKENS; i++) {
+      const u = (N_TOKENS === 1) ? 0 : (i / (N_TOKENS - 1)) - 0.5; // -0.5 to +0.5
+      const baseY = u * cfg.colHeight;
+
+      const node = {
+        id: allNodes.length,
+        col: col,
+        index: i,
+        u: u, // normalized position along column [-0.5, 0.5]
+        baseX: baseX,
+        baseY: baseY,
+        // Subtle harmonic node jitter (strictly <= 0.30% of S, well below 0.5% S limit)
+        orbitRadius: 0.0016 + 0.0012 * rng(),
+        orbitFreqX: (i % 2 === 0) ? 1 : 2,
+        orbitFreqY: (col === 0) ? 2 : 1,
+        orbitPhaseX: rng() * TWO_PI,
+        orbitPhaseY: rng() * TWO_PI,
+        ambientPhase: rng() * TWO_PI,
+        ambientFreq: 3 + (i % 3), // integer {3, 4, 5}
+        reticleSpeed: ((i + col) % 2 === 0 ? 1 : -1) * (1 + (i % 2)),
+        reticlePhase: rng() * TWO_PI,
+        // Runtime coordinates & activation:
+        x: 0,
+        y: 0,
+        activation: 0,
+        degreeWeight: 0
+      };
+
+      allNodes.push(node);
+      if (col === 0) leftNodes.push(node);
+      else rightNodes.push(node);
+    }
+  }
+
+  // --- GENERATE SEEDED WEIGHT MATRICES A_ij AND B_ij & SELECT ~60 QUADRATIC BEZIER ARCS ---
+  // Helper to evaluate structured attention affinity + seeded randomness so the two modes A and B
+  // produce dramatic, readable, shifting scientific attention patterns
+  function computeStructuredAffinity(i, j, modeName) {
+    const uI = i / (N_TOKENS - 1);
+    const uJ = j / (N_TOKENS - 1);
+    const diff = Math.abs(i - j);
+    const mirrorDiff = Math.abs(i - (N_TOKENS - 1 - j));
+
+    if (modeName === 'diagonal_hubs') {
+      const diag = Math.exp(-(diff * diff) / 3.2);
+      const hub = (i === 2 || i === N_TOKENS - 3 || j === Math.floor(N_TOKENS / 2)) ? 0.65 : 0;
+      return 0.55 * diag + 0.45 * hub;
+    } else if (modeName === 'cross_mirror') {
+      const antiDiag = Math.exp(-(mirrorDiff * mirrorDiff) / 3.5);
+      const crossHub = (i === 0 || i === N_TOKENS - 1 || j === 1 || j === N_TOKENS - 2) ? 0.55 : 0;
+      return 0.60 * antiDiag + 0.40 * crossHub;
+    } else if (modeName === 'local_band') {
+      return Math.exp(-(diff * diff) / 2.2);
+    } else if (modeName === 'global_anchors') {
+      const anchor = (i % 3 === 0 || j % 3 === 0) ? 0.75 : 0.15;
+      return anchor * (0.5 + 0.5 * Math.cos((uI - uJ) * Math.PI * 2));
+    } else if (modeName === 'causal_fan') {
+      const causal = (j >= i) ? Math.exp(-((j - i) / 4.5)) : 0.15;
+      return causal;
+    } else {
+      // 'harmonic_wave'
+      return 0.5 + 0.5 * Math.cos((uI * 3 - uJ * 2) * Math.PI);
+    }
+  }
+
+  // Build candidate pool of all N_TOKENS x N_TOKENS pairs (144 pairs for 12x12)
+  const candidatePairs = [];
+  for (let i = 0; i < N_TOKENS; i++) {
+    for (let j = 0; j < N_TOKENS; j++) {
+      // Signed weights A_ij and B_ij so |cos(2*PI*phase)*A_ij + sin(2*PI*phase)*B_ij|
+      // sweeps dynamically between 0 and peak magnitude over the 10-second loop!
+      const structA = computeStructuredAffinity(i, j, cfg.patternA);
+      const structB = computeStructuredAffinity(i, j, cfg.patternB);
+
+      const signA = (rng() < 0.72) ? 1 : -1;
+      const signB = (rng() < 0.50) ? 1 : -1;
+
+      const A_ij = signA * (0.18 + 0.82 * (0.55 * structA + 0.45 * Math.pow(rng(), 0.9)));
+      const B_ij = signB * (0.18 + 0.82 * (0.55 * structB + 0.45 * Math.pow(rng(), 0.9)));
+
+      // Peak amplitude of A_ij*cos(t) + B_ij*sin(t) is hypot(A_ij, B_ij)
+      const peakAmp = Math.hypot(A_ij, B_ij);
+      // Guarantee every token has at least its direct & mirror counterparts prioritized
+      const isStructuralSpine = (i === j) || (i + j === N_TOKENS - 1);
+
+      candidatePairs.push({
+        i: i,
+        j: j,
+        src: leftNodes[i],
+        dst: rightNodes[j],
+        A_ij: A_ij,
+        B_ij: B_ij,
+        peakAmp: peakAmp,
+        selectionScore: peakAmp + (isStructuralSpine ? 0.42 : 0) + rng() * 0.12
+      });
+    }
+  }
+
+  // Sort by selectionScore and pick the top TARGET_ARCS (~60 arcs)
+  candidatePairs.sort((a, b) => b.selectionScore - a.selectionScore);
+  const selectedArcs = candidatePairs.slice(0, TARGET_ARCS);
+
+  // Normalize A_ij and B_ij across selected arcs so max peakAmp === 1.0
+  let maxPeak = 0;
+  for (let k = 0; k < selectedArcs.length; k++) {
+    if (selectedArcs[k].peakAmp > maxPeak) maxPeak = selectedArcs[k].peakAmp;
+  }
+  maxPeak = maxPeak || 1;
+
+  // --- PRECOMPUTE QUADRATIC BEZIER ARC GEOMETRY & ARC-LENGTH TABLES ---
+  // Why quadratic Bezier control point design matters:
+  // If two facing columns are connected by straight lines, the center becomes a flat muddle.
+  // By placing the quadratic Bezier control point (cxArc, cyArc) with a sculpted vertical arch
+  // proportional to the span and horizontal pinch/bow toward the center focal axis,
+  // the 60 arcs form a breathtaking cathedral-like hyperbolic / parabolic interference lattice!
+  const ARC_SAMPLES = 32;
+  const arcs = [];
+
+  function evalQuadBezierNorm(x0, y0, cx, cy, x1, y1, t) {
+    const mt = 1 - t;
+    return {
+      x: mt * mt * x0 + 2 * mt * t * cx + t * t * x1,
+      y: mt * mt * y0 + 2 * mt * t * cy + t * t * y1
+    };
+  }
+
+  for (let k = 0; k < selectedArcs.length; k++) {
+    const item = selectedArcs[k];
+    const src = item.src;
+    const dst = item.dst;
+
+    const normA = item.A_ij / maxPeak;
+    const normB = item.B_ij / maxPeak;
+    const normPeak = item.peakAmp / maxPeak;
+
+    // Control point in normalized coordinates:
+    // Midpoint between columns is x = 0.
+    // Vertical control offset arches gracefully away from or toward the horizontal symmetry axis
+    // based on mean vertical position and index delta, creating layered parabolic caustics.
+    const meanY = 0.5 * (src.baseY + dst.baseY);
+    const deltaY = dst.baseY - src.baseY;
+    const absDelta = Math.abs(deltaY);
+
+    // Symmetrical arch bow: arcs near the top arch upward/inward, arcs near bottom arch symmetrically,
+    // and cross-diagonal arcs sweep through a sculpted focal lens at the center
+    const archDir = (Math.abs(meanY) < 0.03)
+      ? ((item.i < item.j) ? -1 : 1)
+      : Math.sign(meanY);
+
+    const archMagnitude = cfg.archBow * (0.22 * (0.35 - Math.abs(meanY)) + 0.28 * absDelta) * archDir;
+    const ctrlBaseX = (deltaY * 0.14); // subtle S-skew for diagonal separation
+    const ctrlBaseY = meanY + archMagnitude;
+
+    // Precompute 32-step cumulative arc-length table in normalized space
+    const cumArc = new Float32Array(ARC_SAMPLES + 1);
+    cumArc[0] = 0;
+    let totalLen = 0;
+    let prev = { x: src.baseX, y: src.baseY };
+
+    for (let s = 1; s <= ARC_SAMPLES; s++) {
+      const t = s / ARC_SAMPLES;
+      const pt = evalQuadBezierNorm(src.baseX, src.baseY, ctrlBaseX, ctrlBaseY, dst.baseX, dst.baseY, t);
+      totalLen += Math.hypot(pt.x - prev.x, pt.y - prev.y);
+      cumArc[s] = totalLen;
+      prev = pt;
+    }
+
+    const invLen = 1 / (totalLen || 1);
+    for (let s = 1; s <= ARC_SAMPLES; s++) {
+      cumArc[s] *= invLen;
+    }
+
+    const arcObj = {
+      id: k,
+      i: item.i,
+      j: item.j,
+      src: src,
+      dst: dst,
+      A_ij: normA,
+      B_ij: normB,
+      peakAmp: normPeak,
+      ctrlBaseX: ctrlBaseX,
+      ctrlBaseY: ctrlBaseY,
+      cumArc: cumArc,
+      hasPulse: false,
+      pulseOffset: 0,
+      pulseSpeed: 1,
+      pulseDir: 1, // +1: Left->Right, -1: Right->Left
+      // Runtime evaluated values per frame:
+      ctrlX: 0,
+      ctrlY: 0,
+      currentWeight: 0,
+      pulseBoost: 0
+    };
+
+    arcs.push(arcObj);
+  }
+
+  // Assign traveling signals to the strongest arcs (top ~16-18 arcs)
+  // Ensure pulses are well-distributed in phase s0 and integer speed m in {1, 2, 3}
+  // so at phase = 0.5 many pulses are visibly riding the strongest arcs!
+  const NUM_PULSE_ARCS = Math.min(cfg.pulseCount, arcs.length);
+  for (let k = 0; k < NUM_PULSE_ARCS; k++) {
+    const arc = arcs[k];
+    arc.hasPulse = true;
+    // Golden-ratio phase distribution so pulses are evenly staggered at all times
+    arc.pulseOffset = (k * 0.61803398875) % 1.0;
+    arc.pulseSpeed = (k % 3 === 0) ? 2 : ((k % 5 === 0) ? 3 : 1);
+    arc.pulseDir = (k % 4 === 3) ? -1 : 1;
+  }
+
+  // Sort arcs back-to-front by peakAmp so brightest arcs render on top
+  const renderArcs = arcs.slice().sort((a, b) => a.peakAmp - b.peakAmp);
+
+  // --- HELPER MATH & DRAWING FUNCTIONS ---
+  function fract(x) {
+    return x - Math.floor(x);
+  }
+
+  function circDist(a, b) {
+    const d = Math.abs(a - b);
+    return Math.min(d, 1 - d);
+  }
+
+  // Convert normalized arc-length u in [0, 1] to quadratic Bezier parameter t in [0, 1]
+  function arcLengthToParamT(arc, u) {
+    const clamped = Math.max(0, Math.min(1, u));
+    const arr = arc.cumArc;
+    let lo = 0;
+    let hi = ARC_SAMPLES;
+    while (lo < hi - 1) {
+      const mid = (lo + hi) >> 1;
+      if (arr[mid] <= clamped) lo = mid;
+      else hi = mid;
+    }
+    const u0 = arr[lo];
+    const u1 = arr[hi];
+    const frac = (u1 > u0) ? (clamped - u0) / (u1 - u0) : 0;
+    return (lo + frac) / ARC_SAMPLES;
+  }
+
+  // Evaluate quadratic Bezier screen coordinates at parameter t in [0, 1]
+  function evalArcScreen(arc, t) {
+    const mt = 1 - t;
+    return {
+      x: mt * mt * arc.src.x + 2 * mt * t * arc.ctrlX + t * t * arc.dst.x,
+      y: mt * mt * arc.src.y + 2 * mt * t * arc.ctrlY + t * t * arc.dst.y
+    };
+  }
+
+  function drawGlowingOrb(x, y, rCore, coreColorIdx, haloColorIdx, alpha, haloScale) {
+    if (alpha <= 0.005) return;
+    const rHalo = rCore * (haloScale || 4.5);
+    const grad = ctx.createRadialGradient(x, y, 0, x, y, rHalo);
+    grad.addColorStop(0, rgba(coreColorIdx, Math.min(1, alpha * 0.96)));
+    grad.addColorStop(0.24, rgba(haloColorIdx, Math.min(1, alpha * 0.64)));
+    grad.addColorStop(0.58, rgba(haloColorIdx, Math.min(1, alpha * 0.20)));
+    grad.addColorStop(1, rgba(haloColorIdx, 0));
+
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(x, y, rHalo, 0, TWO_PI);
+    ctx.fill();
+
+    ctx.fillStyle = rgba(coreColorIdx, Math.min(1, alpha * 1.15));
+    ctx.beginPath();
+    ctx.arc(x, y, rCore, 0, TWO_PI);
+    ctx.fill();
+  }
+
+  function drawRegularPolygon(x, y, radius, sides, rotation) {
+    ctx.beginPath();
+    for (let i = 0; i <= sides; i++) {
+      const a = rotation + (i / sides) * TWO_PI;
+      const px = x + Math.cos(a) * radius;
+      const py = y + Math.sin(a) * radius;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+  }
+
+  // --- MAIN FRAME RENDERER ---
+  function renderFrame(t) {
+    const W = canvas.width;
+    const H = canvas.height;
+    const S = Math.min(W, H);
+    const isVertical = (H > W);
+    const cx = 0.5 * W;
+    const cy = 0.5 * H;
+
+    // 1. Reset canvas state completely for strict determinism
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.setLineDash([]);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 1;
+
+    // 2. Background Mode Handling
+    if (BG === 'alpha') {
+      ctx.clearRect(0, 0, W, H);
+    } else {
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // 3. Seamless loop phase in [0, 1)
+    const phase = (((t % DURATION) + DURATION) % DURATION) / DURATION;
+
+    // Multi-frequency integer harmonic oscillators
+    const p1 = TWO_PI * 1 * phase; // k = 1 primary attention matrix rotation: cos(2*PI*phase), sin(2*PI*phase)
+    const p2 = TWO_PI * 2 * phase; // k = 2 harmonic breathing & wave modulation
+    const p3 = TWO_PI * 3 * phase; // k = 3 secondary shimmer
+    const p4 = TWO_PI * 4 * phase; // k = 4 ambient node twinkle
+
+    const cosP1 = Math.cos(p1);
+    const sinP1 = Math.sin(p1);
+
+    const strokeUnit = S * 0.001; // 2.16px at 4K
+    const breathScale = 1.0 + 0.010 * Math.sin(p2);
+
+    // 4. Update Token Node Positions & Reset Frame Activations
+    for (let i = 0; i < allNodes.length; i++) {
+      const n = allNodes[i];
+      const dxNorm = n.orbitRadius * Math.cos(TWO_PI * n.orbitFreqX * phase + n.orbitPhaseX);
+      const dyNorm = n.orbitRadius * Math.sin(TWO_PI * n.orbitFreqY * phase + n.orbitPhaseY);
+
+      const nx = (n.baseX * breathScale + dxNorm) * S;
+      const ny = (n.baseY * breathScale + dyNorm) * S;
+
+      if (!isVertical) {
+        n.x = cx + nx;
+        n.y = cy + ny;
+      } else {
+        // In vertical 9:16 layout, rotate 90 degrees so facing columns become facing horizontal rows
+        n.x = cx + ny;
+        n.y = cy + nx;
+      }
+
+      // Base ambient brightness (never drops to zero so all 24 tokens stay crisp)
+      const wave = 0.5 + 0.5 * Math.sin(n.u * Math.PI * 3 - p2 * (n.col === 0 ? 1 : -1));
+      const twinkle = 0.5 + 0.5 * Math.sin(TWO_PI * n.ambientFreq * phase + n.ambientPhase);
+      n.activation = 0.18 + 0.10 * wave + 0.06 * twinkle;
+      n.degreeWeight = 0;
+    }
+
+    // 5. Evaluate Instantaneous Attention Weights:
+    // w_ij(phase) = |cos(2*PI*phase) * A_ij + sin(2*PI*phase) * B_ij|
+    // Note: since |cos(x + PI)*A + sin(x + PI)*B| === |cos(x)*A + sin(x)*B|,
+    // this exact formula naturally completes 2 full attention-head cycles per 10s loop
+    // and is 100% identical at phase = 0 and phase = 1!
+    const activePulses = [];
+
+    for (let k = 0; k < arcs.length; k++) {
+      const arc = arcs[k];
+
+      // Control point breathes subtly in sync with p2
+      const ctrlBreath = 1.0 + 0.045 * Math.sin(p2 + (arc.i + arc.j) * 0.4);
+      const cnx = arc.ctrlBaseX * ctrlBreath * S;
+      const cny = arc.ctrlBaseY * ctrlBreath * S;
+
+      if (!isVertical) {
+        arc.ctrlX = cx + cnx;
+        arc.ctrlY = cy + cny;
+      } else {
+        arc.ctrlX = cx + cny;
+        arc.ctrlY = cy + cnx;
+      }
+
+      // Exact required formula: |cos(2*PI*phase)*A_ij + sin(2*PI*phase)*B_ij|
+      const wInst = Math.abs(cosP1 * arc.A_ij + sinP1 * arc.B_ij);
+      arc.currentWeight = wInst;
+      arc.pulseBoost = 0;
+
+      // Accumulate weighted attention into connected source & target tokens
+      arc.src.degreeWeight += wInst * 0.28;
+      arc.dst.degreeWeight += wInst * 0.28;
+
+      // Evaluate traveling pulses on the strongest arcs
+      if (arc.hasPulse) {
+        const rawU = fract(arc.pulseOffset + arc.pulseSpeed * phase);
+        const u = (arc.pulseDir === 1) ? rawU : (1.0 - rawU);
+
+        // Node activation when pulse leaves source (a = 0) or arrives at target (a = 1):
+        // d = min(|a - u|, 1 - |a - u|); brightness = max over pulses of exp(-(d/0.04)^2)
+        const dSrc = circDist(0, rawU);
+        const dDst = circDist(0.88, rawU); // peak arrival just before wrap
+
+        const srcPulseAct = Math.exp(-Math.pow(dSrc / 0.055, 2)) * (0.45 + 0.55 * wInst);
+        const dstPulseAct = Math.exp(-Math.pow(dDst / 0.055, 2)) * (0.45 + 0.55 * wInst);
+
+        if (srcPulseAct > arc.src.activation) arc.src.activation = srcPulseAct;
+        else arc.src.activation = Math.min(1.0, arc.src.activation + srcPulseAct * 0.45);
+
+        if (dstPulseAct > arc.dst.activation) arc.dst.activation = dstPulseAct;
+        else arc.dst.activation = Math.min(1.0, arc.dst.activation + dstPulseAct * 0.45);
+
+        // Smooth envelope along the arc so pulse glides cleanly from token to token
+        const envArc = Math.sin(u * Math.PI);
+        // Pulse brightness scales with the arc's instantaneous attention weight wInst
+        const pulseAlpha = envArc * (0.35 + 0.65 * Math.pow(wInst, 0.65));
+        arc.pulseBoost = pulseAlpha * 0.55;
+
+        if (pulseAlpha > 0.04) {
+          activePulses.push({
+            arc: arc,
+            u: u,
+            dir: arc.pulseDir,
+            alpha: pulseAlpha,
+            weight: wInst
+          });
+        }
+      }
+    }
+
+    // Finalize token node activations from attention degree + pulse arrivals
+    for (let i = 0; i < allNodes.length; i++) {
+      const n = allNodes[i];
+      const degNorm = Math.min(1.0, n.degreeWeight / 1.35);
+      n.activation = Math.min(1.0, Math.max(n.activation, 0.20 + 0.72 * degNorm));
+    }
+
+    // =========================================================================
+    // LAYER 1: AMBIENT GOLD FIELD & SACRED-GEOMETRY TELEMETRY BACKDROP
+    // =========================================================================
+    // 1A. Soft radial ambient gold aura behind the attention bridge (fades strictly to alpha 0)
+    {
+      const ambR = S * 0.48;
+      const ambGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, ambR);
+      ambGrad.addColorStop(0, rgba(4, 0.18));
+      ambGrad.addColorStop(0.45, rgba(2, 0.07));
+      ambGrad.addColorStop(0.78, rgba(4, 0.02));
+      ambGrad.addColorStop(1, rgba(4, 0));
+      ctx.fillStyle = ambGrad;
+      ctx.beginPath();
+      ctx.arc(cx, cy, ambR, 0, TWO_PI);
+      ctx.fill();
+    }
+
+    // 1B. Central Scientific Harmonic Bridge Guides & Focal Astrolabe Rings
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    // Subtle concentric harmonic measurement circles at the attention focal center
+    for (let rIdx = 0; rIdx < 3; rIdx++) {
+      const rVal = S * (0.11 + rIdx * 0.095);
+      ctx.beginPath();
+      ctx.arc(0, 0, rVal, 0, TWO_PI);
+      ctx.strokeStyle = rgba(4, 0.16 - rIdx * 0.03);
+      ctx.lineWidth = strokeUnit * 0.55;
+      ctx.stroke();
+
+      // Rotating Vernier arc ticks (whole turns: angle = 2*PI*m*phase)
+      ctx.save();
+      ctx.rotate(((rIdx % 2 === 0) ? 1 : -1) * p1);
+      const tickArcs = 4 + rIdx * 2;
+      const span = (TWO_PI / tickArcs) * 0.28;
+      for (let a = 0; a < tickArcs; a++) {
+        const a0 = (a / tickArcs) * TWO_PI;
+        ctx.beginPath();
+        ctx.arc(0, 0, rVal * 1.025, a0, a0 + span);
+        ctx.strokeStyle = rgba(1, 0.14);
+        ctx.lineWidth = strokeUnit * 0.55;
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // Faint horizontal/vertical center symmetry axis & golden-ratio guide lines
+    const halfSpan = S * (cfg.colGap * 0.5);
+    const halfCol = S * (cfg.colHeight * 0.54);
+    ctx.setLineDash([strokeUnit * 2.5, strokeUnit * 4.5]);
+    ctx.beginPath();
+    if (!isVertical) {
+      ctx.moveTo(-halfSpan, 0);
+      ctx.lineTo(halfSpan, 0);
+      ctx.moveTo(0, -halfCol);
+      ctx.lineTo(0, halfCol);
+    } else {
+      ctx.moveTo(0, -halfSpan);
+      ctx.lineTo(0, halfSpan);
+      ctx.moveTo(-halfCol, 0);
+      ctx.lineTo(halfCol, 0);
+    }
+    ctx.strokeStyle = rgba(4, 0.22);
+    ctx.lineWidth = strokeUnit * 0.55;
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+
+    // =========================================================================
+    // LAYER 2: TOKEN COLUMN AXES, VERNIER RULERS & STANDING WAVE RAILS
+    // =========================================================================
+    for (let col = 0; col < 2; col++) {
+      const colNodes = (col === 0) ? leftNodes : rightNodes;
+      const first = colNodes[0];
+      const last = colNodes[colNodes.length - 1];
+      const outSign = (col === 0) ? -1 : 1;
+      const ext = S * 0.036;
+
+      const x0 = first.x - (isVertical ? ext : 0);
+      const y0 = first.y - (isVertical ? 0 : ext);
+      const x1 = last.x + (isVertical ? ext : 0);
+      const y1 = last.y + (isVertical ? 0 : ext);
+
+      // 2A. Primary token column spine
+      ctx.beginPath();
+      ctx.moveTo(x0, y0);
+      ctx.lineTo(x1, y1);
+      ctx.strokeStyle = rgba(1, 0.30);
+      ctx.lineWidth = strokeUnit * 0.85;
+      ctx.stroke();
+
+      // 2B. Outer parallel scientific scale rail with fine graduation ticks
+      const railOffset = outSign * S * 0.028;
+      const rx0 = x0 + (isVertical ? 0 : railOffset);
+      const ry0 = y0 + (isVertical ? railOffset : 0);
+      const rx1 = x1 + (isVertical ? 0 : railOffset);
+      const ry1 = y1 + (isVertical ? railOffset : 0);
+
+      ctx.beginPath();
+      ctx.moveTo(rx0, ry0);
+      ctx.lineTo(rx1, ry1);
+      ctx.strokeStyle = rgba(4, 0.32);
+      ctx.lineWidth = strokeUnit * 0.65;
+      ctx.stroke();
+
+      // Fine graduation ticks along the outer rail
+      const numTicks = (N_TOKENS - 1) * 4;
+      ctx.beginPath();
+      for (let k = 0; k <= numTicks; k++) {
+        const u = k / numTicks;
+        const tx = rx0 + (rx1 - rx0) * u;
+        const ty = ry0 + (ry1 - ry0) * u;
+        const isTokenTick = (k % 4 === 0);
+        const tickLen = outSign * S * (isTokenTick ? 0.0085 : 0.0042);
+
+        if (!isVertical) {
+          ctx.moveTo(tx, ty);
+          ctx.lineTo(tx + tickLen, ty);
+        } else {
+          ctx.moveTo(tx, ty);
+          ctx.lineTo(tx, ty + tickLen);
+        }
+      }
+      ctx.strokeStyle = rgba(2, 0.35);
+      ctx.lineWidth = strokeUnit * 0.65;
+      ctx.stroke();
+
+      // 2C. Harmonic standing wave oscillating along each token column
+      const waveSteps = 72;
+      const waveAmp = S * 0.007 * (0.65 + 0.35 * Math.sin(p2 + col * Math.PI));
+      ctx.beginPath();
+      for (let s = 0; s <= waveSteps; s++) {
+        const u = s / waveSteps;
+        const bx = first.x + (last.x - first.x) * u;
+        const by = first.y + (last.y - first.y) * u;
+        const env = Math.sin(u * Math.PI);
+        const osc = Math.sin(u * Math.PI * (N_TOKENS - 1) - p2 * outSign);
+        const disp = waveAmp * env * osc;
+
+        const wx = isVertical ? bx : (bx + disp);
+        const wy = isVertical ? (by + disp) : by;
+        if (s === 0) ctx.moveTo(wx, wy);
+        else ctx.lineTo(wx, wy);
+      }
+      ctx.strokeStyle = rgba(2, 0.24);
+      ctx.lineWidth = strokeUnit * 0.65;
+      ctx.stroke();
+
+      // 2D. Precision end-cap brackets on top and bottom of each column
+      const capW = S * 0.012;
+      const capH = S * 0.006;
+      ctx.beginPath();
+      if (!isVertical) {
+        ctx.moveTo(x0 - capW, y0 + capH);
+        ctx.lineTo(x0 - capW, y0);
+        ctx.lineTo(x0 + capW, y0);
+        ctx.lineTo(x0 + capW, y0 + capH);
+
+        ctx.moveTo(x1 - capW, y1 - capH);
+        ctx.lineTo(x1 - capW, y1);
+        ctx.lineTo(x1 + capW, y1);
+        ctx.lineTo(x1 + capW, y1 - capH);
+      } else {
+        ctx.moveTo(x0 + capH, y0 - capW);
+        ctx.lineTo(x0, y0 - capW);
+        ctx.lineTo(x0, y0 + capW);
+        ctx.lineTo(x0 + capH, y0 + capW);
+
+        ctx.moveTo(x1 - capH, y1 - capW);
+        ctx.lineTo(x1, y1 - capW);
+        ctx.lineTo(x1, y1 + capW);
+        ctx.lineTo(x1 - capH, y1 + capW);
+      }
+      ctx.strokeStyle = rgba(1, 0.55);
+      ctx.lineWidth = strokeUnit * 0.9;
+      ctx.stroke();
+    }
+
+    // =========================================================================
+    // LAYER 3: ~60 QUADRATIC BEZIER ATTENTION ARCS (Shifting Weight Matrix)
+    // =========================================================================
+    if (BG === 'black') {
+      ctx.globalCompositeOperation = 'lighter';
+    }
+
+    for (let k = 0; k < renderArcs.length; k++) {
+      const arc = renderArcs[k];
+      const w = arc.currentWeight; // |cos(2*PI*phase)*A_ij + sin(2*PI*phase)*B_ij|
+      const boost = arc.pulseBoost;
+
+      // Keep a faint minimum floor so the full 60-arc geometry remains legible as construction lines
+      const effW = Math.max(0.04, w);
+      const isStrongNow = (w > 0.42) || (boost > 0.15);
+
+      const coreWidth = strokeUnit * (0.38 + 1.85 * Math.pow(effW, 1.15) + 0.95 * boost);
+      const baseAlpha = 0.06 + 0.78 * Math.pow(effW, 1.1) + 0.35 * boost;
+
+      if (!isStrongNow) {
+        // Faint / medium construction & low-attention quadratic Bezier arc
+        ctx.beginPath();
+        ctx.moveTo(arc.src.x, arc.src.y);
+        ctx.quadraticCurveTo(arc.ctrlX, arc.ctrlY, arc.dst.x, arc.dst.y);
+        ctx.strokeStyle = rgba(w > 0.24 ? 1 : 4, Math.min(0.65, baseAlpha));
+        ctx.lineWidth = coreWidth;
+        ctx.stroke();
+      } else {
+        // High-attention quadratic Bezier arc: 3-pass glowing stroke (Gold -> Champagne/Silver -> White Core)
+        // Pass 1: Wide gold atmospheric glow
+        ctx.beginPath();
+        ctx.moveTo(arc.src.x, arc.src.y);
+        ctx.quadraticCurveTo(arc.ctrlX, arc.ctrlY, arc.dst.x, arc.dst.y);
+        ctx.strokeStyle = rgba(2, Math.min(0.45, baseAlpha * 0.22));
+        ctx.lineWidth = coreWidth * 4.0;
+        ctx.stroke();
+
+        // Pass 2: Medium brilliant gold halo
+        ctx.beginPath();
+        ctx.moveTo(arc.src.x, arc.src.y);
+        ctx.quadraticCurveTo(arc.ctrlX, arc.ctrlY, arc.dst.x, arc.dst.y);
+        ctx.strokeStyle = rgba(w > 0.68 ? 3 : 2, Math.min(0.80, baseAlpha * 0.52));
+        ctx.lineWidth = coreWidth * 2.0;
+        ctx.stroke();
+
+        // Pass 3: Crisp incandescent core line
+        ctx.beginPath();
+        ctx.moveTo(arc.src.x, arc.src.y);
+        ctx.quadraticCurveTo(arc.ctrlX, arc.ctrlY, arc.dst.x, arc.dst.y);
+        ctx.strokeStyle = rgba(w > 0.72 || boost > 0.25 ? 0 : 3, Math.min(0.98, baseAlpha * 0.95));
+        ctx.lineWidth = coreWidth;
+        ctx.stroke();
+
+        // Luminous apex node at t = 0.5 of the strongest active arcs
+        if (w > 0.58) {
+          const apexPt = evalArcScreen(arc, 0.5);
+          const apexAlpha = (w - 0.55) * 1.6;
+          drawGlowingOrb(apexPt.x, apexPt.y, strokeUnit * (0.9 + 0.7 * w), 0, 2, apexAlpha, 3.2);
+        }
+      }
+    }
+
+    // =========================================================================
+    // LAYER 4: BRIGHT PULSES RIDING THE STRONGEST ARCS (Comet Heads & Tails)
+    // =========================================================================
+    const TAIL_SAMPLES = 16;
+    const TAIL_STEP = 0.0085;
+
+    for (let i = 0; i < activePulses.length; i++) {
+      const p = activePulses[i];
+      const arc = p.arc;
+      const headU = p.u;
+      const dir = p.dir;
+      const alpha = p.alpha;
+
+      // 4A. Multi-pass tapered comet tail sampled along normalized arc length (u, u-0.01, u-0.02...)
+      for (let pass = 0; pass < 2; pass++) {
+        const isGlow = (pass === 0);
+        for (let s = 0; s < TAIL_SAMPLES - 1; s++) {
+          const u0 = headU - dir * (s * TAIL_STEP);
+          const u1 = headU - dir * ((s + 1) * TAIL_STEP);
+          if (u0 < 0 || u0 > 1 || u1 < 0 || u1 > 1) break;
+
+          const t0 = arcLengthToParamT(arc, u0);
+          const t1 = arcLengthToParamT(arc, u1);
+          const pt0 = evalArcScreen(arc, t0);
+          const pt1 = evalArcScreen(arc, t1);
+
+          const fade = Math.pow(1 - s / TAIL_SAMPLES, 1.75);
+          const segAlpha = alpha * fade * (isGlow ? 0.40 : 0.96);
+          const segW = strokeUnit * (2.25 * (0.32 + 0.68 * fade)) * (isGlow ? 3.2 : 1.0);
+
+          ctx.beginPath();
+          ctx.moveTo(pt0.x, pt0.y);
+          ctx.lineTo(pt1.x, pt1.y);
+          ctx.strokeStyle = rgba(isGlow ? 2 : (s < 4 ? 0 : 3), segAlpha);
+          ctx.lineWidth = segW;
+          ctx.stroke();
+        }
+      }
+
+      // 4B. Sampled trailing harmonic spark beads at u - 0.012*k
+      for (let b = 1; b <= 6; b++) {
+        const uBead = headU - dir * (b * 0.013);
+        if (uBead < 0 || uBead > 1) break;
+        const tBead = arcLengthToParamT(arc, uBead);
+        const bPt = evalArcScreen(arc, tBead);
+        const bFade = Math.pow(1 - b / 7, 1.65) * alpha;
+        const bR = strokeUnit * 1.65 * (0.42 + 0.58 * (1 - b / 7));
+        drawGlowingOrb(bPt.x, bPt.y, bR, 0, 3, bFade * 0.90, 3.2);
+      }
+
+      // 4C. Bright Pulse Head at u
+      const headT = arcLengthToParamT(arc, headU);
+      const headPt = evalArcScreen(arc, headT);
+      const headR = strokeUnit * (2.65 + 0.85 * p.weight);
+
+      drawGlowingOrb(headPt.x, headPt.y, headR, 0, 2, alpha, 5.5);
+
+      // Precision golden reticle ring around the pulse head
+      ctx.beginPath();
+      ctx.arc(headPt.x, headPt.y, headR * 2.3, 0, TWO_PI);
+      ctx.strokeStyle = rgba(3, alpha * 0.70);
+      ctx.lineWidth = strokeUnit * 0.70;
+      ctx.stroke();
+    }
+
+    // =========================================================================
+    // LAYER 5: FACING COLUMNS OF 12 TOKEN NODES (Sacred Geometry & Reticles)
+    // =========================================================================
+    for (let i = 0; i < allNodes.length; i++) {
+      const n = allNodes[i];
+      const act = n.activation; // in [0.20, 1.0]
+      const isLeft = (n.col === 0);
+      const outSign = isLeft ? -1 : 1;
+
+      const baseR = S * 0.0112;
+      const nodeR = baseR * (0.90 + 0.28 * act);
+
+      // 5A. Soft alpha radial gradient gold/white halo around each token dot
+      const haloR = nodeR * (3.5 + 2.8 * act);
+      const haloAlpha = 0.25 + 0.70 * act;
+      const grad = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, haloR);
+      grad.addColorStop(0, rgba(0, Math.min(1, haloAlpha * 0.94)));
+      grad.addColorStop(0.22, rgba(3, Math.min(1, haloAlpha * 0.68)));
+      grad.addColorStop(0.54, rgba(2, Math.min(1, haloAlpha * 0.26)));
+      grad.addColorStop(1, rgba(2, 0));
+
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, haloR, 0, TWO_PI);
+      ctx.fill();
+
+      // 5B. Dark inner chamber disc so Bezier arcs terminate cleanly at the token perimeter
+      ctx.save();
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = (BG === 'alpha') ? 'rgba(12, 8, 0, 0.88)' : '#090601';
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, nodeR * 0.90, 0, TWO_PI);
+      ctx.fill();
+      ctx.restore();
+
+      // 5C. Inscribed rotating sacred-geometry hexagon/diamond inside the token ring
+      const rot = TWO_PI * n.reticleSpeed * phase + n.reticlePhase;
+      drawRegularPolygon(n.x, n.y, nodeR * 0.70, 6, rot);
+      ctx.strokeStyle = rgba(2, 0.38 + 0.52 * act);
+      ctx.lineWidth = strokeUnit * (0.65 + 0.35 * act);
+      ctx.stroke();
+
+      // 5D. Primary token containment ring (2-pass silver/gold glow)
+      const rimAlpha = 0.55 + 0.45 * act;
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, nodeR, 0, TWO_PI);
+      ctx.strokeStyle = rgba(2, rimAlpha * 0.50);
+      ctx.lineWidth = strokeUnit * 2.4;
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, nodeR, 0, TWO_PI);
+      ctx.strokeStyle = rgba(act > 0.55 ? 0 : 1, rimAlpha);
+      ctx.lineWidth = strokeUnit * (1.15 + 0.55 * act);
+      ctx.stroke();
+
+      // 5E. Outer rotating telemetry arc & orbiting satellite bead
+      const outerR = nodeR * (1.42 + 0.08 * Math.sin(p2 + n.ambientPhase));
+      ctx.save();
+      ctx.translate(n.x, n.y);
+      ctx.rotate(rot * 0.5);
+
+      for (let a = 0; a < 2; a++) {
+        const a0 = a * Math.PI;
+        const span = Math.PI * (0.35 + 0.25 * act);
+        ctx.beginPath();
+        ctx.arc(0, 0, outerR, a0, a0 + span);
+        ctx.strokeStyle = rgba(3, 0.30 + 0.58 * act);
+        ctx.lineWidth = strokeUnit * (0.70 + 0.40 * act);
+        ctx.stroke();
+      }
+
+      // Orbiting satellite micro-dot on high-attention tokens
+      if (act > 0.42) {
+        ctx.fillStyle = rgba(0, 0.65 + 0.35 * act);
+        ctx.beginPath();
+        ctx.arc(outerR, 0, strokeUnit * 1.05, 0, TWO_PI);
+        ctx.fill();
+      }
+      ctx.restore();
+
+      // 5F. Outer-facing token embedding indicator bar (connecting each token to the outer Vernier rail)
+      const barStart = nodeR * 1.48;
+      const barEnd = barStart + S * (0.008 + 0.014 * act);
+      ctx.beginPath();
+      if (!isVertical) {
+        ctx.moveTo(n.x + outSign * barStart, n.y);
+        ctx.lineTo(n.x + outSign * barEnd, n.y);
+      } else {
+        ctx.moveTo(n.x, n.y + outSign * barStart);
+        ctx.lineTo(n.x, n.y + outSign * barEnd);
+      }
+      ctx.strokeStyle = rgba(act > 0.6 ? 0 : 2, 0.45 + 0.50 * act);
+      ctx.lineWidth = strokeUnit * (1.1 + 0.8 * act);
+      ctx.stroke();
+
+      // Small terminal dot at the outer end of the embedding bar
+      const tipX = !isVertical ? (n.x + outSign * barEnd) : n.x;
+      const tipY = !isVertical ? n.y : (n.y + outSign * barEnd);
+      drawGlowingOrb(tipX, tipY, strokeUnit * (0.9 + 0.5 * act), 3, 2, 0.5 + 0.5 * act, 2.5);
+
+      // 5G. Bright Incandescent Token Core
+      const coreR = nodeR * (0.32 + 0.32 * act);
+      drawGlowingOrb(n.x, n.y, coreR, 0, 3, 0.78 + 0.22 * act, 2.6);
+    }
+  }
+
+  window.renderFrame = renderFrame;
+
+  // --- NORMAL PLAYBACK LOOP ---
+  let startTime = null;
+  function animate(timestamp) {
+    if (startTime === null) startTime = timestamp;
+    const elapsedSeconds = (timestamp - startTime) / 1000;
+    renderFrame(elapsedSeconds);
+    requestAnimationFrame(animate);
+  }
+
+  renderFrame(0);
+  requestAnimationFrame(animate);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Feed-Forward Neural Network — 6 Fully Connected Layers</title>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: #000000;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  canvas {
+    display: block;
+    width: 100vw;
+    height: 56.25vw;
+    max-height: 100vh;
+    max-width: 177.78vh;
+    object-fit: contain;
+  }
+</style>
+</head>
+<body>
+<canvas id="canvas" width="3840" height="2160"></canvas>
+<script>
+(function() {
+  'use strict';
+
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+
+  // --- CLI & URL PARAMETER PARSING (Read once at load) ---
+  const P = window.__cliParams || {};
+  const BG = P.bg || 'black';
+  const SEED = Number(P.seed) || 1;
+  const VARIANT = Number(P.variant) || 0;
+
+  const DURATION = 10;
+  const FPS = 30;
+  const TWO_PI = Math.PI * 2;
+
+  window.DURATION = DURATION;
+  window.FPS = FPS;
+
+  // --- SEEDED PRNG (Mulberry32) ---
+  function mulberry32(a) {
+    return function() {
+      let t = a += 0x6D2B79F5;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  const rng = mulberry32(SEED * 2654435761 + VARIANT * 1013904223 + 314159265);
+
+  // --- COLOR PALETTE ---
+  // Default: White/silver lines + Rich Cyan scientific accent
+  let PALETTE = [
+    '#FFFFFF', // 0: Pure incandescent white (node cores, signal heads, peak intersections)
+    '#D0E6F8', // 1: Luminous silver-ice (primary node rings, high-weight filaments)
+    '#00E5FF', // 2: Electric cyan accent (top 20% weighted synapses, active energy aura)
+    '#78F8FF', // 3: Brilliant sky-cyan (comet pulse tails, internal sacred geometry)
+    '#006E9C'  // 4: Deep telemetry cyan (construction grid, wave scaffolds, base weights)
+  ];
+
+  if (P.palette && typeof P.palette === 'string') {
+    const custom = P.palette.split(',').map(s => s.trim()).filter(Boolean);
+    if (custom.length >= 2) {
+      PALETTE = [
+        custom[0],
+        custom[1 % custom.length],
+        custom[2 % custom.length],
+        custom[3 % custom.length],
+        custom[4 % custom.length]
+      ];
+    }
+  }
+
+  function hexToRgb(hex) {
+    let h = hex.replace('#', '').trim();
+    if (h.length === 3) {
+      h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    }
+    const num = parseInt(h, 16) || 0;
+    return {
+      r: (num >> 16) & 255,
+      g: (num >> 8) & 255,
+      b: num & 255
+    };
+  }
+
+  const RGB = PALETTE.map(hexToRgb);
+
+  function rgba(idx, alpha) {
+    const c = RGB[idx % RGB.length];
+    const a = Math.max(0, Math.min(1, alpha));
+    return `rgba(${c.r},${c.g},${c.b},${a.toFixed(4)})`;
+  }
+
+  // --- ARCHITECTURE PRESETS (VARIANT LOOKUP TABLE) ---
+  // Variant 0 is the exact 3-5-7-7-5-3 6-layer feed-forward network
+  const PRESETS = [
+    // Variant 0 (Default): 3-5-7-7-5-3 Harmonic Diamond Architecture
+    { counts: [3, 5, 7, 7, 5, 3], spanMajor: 0.90, spanMinor: 0.68, curveTension: 0.42, speeds: [1, 2, 1, 2, 2] },
+    // Variant 1: 4-6-8-8-6-4 Deep Wide Tensor Network
+    { counts: [4, 6, 8, 8, 6, 4], spanMajor: 0.92, spanMinor: 0.70, curveTension: 0.38, speeds: [2, 1, 2, 1, 2] },
+    // Variant 2: 6-5-3-3-5-6 Hourglass Latent Autoencoder
+    { counts: [6, 5, 3, 3, 5, 6], spanMajor: 0.90, spanMinor: 0.66, curveTension: 0.45, speeds: [1, 2, 2, 1, 2] },
+    // Variant 3: 3-6-8-6-4-2 Convergent Classifier Cascade
+    { counts: [3, 6, 8, 6, 4, 2], spanMajor: 0.90, spanMinor: 0.68, curveTension: 0.40, speeds: [2, 2, 1, 2, 1] },
+    // Variant 4: 4-7-5-7-5-3 Dual-Chamber Resonance MLP
+    { counts: [4, 7, 5, 7, 5, 3], spanMajor: 0.90, spanMinor: 0.66, curveTension: 0.42, speeds: [1, 2, 1, 3, 2] },
+    // Variant 5: 2-5-8-8-5-2 High-Ratio Feature Expander
+    { counts: [2, 5, 8, 8, 5, 2], spanMajor: 0.88, spanMinor: 0.68, curveTension: 0.46, speeds: [2, 1, 2, 2, 1] },
+    // Variant 6: 5-7-9-9-7-5 Dense Synaptic Matrix
+    { counts: [5, 7, 9, 9, 7, 5], spanMajor: 0.92, spanMinor: 0.70, curveTension: 0.36, speeds: [1, 2, 2, 1, 2] },
+    // Variant 7: 3-4-6-8-5-3 Asymmetric Deep Encoder
+    { counts: [3, 4, 6, 8, 5, 3], spanMajor: 0.90, spanMinor: 0.66, curveTension: 0.42, speeds: [2, 1, 2, 1, 2] }
+  ];
+
+  const cfg = PRESETS[((VARIANT % PRESETS.length) + PRESETS.length) % PRESETS.length];
+  const LAYER_COUNTS = cfg.counts;
+  const NUM_LAYERS = LAYER_COUNTS.length; // 6 layers
+  const MAX_COUNT = Math.max(...LAYER_COUNTS);
+
+  // --- PRECOMPUTE NODES AT LOAD TIME (Normalized relative to S) ---
+  const nodes = [];
+  const layers = [];
+
+  for (let l = 0; l < NUM_LAYERS; l++) {
+    const count = LAYER_COUNTS[l];
+    const uLayer = l / (NUM_LAYERS - 1); // 0 to 1
+    const majorPos = (uLayer - 0.5) * cfg.spanMajor;
+
+    // Sculpted diamond / hourglass silhouette with slight lens curvature per layer
+    const countRatio = (count - 1) / Math.max(1, MAX_COUNT - 1);
+    const layerSpread = cfg.spanMinor * (0.28 + 0.72 * Math.pow(countRatio, 0.92));
+    const layerNodes = [];
+
+    for (let i = 0; i < count; i++) {
+      const vNode = (count === 1) ? 0 : ((i / (count - 1)) - 0.5); // -0.5 to +0.5
+      // Subtle parabolic lens bow so each layer has a graceful scientific arc
+      const bowOffset = (l - 2.5) * 0.008 * (1 - 4 * vNode * vNode);
+      const minorPos = vNode * layerSpread;
+
+      const nodeObj = {
+        id: nodes.length,
+        layer: l,
+        indexInLayer: i,
+        uLayer: uLayer,
+        vNode: vNode,
+        baseMajor: majorPos + bowOffset,
+        baseMinor: minorPos,
+        // Orbit jitter strictly <= 0.35% of S (< 0.5% S limit)
+        orbitRadius: 0.0020 + 0.0014 * rng(),
+        orbitFreqMajor: (i % 2 === 0) ? 1 : 2,
+        orbitFreqMinor: (l % 2 === 0) ? 2 : 1,
+        orbitPhaseMajor: rng() * TWO_PI,
+        orbitPhaseMinor: rng() * TWO_PI,
+        ambientPhase: rng() * TWO_PI,
+        ambientFreq: 3 + Math.floor(rng() * 3), // integer {3, 4, 5}
+        reticleSpeed: ((i + l) % 2 === 0 ? 1 : -1) * (1 + (i % 2)),
+        reticlePhase: rng() * TWO_PI,
+        sacredSides: (l === 0 || l === NUM_LAYERS - 1) ? 6 : 4,
+        // Updated each frame:
+        x: 0,
+        y: 0,
+        activation: 0,
+        pulseArrival: 0
+      };
+      nodes.push(nodeObj);
+      layerNodes.push(nodeObj);
+    }
+    layers.push(layerNodes);
+  }
+
+  // --- PRECOMPUTE FULLY CONNECTED EDGES & WEIGHTS ---
+  const edges = [];
+  const edgeMap = new Map();
+
+  for (let l = 0; l < NUM_LAYERS - 1; l++) {
+    const srcLayer = layers[l];
+    const dstLayer = layers[l + 1];
+
+    for (let i = 0; i < srcLayer.length; i++) {
+      for (let j = 0; j < dstLayer.length; j++) {
+        const src = srcLayer[i];
+        const dst = dstLayer[j];
+
+        // Seeded weight distribution favoring harmonic structural symmetry + randomness
+        const dMinor = Math.abs(src.baseMinor - dst.baseMinor) / cfg.spanMinor;
+        const symBonus = Math.cos(dMinor * Math.PI * 0.9) * 0.22;
+        const rawWeight = Math.max(0.05, 0.20 + 0.80 * Math.pow(rng(), 1.25) + symBonus);
+
+        const edge = {
+          id: edges.length,
+          layer: l,
+          src: src,
+          dst: dst,
+          rawWeight: rawWeight,
+          weight: 0,
+          isStrong: false, // top 20% brightest
+          isPathEdge: false,
+          curveArch: (rng() - 0.5) * 0.018, // subtle organic bezier offset
+          phaseOffset: rng() * TWO_PI,
+          activation: 0
+        };
+        edges.push(edge);
+        edgeMap.set(`${src.id}_${dst.id}`, edge);
+      }
+    }
+  }
+
+  // Determine exact top 20% weight threshold
+  const sortedWeights = edges.map(e => e.rawWeight).sort((a, b) => a - b);
+  const minW = sortedWeights[0];
+  const maxW = sortedWeights[sortedWeights.length - 1] || 1;
+  const top20Threshold = sortedWeights[Math.floor(sortedWeights.length * 0.80)];
+
+  for (let i = 0; i < edges.length; i++) {
+    const e = edges[i];
+    e.weight = (e.rawWeight - minW) / (maxW - minW + 1e-6);
+    e.isStrong = (e.rawWeight >= top20Threshold);
+  }
+
+  // --- PRECOMPUTE 5 SIGNAL PATHS (Input -> Output Polylines with Arc-Length Table) ---
+  // Each path is a 6-node connected chain from Layer 0 to Layer 5, sampled into a dense
+  // 120-segment cubic-bezier polyline with a cumulative normalized arc-length table.
+  const NUM_PATHS = 5;
+  const SAMPLES_PER_SEG = 24;
+  const TOTAL_PATH_SAMPLES = (NUM_LAYERS - 1) * SAMPLES_PER_SEG; // 120 samples per path
+  const signalPaths = [];
+  const nodeUsage = new Int32Array(nodes.length);
+
+  // Carefully chosen phase offsets s0 and integer speeds m in {1, 2} so that at phase = 0.5
+  // all 5 signal paths have bright visible pulses in flight and >45% of nodes are strongly lit
+  const PATH_TIMINGS = [
+    { s0: 0.68, m: 1, echoes: [0.0, 0.36, 0.70] },
+    { s0: 0.84, m: 1, echoes: [0.0, 0.42, 0.76] },
+    { s0: 0.08, m: 2, echoes: [0.0, 0.48] },
+    { s0: 0.28, m: 2, echoes: [0.0, 0.52] },
+    { s0: 0.46, m: 1, echoes: [0.0, 0.34, 0.68] }
+  ];
+
+  // Evaluate cubic bezier point between two nodes in normalized (major, minor) coordinates
+  function evalEdgeCurveNorm(src, dst, t, tension) {
+    const dMaj = dst.baseMajor - src.baseMajor;
+    const cp1Maj = src.baseMajor + dMaj * tension;
+    const cp1Min = src.baseMinor;
+    const cp2Maj = dst.baseMajor - dMaj * tension;
+    const cp2Min = dst.baseMinor;
+
+    const mt = 1 - t;
+    const mt2 = mt * mt;
+    const t2 = t * t;
+
+    const maj = mt2 * mt * src.baseMajor + 3 * mt2 * t * cp1Maj + 3 * mt * t2 * cp2Maj + t2 * t * dst.baseMajor;
+    const min = mt2 * mt * src.baseMinor + 3 * mt2 * t * cp1Min + 3 * mt * t2 * cp2Min + t2 * t * dst.baseMinor;
+    return { maj, min };
+  }
+
+  // Evaluate cubic bezier point between two nodes in screen (x, y) coordinates at runtime
+  function evalEdgeCurveScreen(src, dst, t, tension, isVertical) {
+    const mt = 1 - t;
+    const mt2 = mt * mt;
+    const t2 = t * t;
+
+    if (!isVertical) {
+      const dx = dst.x - src.x;
+      const cp1x = src.x + dx * tension;
+      const cp1y = src.y;
+      const cp2x = dst.x - dx * tension;
+      const cp2y = dst.y;
+      return {
+        x: mt2 * mt * src.x + 3 * mt2 * t * cp1x + 3 * mt * t2 * cp2x + t2 * t * dst.x,
+        y: mt2 * mt * src.y + 3 * mt2 * t * cp1y + 3 * mt * t2 * cp2y + t2 * t * dst.y
+      };
+    } else {
+      const dy = dst.y - src.y;
+      const cp1x = src.x;
+      const cp1y = src.y + dy * tension;
+      const cp2x = dst.x;
+      const cp2y = dst.y - dy * tension;
+      return {
+        x: mt2 * mt * src.x + 3 * mt2 * t * cp1x + 3 * mt * t2 * cp2x + t2 * t * dst.x,
+        y: mt2 * mt * src.y + 3 * mt2 * t * cp1y + 3 * mt * t2 * cp2y + t2 * t * dst.y
+      };
+    }
+  }
+
+  for (let p = 0; p < NUM_PATHS; p++) {
+    const pathNodes = [];
+    const pathEdges = [];
+
+    // Spread the 5 paths across the 3 input nodes and 5 lanes (top, upper-mid, center, lower-mid, bottom)
+    const l0 = layers[0];
+    const startIdx = p % l0.length;
+    let currNode = l0[startIdx];
+    pathNodes.push(currNode);
+    nodeUsage[currNode.id]++;
+
+    const targetLaneV = ((p / (NUM_PATHS - 1)) - 0.5) * 0.92; // -0.46 to +0.46
+
+    for (let l = 0; l < NUM_LAYERS - 1; l++) {
+      const nextLayer = layers[l + 1];
+      let bestNext = nextLayer[0];
+      let bestScore = -1e9;
+
+      for (let j = 0; j < nextLayer.length; j++) {
+        const cand = nextLayer[j];
+        const edge = edgeMap.get(`${currNode.id}_${cand.id}`);
+        const laneDiff = Math.abs(cand.vNode - targetLaneV);
+        const weightBonus = edge.weight * 1.35 + (edge.isStrong ? 0.75 : 0);
+        const usagePenalty = nodeUsage[cand.id] * 1.15;
+        const score = weightBonus - laneDiff * 1.85 - usagePenalty + rng() * 0.18;
+
+        if (score > bestScore) {
+          bestScore = score;
+          bestNext = cand;
+        }
+      }
+
+      const chosenEdge = edgeMap.get(`${currNode.id}_${bestNext.id}`);
+      chosenEdge.isStrong = true;
+      chosenEdge.isPathEdge = true;
+      chosenEdge.weight = Math.max(chosenEdge.weight, 0.86);
+
+      pathEdges.push(chosenEdge);
+      pathNodes.push(bestNext);
+      nodeUsage[bestNext.id]++;
+      currNode = bestNext;
+    }
+
+    // Build cumulative arc-length lookup table along the curved spline path (121 points)
+    const sampleSegIndex = new Int32Array(TOTAL_PATH_SAMPLES + 1);
+    const sampleLocalT = new Float32Array(TOTAL_PATH_SAMPLES + 1);
+    const sampleArcNorm = new Float32Array(TOTAL_PATH_SAMPLES + 1);
+    const nodeArcNorm = new Float32Array(NUM_LAYERS);
+
+    let cumDist = 0;
+    let prevPt = { maj: pathNodes[0].baseMajor, min: pathNodes[0].baseMinor };
+    let sampleIdx = 0;
+
+    sampleSegIndex[0] = 0;
+    sampleLocalT[0] = 0;
+    sampleArcNorm[0] = 0;
+    nodeArcNorm[0] = 0;
+
+    for (let l = 0; l < NUM_LAYERS - 1; l++) {
+      const nA = pathNodes[l];
+      const nB = pathNodes[l + 1];
+      for (let s = 1; s <= SAMPLES_PER_SEG; s++) {
+        sampleIdx++;
+        const tLocal = s / SAMPLES_PER_SEG;
+        const pt = evalEdgeCurveNorm(nA, nB, tLocal, cfg.curveTension);
+        cumDist += Math.hypot(pt.maj - prevPt.maj, pt.min - prevPt.min);
+        prevPt = pt;
+
+        sampleSegIndex[sampleIdx] = l;
+        sampleLocalT[sampleIdx] = tLocal;
+        sampleArcNorm[sampleIdx] = cumDist;
+      }
+      nodeArcNorm[l + 1] = cumDist;
+    }
+
+    const totalLen = cumDist || 1;
+    for (let k = 0; k <= TOTAL_PATH_SAMPLES; k++) {
+      sampleArcNorm[k] /= totalLen;
+    }
+    for (let l = 0; l < NUM_LAYERS; l++) {
+      nodeArcNorm[l] /= totalLen;
+    }
+
+    const timing = PATH_TIMINGS[p % PATH_TIMINGS.length];
+    signalPaths.push({
+      index: p,
+      nodes: pathNodes,
+      edges: pathEdges,
+      sampleSegIndex: sampleSegIndex,
+      sampleLocalT: sampleLocalT,
+      sampleArcNorm: sampleArcNorm,
+      nodeArcNorm: nodeArcNorm,
+      s0: timing.s0,
+      m: cfg.speeds[p % cfg.speeds.length] || timing.m,
+      echoes: timing.echoes
+    });
+  }
+
+  // --- HELPER DRAWING & MATH FUNCTIONS ---
+  function fract(x) {
+    return x - Math.floor(x);
+  }
+
+  function circDist(a, b) {
+    const d = Math.abs(a - b);
+    return Math.min(d, 1 - d);
+  }
+
+  // Sample exact (x, y) on the animated bezier spline path at normalized arc length u in [0, 1]
+  function sampleSplinePathScreen(path, u, isVertical) {
+    const clamped = Math.max(0, Math.min(1, u));
+    const arcArr = path.sampleArcNorm;
+
+    // Binary search in sampleArcNorm (121 elements -> 7 steps max)
+    let lo = 0;
+    let hi = TOTAL_PATH_SAMPLES;
+    while (lo < hi - 1) {
+      const mid = (lo + hi) >> 1;
+      if (arcArr[mid] <= clamped) lo = mid;
+      else hi = mid;
+    }
+
+    const u0 = arcArr[lo];
+    const u1 = arcArr[hi];
+    const frac = (u1 > u0) ? (clamped - u0) / (u1 - u0) : 0;
+
+    const seg = path.sampleSegIndex[hi];
+    const t0 = path.sampleLocalT[lo];
+    const t1 = path.sampleLocalT[hi];
+    // Handle boundary where lo is end of seg l-1 and hi is start of seg l
+    const localT = (path.sampleSegIndex[lo] === seg)
+      ? (t0 + (t1 - t0) * frac)
+      : (t1 * frac);
+
+    const src = path.nodes[seg];
+    const dst = path.nodes[seg + 1];
+    return evalEdgeCurveScreen(src, dst, localT, cfg.curveTension, isVertical);
+  }
+
+  function drawCurvedEdge(src, dst, tension, isVertical) {
+    if (!isVertical) {
+      const dx = dst.x - src.x;
+      ctx.moveTo(src.x, src.y);
+      ctx.bezierCurveTo(
+        src.x + dx * tension, src.y,
+        dst.x - dx * tension, dst.y,
+        dst.x, dst.y
+      );
+    } else {
+      const dy = dst.y - src.y;
+      ctx.moveTo(src.x, src.y);
+      ctx.bezierCurveTo(
+        src.x, src.y + dy * tension,
+        dst.x, dst.y - dy * tension,
+        dst.x, dst.y
+      );
+    }
+  }
+
+  function drawGlowingPoint(x, y, rCore, coreColorIdx, haloColorIdx, alpha, haloScale) {
+    if (alpha <= 0.005) return;
+    const rHalo = rCore * (haloScale || 4.5);
+    const grad = ctx.createRadialGradient(x, y, 0, x, y, rHalo);
+    grad.addColorStop(0, rgba(coreColorIdx, Math.min(1, alpha * 0.95)));
+    grad.addColorStop(0.24, rgba(haloColorIdx, Math.min(1, alpha * 0.62)));
+    grad.addColorStop(0.58, rgba(haloColorIdx, Math.min(1, alpha * 0.18)));
+    grad.addColorStop(1, rgba(haloColorIdx, 0));
+
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(x, y, rHalo, 0, TWO_PI);
+    ctx.fill();
+
+    ctx.fillStyle = rgba(coreColorIdx, Math.min(1, alpha * 1.15));
+    ctx.beginPath();
+    ctx.arc(x, y, rCore, 0, TWO_PI);
+    ctx.fill();
+  }
+
+  function drawPolygon(x, y, radius, sides, rotation) {
+    ctx.beginPath();
+    for (let i = 0; i <= sides; i++) {
+      const a = rotation + (i / sides) * TWO_PI;
+      const px = x + Math.cos(a) * radius;
+      const py = y + Math.sin(a) * radius;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+  }
+
+  // --- MAIN RENDER FUNCTION ---
+  function renderFrame(t) {
+    const W = canvas.width;
+    const H = canvas.height;
+    const S = Math.min(W, H);
+    const isVertical = (H > W);
+    const cx = 0.5 * W;
+    const cy = 0.5 * H;
+
+    // 1. Reset canvas state completely for strict determinism
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.setLineDash([]);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 1;
+
+    // 2. Background Mode Handling
+    if (BG === 'alpha') {
+      ctx.clearRect(0, 0, W, H);
+    } else {
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // 3. Seamless loop phase in [0, 1)
+    const phase = (((t % DURATION) + DURATION) % DURATION) / DURATION;
+
+    // Multi-frequency integer harmonic oscillators
+    const p1 = TWO_PI * 1 * phase; // k = 1 primary breathing & rotation
+    const p2 = TWO_PI * 2 * phase; // k = 2 wave propagation
+    const p3 = TWO_PI * 3 * phase; // k = 3 secondary harmonic
+    const p4 = TWO_PI * 4 * phase; // k = 4 ambient node shimmer
+
+    const strokeUnit = S * 0.001; // 2.16px at 4K
+    const breathScale = 1.0 + 0.012 * Math.sin(p1);
+
+    // 4. Update animated node positions & base activations
+    for (let i = 0; i < nodes.length; i++) {
+      const n = nodes[i];
+      const dMajor = n.orbitRadius * Math.cos(TWO_PI * n.orbitFreqMajor * phase + n.orbitPhaseMajor);
+      const dMinor = n.orbitRadius * Math.sin(TWO_PI * n.orbitFreqMinor * phase + n.orbitPhaseMinor);
+
+      const maj = (n.baseMajor * breathScale + dMajor) * S;
+      const min = (n.baseMinor * breathScale + dMinor) * S;
+
+      if (!isVertical) {
+        n.x = cx + maj;
+        n.y = cy + min;
+      } else {
+        n.x = cx + min;
+        n.y = cy + maj;
+      }
+
+      // Continuous traveling harmonic wave across layers + per-node twinkle
+      const layerWave = 0.5 + 0.5 * Math.sin(n.uLayer * Math.PI * 2.5 - p2);
+      const nodeTwinkle = 0.5 + 0.5 * Math.sin(TWO_PI * n.ambientFreq * phase + n.ambientPhase);
+      n.activation = 0.20 + 0.12 * layerWave + 0.06 * nodeTwinkle;
+      n.pulseArrival = 0;
+    }
+
+    for (let i = 0; i < edges.length; i++) {
+      edges[i].activation = 0;
+    }
+
+    // 5. Evaluate 5 Signal Paths, Traveling Pulses & Node/Edge/Output Activations
+    const activePulses = [];
+    let outputLayerArrivalGlow = 0;
+    let inputLayerEmitGlow = 0;
+
+    for (let p = 0; p < signalPaths.length; p++) {
+      const path = signalPaths[p];
+
+      for (let eIdx = 0; eIdx < path.echoes.length; eIdx++) {
+        const isHero = (eIdx === 0);
+        const strength = isHero ? 1.0 : 0.72;
+        const uCycle = fract(path.s0 + path.echoes[eIdx] + path.m * phase);
+
+        // uCycle in [0, 0.84] traverses the 6 layers from Input (0) to Output (1).
+        // uCycle in (0.84, 1.0) is the output resonance & wrap interval.
+        const travelWindow = 0.84;
+        let arcU = 0;
+        let pulseAlpha = 0;
+
+        if (uCycle <= travelWindow) {
+          arcU = uCycle / travelWindow;
+          const fadeIn = Math.min(1, arcU / 0.05);
+          const fadeOut = Math.min(1, (1 - arcU) / 0.04 + 0.30);
+          pulseAlpha = strength * Math.min(1, fadeIn * fadeOut);
+        } else {
+          arcU = 1.0;
+          pulseAlpha = 0;
+        }
+
+        // Exact circular distance formula for node activation:
+        // d = min(|a - u|, 1 - |a - u|); brightness = max over pulses of exp(-(d / sigma)^2)
+        for (let l = 0; l < NUM_LAYERS; l++) {
+          const node = path.nodes[l];
+          const aRing = path.nodeArcNorm[l] * travelWindow;
+          const d = circDist(aRing, uCycle);
+          const sigma = isHero ? 0.052 : 0.042;
+          const boost = strength * Math.exp(-Math.pow(d / sigma, 2));
+
+          if (boost > node.activation) {
+            node.activation = boost;
+          } else {
+            node.activation = Math.min(1.0, node.activation + boost * 0.40);
+          }
+
+          if (boost > node.pulseArrival) {
+            node.pulseArrival = boost;
+          }
+
+          if (l === NUM_LAYERS - 1 && boost > 0.12) {
+            outputLayerArrivalGlow += boost * (isHero ? 0.60 : 0.35);
+          }
+          if (l === 0 && boost > 0.12) {
+            inputLayerEmitGlow += boost * 0.35;
+          }
+        }
+
+        // Edge activation along the path
+        for (let l = 0; l < NUM_LAYERS - 1; l++) {
+          const edge = path.edges[l];
+          const midArc = 0.5 * (path.nodeArcNorm[l] + path.nodeArcNorm[l + 1]) * travelWindow;
+          const dEdge = circDist(midArc, uCycle);
+          const eBoost = strength * Math.exp(-Math.pow(dEdge / 0.068, 2));
+          if (eBoost > edge.activation) {
+            edge.activation = eBoost;
+          }
+        }
+
+        if (pulseAlpha > 0.01) {
+          activePulses.push({
+            path: path,
+            arcU: arcU,
+            alpha: pulseAlpha,
+            isHero: isHero
+          });
+        }
+      }
+    }
+
+    // Sympathetic intra-layer resonance so adjacent nodes in a layer glow harmonically
+    for (let l = 0; l < NUM_LAYERS; l++) {
+      const lNodes = layers[l];
+      for (let i = 0; i < lNodes.length; i++) {
+        let adj = 0;
+        for (let j = 0; j < lNodes.length; j++) {
+          if (i !== j && Math.abs(i - j) === 1) {
+            adj += lNodes[j].activation * 0.22;
+          }
+        }
+        lNodes[i].activation = Math.min(1.0, lNodes[i].activation + adj);
+      }
+    }
+
+    outputLayerArrivalGlow = Math.min(1.0, outputLayerArrivalGlow + 0.22 * (0.5 + 0.5 * Math.sin(p2)));
+
+    // =========================================================================
+    // LAYER 1: SCIENTIFIC INSTRUMENT BACKDROP, POLAR RINGS & OUTPUT GLOW FIELD
+    // =========================================================================
+    // 1A. Deep radial atmospheric field behind the network (strictly reaches alpha 0 inside frame)
+    {
+      const fieldR = S * 0.49;
+      const bgGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, fieldR);
+      bgGrad.addColorStop(0, rgba(4, 0.18));
+      bgGrad.addColorStop(0.48, rgba(2, 0.07));
+      bgGrad.addColorStop(0.82, rgba(4, 0.02));
+      bgGrad.addColorStop(1, rgba(4, 0));
+      ctx.fillStyle = bgGrad;
+      ctx.beginPath();
+      ctx.arc(cx, cy, fieldR, 0, TWO_PI);
+      ctx.fill();
+    }
+
+    // 1B. Sacred Geometry Concentric Astrolabe / Telemetry Rings behind the network center
+    ctx.save();
+    ctx.translate(cx, cy);
+    for (let rIdx = 0; rIdx < 3; rIdx++) {
+      const ringR = S * (0.19 + rIdx * 0.105);
+      const rotDir = (rIdx % 2 === 0) ? 1 : -1;
+
+      // Faint construction circle
+      ctx.beginPath();
+      ctx.arc(0, 0, ringR, 0, TWO_PI);
+      ctx.strokeStyle = rgba(4, 0.16 - rIdx * 0.03);
+      ctx.lineWidth = strokeUnit * 0.55;
+      ctx.stroke();
+
+      // Rotating dashed Vernier arc segments
+      ctx.save();
+      ctx.rotate(rotDir * p1 * 0.5);
+      ctx.setLineDash([strokeUnit * 3.0, strokeUnit * 6.0]);
+      ctx.beginPath();
+      ctx.arc(0, 0, ringR * 1.018, 0, TWO_PI);
+      ctx.strokeStyle = rgba(1, 0.12);
+      ctx.lineWidth = strokeUnit * 0.5;
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
+    ctx.restore();
+
+    // 1C. Soft Output Layer Resonance Aura (lights up strongly when pulses arrive at Layer 5)
+    {
+      const outLayer = layers[NUM_LAYERS - 1];
+      const outMid = outLayer[Math.floor(outLayer.length / 2)];
+      const auraR = S * 0.30;
+      const auraAlpha = 0.14 + 0.30 * outputLayerArrivalGlow;
+
+      const outGrad = ctx.createRadialGradient(outMid.x, outMid.y, 0, outMid.x, outMid.y, auraR);
+      outGrad.addColorStop(0, rgba(2, auraAlpha));
+      outGrad.addColorStop(0.35, rgba(3, auraAlpha * 0.55));
+      outGrad.addColorStop(0.70, rgba(4, auraAlpha * 0.18));
+      outGrad.addColorStop(1, rgba(4, 0));
+      ctx.fillStyle = outGrad;
+      ctx.beginPath();
+      ctx.arc(outMid.x, outMid.y, auraR, 0, TWO_PI);
+      ctx.fill();
+
+      // Luminous arrival plumes around each individual output node
+      for (let i = 0; i < outLayer.length; i++) {
+        const on = outLayer[i];
+        const plumeR = S * 0.105;
+        const pAlpha = (0.18 + 0.62 * on.activation) * (0.65 + 0.35 * outputLayerArrivalGlow);
+        const pGrad = ctx.createRadialGradient(on.x, on.y, 0, on.x, on.y, plumeR);
+        pGrad.addColorStop(0, rgba(0, pAlpha * 0.45));
+        pGrad.addColorStop(0.28, rgba(3, pAlpha * 0.42));
+        pGrad.addColorStop(0.62, rgba(2, pAlpha * 0.16));
+        pGrad.addColorStop(1, rgba(2, 0));
+        ctx.fillStyle = pGrad;
+        ctx.beginPath();
+        ctx.arc(on.x, on.y, plumeR, 0, TWO_PI);
+        ctx.fill();
+      }
+    }
+
+    // =========================================================================
+    // LAYER 2: LAYER RESONANCE WAVEFORMS & ARCHITECTURAL AXES
+    // =========================================================================
+    // 2A. Layer columns with standing harmonic wave envelopes (visualizing each layer's field)
+    for (let l = 0; l < NUM_LAYERS; l++) {
+      const lNodes = layers[l];
+      const first = lNodes[0];
+      const last = lNodes[lNodes.length - 1];
+      const pad = S * 0.048;
+
+      const x0 = first.x - (isVertical ? pad : 0);
+      const y0 = first.y - (isVertical ? 0 : pad);
+      const x1 = last.x + (isVertical ? pad : 0);
+      const y1 = last.y + (isVertical ? 0 : pad);
+
+      // Crisp construction axis line
+      ctx.beginPath();
+      ctx.moveTo(x0, y0);
+      ctx.lineTo(x1, y1);
+      ctx.strokeStyle = rgba(4, 0.28);
+      ctx.lineWidth = strokeUnit * 0.65;
+      ctx.stroke();
+
+      // Intra-layer glowing spine connecting adjacent nodes within the same layer
+      ctx.beginPath();
+      for (let i = 0; i < lNodes.length; i++) {
+        if (i === 0) ctx.moveTo(lNodes[i].x, lNodes[i].y);
+        else ctx.lineTo(lNodes[i].x, lNodes[i].y);
+      }
+      ctx.strokeStyle = rgba(2, 0.18);
+      ctx.lineWidth = strokeUnit * 0.9;
+      ctx.stroke();
+
+      // Standing sinusoidal wave ribbon woven along each layer axis
+      const waveSteps = 64;
+      const waveAmp = S * 0.0065 * (0.6 + 0.4 * Math.sin(p2 - l * 0.7));
+      ctx.beginPath();
+      for (let s = 0; s <= waveSteps; s++) {
+        const u = s / waveSteps;
+        const bx = x0 + (x1 - x0) * u;
+        const by = y0 + (y1 - y0) * u;
+        const env = Math.sin(u * Math.PI);
+        const osc = Math.sin(u * Math.PI * (lNodes.length + 1) - p2 * ((l % 2 === 0) ? 1 : -1));
+        const disp = waveAmp * env * osc;
+
+        const wx = isVertical ? bx : (bx + disp);
+        const wy = isVertical ? (by + disp) : by;
+        if (s === 0) ctx.moveTo(wx, wy);
+        else ctx.lineTo(wx, wy);
+      }
+      ctx.strokeStyle = rgba(2, 0.22);
+      ctx.lineWidth = strokeUnit * 0.6;
+      ctx.stroke();
+
+      // Precision end-cap brackets at both ends of each layer axis
+      const capW = S * 0.009;
+      const capH = S * 0.005;
+      ctx.beginPath();
+      if (!isVertical) {
+        // Top bracket
+        ctx.moveTo(x0 - capW, y0 + capH);
+        ctx.lineTo(x0 - capW, y0);
+        ctx.lineTo(x0 + capW, y0);
+        ctx.lineTo(x0 + capW, y0 + capH);
+        // Bottom bracket
+        ctx.moveTo(x1 - capW, y1 - capH);
+        ctx.lineTo(x1 - capW, y1);
+        ctx.lineTo(x1 + capW, y1);
+        ctx.lineTo(x1 + capW, y1 - capH);
+      } else {
+        ctx.moveTo(x0 + capH, y0 - capW);
+        ctx.lineTo(x0, y0 - capW);
+        ctx.lineTo(x0, y0 + capW);
+        ctx.lineTo(x0 + capH, y0 + capW);
+
+        ctx.moveTo(x1 - capH, y1 - capW);
+        ctx.lineTo(x1, y1 - capW);
+        ctx.lineTo(x1, y1 + capW);
+        ctx.lineTo(x1 - capH, y1 + capW);
+      }
+      ctx.strokeStyle = rgba(1, 0.45);
+      ctx.lineWidth = strokeUnit * 0.8;
+      ctx.stroke();
+    }
+
+    // 2B. Outer Diamond Sacred-Geometry Bounding Hull
+    ctx.save();
+    ctx.setLineDash([strokeUnit * 2.5, strokeUnit * 4.5]);
+    for (let side = 0; side < 2; side++) {
+      ctx.beginPath();
+      for (let l = 0; l < NUM_LAYERS; l++) {
+        const lNodes = layers[l];
+        const n = (side === 0) ? lNodes[0] : lNodes[lNodes.length - 1];
+        if (l === 0) ctx.moveTo(n.x, n.y);
+        else ctx.lineTo(n.x, n.y);
+      }
+      ctx.strokeStyle = rgba(1, 0.22);
+      ctx.lineWidth = strokeUnit * 0.65;
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // =========================================================================
+    // LAYER 3: CURVED SYNAPTIC CONNECTIONS (Weighted Bezier Filaments)
+    // =========================================================================
+    if (BG === 'black') {
+      ctx.globalCompositeOperation = 'lighter';
+    }
+
+    // 3A. Lower 80% Weighted Connections (graceful S-curve bezier filaments)
+    for (let i = 0; i < edges.length; i++) {
+      const e = edges[i];
+      if (e.isStrong) continue;
+
+      const w = e.weight;
+      const shimmer = 0.82 + 0.18 * Math.sin(p2 - e.layer * 0.85 + e.phaseOffset);
+      const alpha = (0.07 + 0.19 * w) * shimmer + 0.40 * e.activation;
+      const lineW = strokeUnit * (0.45 + 0.50 * w + 0.60 * e.activation);
+
+      ctx.beginPath();
+      drawCurvedEdge(e.src, e.dst, cfg.curveTension, isVertical);
+      ctx.strokeStyle = rgba((w > 0.42) ? 1 : 4, alpha);
+      ctx.lineWidth = lineW;
+      ctx.stroke();
+    }
+
+    // 3B. Strongest 20% Weighted Edges + Active Signal Paths (3-Pass Glowing Bezier Cables)
+    for (let i = 0; i < edges.length; i++) {
+      const e = edges[i];
+      if (!e.isStrong && e.activation <= 0.08) continue;
+
+      const w = e.weight;
+      const act = e.activation;
+      const pulseMod = 0.84 + 0.16 * Math.sin(p2 - e.layer * 0.9 + e.phaseOffset);
+
+      const baseAlpha = (0.34 + 0.30 * w) * pulseMod + 0.55 * act;
+      const coreW = strokeUnit * (1.05 + 0.70 * w + 1.25 * act);
+
+      // Pass 1: Wide soft cyan atmospheric glow
+      ctx.beginPath();
+      drawCurvedEdge(e.src, e.dst, cfg.curveTension, isVertical);
+      ctx.strokeStyle = rgba(2, baseAlpha * (0.18 + 0.20 * act));
+      ctx.lineWidth = coreW * 4.2;
+      ctx.stroke();
+
+      // Pass 2: Medium electric cyan halo
+      ctx.beginPath();
+      drawCurvedEdge(e.src, e.dst, cfg.curveTension, isVertical);
+      ctx.strokeStyle = rgba(act > 0.25 ? 3 : 2, baseAlpha * 0.48);
+      ctx.lineWidth = coreW * 2.1;
+      ctx.stroke();
+
+      // Pass 3: Crisp incandescent core filament
+      ctx.beginPath();
+      drawCurvedEdge(e.src, e.dst, cfg.curveTension, isVertical);
+      ctx.strokeStyle = rgba(act > 0.30 ? 0 : 1, Math.min(0.98, baseAlpha * 0.96));
+      ctx.lineWidth = coreW;
+      ctx.stroke();
+    }
+
+    // 3C. Glowing Synaptic Midpoint Nodes on the Strongest 20% Edges
+    for (let i = 0; i < edges.length; i++) {
+      const e = edges[i];
+      if (!e.isStrong) continue;
+
+      const midPt = evalEdgeCurveScreen(e.src, e.dst, 0.5, cfg.curveTension, isVertical);
+      const midPulse = 0.5 + 0.5 * Math.sin(p3 + e.phaseOffset);
+      const midAlpha = 0.28 + 0.32 * midPulse + 0.40 * e.activation;
+      const midR = strokeUnit * (0.95 + 0.75 * e.activation);
+
+      drawGlowingPoint(midPt.x, midPt.y, midR, 3, 2, midAlpha, 3.0);
+    }
+
+    // =========================================================================
+    // LAYER 4: 5 SIGNAL PATHS — LUMINOUS COMET PULSES & SAMPLED TAILS
+    // =========================================================================
+    // Sample each pulse along the curved path at u, u - 0.01, u - 0.02 ...
+    const TAIL_STEPS = 18;
+    const TAIL_DELTA = 0.008;
+
+    for (let i = 0; i < activePulses.length; i++) {
+      const pulse = activePulses[i];
+      const path = pulse.path;
+      const headU = pulse.arcU;
+      const masterAlpha = pulse.alpha;
+
+      // 4A. Multi-pass tapered glowing comet tail along the exact bezier spline
+      for (let pass = 0; pass < 2; pass++) {
+        const isHalo = (pass === 0);
+        for (let s = 0; s < TAIL_STEPS - 1; s++) {
+          const u0 = headU - s * TAIL_DELTA;
+          const u1 = headU - (s + 1) * TAIL_DELTA;
+          if (u1 < 0) break;
+
+          const p0 = sampleSplinePathScreen(path, u0, isVertical);
+          const p1Pt = sampleSplinePathScreen(path, u1, isVertical);
+          const falloff = Math.pow(1 - s / TAIL_STEPS, 1.75);
+          const segAlpha = masterAlpha * falloff * (isHalo ? 0.38 : 0.95);
+          const segW = strokeUnit * (pulse.isHero ? 2.4 : 1.75) * (0.30 + 0.70 * falloff) * (isHalo ? 3.2 : 1.0);
+
+          ctx.beginPath();
+          ctx.moveTo(p0.x, p0.y);
+          ctx.lineTo(p1Pt.x, p1Pt.y);
+          ctx.strokeStyle = rgba(isHalo ? 2 : (s < 5 ? 0 : 3), segAlpha);
+          ctx.lineWidth = segW;
+          ctx.stroke();
+        }
+      }
+
+      // 4B. Discrete sampled trailing harmonic beads at u - 0.01, u - 0.02, ...
+      for (let k = 1; k <= 8; k++) {
+        const uBead = headU - k * 0.011;
+        if (uBead < 0) break;
+        const bPt = sampleSplinePathScreen(path, uBead, isVertical);
+        const bFade = Math.pow(1 - k / 9, 1.6) * masterAlpha;
+        const bR = strokeUnit * (pulse.isHero ? 1.85 : 1.35) * (0.40 + 0.60 * (1 - k / 9));
+        drawGlowingPoint(bPt.x, bPt.y, bR, 0, 3, bFade * 0.90, 3.4);
+      }
+
+      // 4C. Brilliant Signal Pulse Head at u with crisp scientific target ring & flare
+      const headPt = sampleSplinePathScreen(path, headU, isVertical);
+      const headR = strokeUnit * (pulse.isHero ? 3.1 : 2.3);
+      drawGlowingPoint(headPt.x, headPt.y, headR, 0, 2, masterAlpha, 5.8);
+
+      if (pulse.isHero) {
+        // Precision outer ring around the signal head
+        ctx.beginPath();
+        ctx.arc(headPt.x, headPt.y, headR * 2.5, 0, TWO_PI);
+        ctx.strokeStyle = rgba(3, masterAlpha * 0.72);
+        ctx.lineWidth = strokeUnit * 0.75;
+        ctx.stroke();
+
+        // Subtle 4-point scientific crosshair flare on hero pulse head
+        const flareLen = headR * 4.2;
+        ctx.beginPath();
+        ctx.moveTo(headPt.x - flareLen, headPt.y);
+        ctx.lineTo(headPt.x + flareLen, headPt.y);
+        ctx.moveTo(headPt.x, headPt.y - flareLen);
+        ctx.lineTo(headPt.x, headPt.y + flareLen);
+        ctx.strokeStyle = rgba(0, masterAlpha * 0.55);
+        ctx.lineWidth = strokeUnit * 0.65;
+        ctx.stroke();
+      }
+    }
+
+    // =========================================================================
+    // LAYER 5: INTRICATE SACRED-GEOMETRY NEURAL NODES & OUTPUT RIPPLES
+    // =========================================================================
+    for (let i = 0; i < nodes.length; i++) {
+      const n = nodes[i];
+      const isInput = (n.layer === 0);
+      const isOutput = (n.layer === NUM_LAYERS - 1);
+
+      const arrivalBoost = isOutput
+        ? (0.38 * outputLayerArrivalGlow)
+        : (isInput ? 0.18 * inputLayerEmitGlow : 0);
+      const totalAct = Math.min(1.0, n.activation + arrivalBoost);
+
+      const baseR = S * (isInput || isOutput ? 0.0135 : 0.0118);
+      const nodeR = baseR * (0.90 + 0.28 * totalAct);
+
+      // 5A. Multi-stop radial gradient node halo
+      const haloR = nodeR * (3.6 + 2.6 * totalAct + (isOutput ? 1.8 * outputLayerArrivalGlow : 0));
+      const haloAlpha = 0.26 + 0.70 * totalAct;
+      const grad = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, haloR);
+      grad.addColorStop(0, rgba(0, Math.min(1, haloAlpha * 0.92)));
+      grad.addColorStop(0.22, rgba(3, Math.min(1, haloAlpha * 0.68)));
+      grad.addColorStop(0.52, rgba(2, Math.min(1, haloAlpha * 0.26)));
+      grad.addColorStop(1, rgba(2, 0));
+
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, haloR, 0, TWO_PI);
+      ctx.fill();
+
+      // 5B. Crisp dark inner chamber disc so connection lines terminate cleanly at the node rim
+      ctx.save();
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = (BG === 'alpha') ? 'rgba(0, 10, 20, 0.88)' : '#020810';
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, nodeR * 0.92, 0, TWO_PI);
+      ctx.fill();
+      ctx.restore();
+
+      // 5C. Sacred-geometry inscribed polygon inside the node chamber (rotated by whole turns)
+      const polyRot = TWO_PI * n.reticleSpeed * phase + n.reticlePhase;
+      drawPolygon(n.x, n.y, nodeR * 0.72, n.sacredSides, polyRot);
+      ctx.strokeStyle = rgba(2, 0.35 + 0.55 * totalAct);
+      ctx.lineWidth = strokeUnit * (0.65 + 0.40 * totalAct);
+      ctx.stroke();
+
+      // Counter-rotating dual polygon for diamond/star sacred geometry inside hidden/output nodes
+      drawPolygon(n.x, n.y, nodeR * 0.72, n.sacredSides, -polyRot + Math.PI / n.sacredSides);
+      ctx.strokeStyle = rgba(1, 0.25 + 0.45 * totalAct);
+      ctx.lineWidth = strokeUnit * 0.55;
+      ctx.stroke();
+
+      // 5D. Primary outer containment ring (double-stroke glow)
+      const rimAlpha = 0.55 + 0.45 * totalAct;
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, nodeR, 0, TWO_PI);
+      ctx.strokeStyle = rgba(2, rimAlpha * 0.48);
+      ctx.lineWidth = strokeUnit * 2.5;
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, nodeR, 0, TWO_PI);
+      ctx.strokeStyle = rgba(totalAct > 0.52 ? 0 : 1, rimAlpha);
+      ctx.lineWidth = strokeUnit * (1.15 + 0.60 * totalAct);
+      ctx.stroke();
+
+      // 5E. Outer segmented telemetry reticle arcs & orbiting synaptic satellite
+      const outerReticleR = nodeR * (1.42 + 0.10 * Math.sin(p2 + n.ambientPhase));
+      ctx.save();
+      ctx.translate(n.x, n.y);
+      ctx.rotate(polyRot * 0.5);
+
+      const arcSegments = (isInput || isOutput) ? 3 : 2;
+      const arcSpan = (TWO_PI / arcSegments) * (0.36 + 0.24 * totalAct);
+      for (let a = 0; a < arcSegments; a++) {
+        const startA = (a / arcSegments) * TWO_PI;
+        ctx.beginPath();
+        ctx.arc(0, 0, outerReticleR, startA, startA + arcSpan);
+        ctx.strokeStyle = rgba(isOutput ? 3 : 2, 0.32 + 0.58 * totalAct);
+        ctx.lineWidth = strokeUnit * (0.75 + 0.45 * totalAct);
+        ctx.stroke();
+      }
+
+      // Orbiting satellite bead
+      const satX = outerReticleR;
+      const satY = 0;
+      ctx.fillStyle = rgba(0, 0.65 + 0.35 * totalAct);
+      ctx.beginPath();
+      ctx.arc(satX, satY, strokeUnit * (1.1 + 0.4 * totalAct), 0, TWO_PI);
+      ctx.fill();
+      ctx.restore();
+
+      // 5F. Output Layer Expanding Harmonic Arrival Ripples & Collector Beacons
+      if (isOutput) {
+        for (let rIdx = 0; rIdx < 2; rIdx++) {
+          const rPhase = fract(2 * phase + n.indexInLayer * 0.22 + rIdx * 0.5);
+          const rEnv = Math.sin(rPhase * Math.PI) * (0.40 + 0.60 * totalAct);
+          const rippleRadius = nodeR * (1.35 + 1.85 * rPhase);
+
+          ctx.beginPath();
+          ctx.arc(n.x, n.y, rippleRadius, 0, TWO_PI);
+          ctx.strokeStyle = rgba(rIdx === 0 ? 3 : 2, 0.60 * rEnv);
+          ctx.lineWidth = strokeUnit * (1.25 * (1 - rPhase * 0.65));
+          ctx.stroke();
+        }
+
+        // Output collector bracket on the right/bottom side of each output node
+        const outAng = isVertical ? Math.PI * 0.5 : 0;
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, nodeR * 1.82, outAng - 0.70, outAng + 0.70);
+        ctx.strokeStyle = rgba(0, 0.50 + 0.45 * totalAct);
+        ctx.lineWidth = strokeUnit * 1.05;
+        ctx.stroke();
+      }
+
+      // 5G. Input Layer Injector Brackets
+      if (isInput) {
+        const inAng = isVertical ? -Math.PI * 0.5 : Math.PI;
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, nodeR * 1.78, inAng - 0.68, inAng + 0.68);
+        ctx.strokeStyle = rgba(2, 0.50 + 0.42 * totalAct);
+        ctx.lineWidth = strokeUnit * 1.0;
+        ctx.stroke();
+      }
+
+      // 5H. Incandescent Central Nucleus Core
+      const coreR = nodeR * (0.30 + 0.34 * totalAct);
+      drawGlowingPoint(n.x, n.y, coreR, 0, 3, 0.75 + 0.25 * totalAct, 2.8);
+    }
+  }
+
+  window.renderFrame = renderFrame;
+
+  // --- NORMAL PLAYBACK LOOP ---
+  let startTime = null;
+  function animate(timestamp) {
+    if (startTime === null) startTime = timestamp;
+    const elapsedSeconds = (timestamp - startTime) / 1000;
+    renderFrame(elapsedSeconds);
+    requestAnimationFrame(animate);
+  }
+
+  renderFrame(0);
+  requestAnimationFrame(animate);
+})();
+</script>
+</body>
+</html>

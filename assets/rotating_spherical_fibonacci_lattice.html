@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rotating Spherical Network — Fibonacci Geodesic Lattice</title>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: #000000;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  canvas {
+    display: block;
+    width: 100vw;
+    height: 56.25vw;
+    max-height: 100vh;
+    max-width: 177.78vh;
+    object-fit: contain;
+  }
+</style>
+</head>
+<body>
+<canvas id="canvas" width="3840" height="2160"></canvas>
+<script>
+(function() {
+  'use strict';
+
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+
+  // --- CLI & URL PARAMETER PARSING (Read once at load) ---
+  const P = window.__cliParams || {};
+  const BG = P.bg || 'black';
+  const SEED = Number(P.seed) || 1;
+  const VARIANT = Number(P.variant) || 0;
+
+  const DURATION = 10;
+  const FPS = 30;
+  const TWO_PI = Math.PI * 2;
+  const DEG_TO_RAD = Math.PI / 180;
+
+  window.DURATION = DURATION;
+  window.FPS = FPS;
+
+  // --- SEEDED PRNG (Mulberry32) ---
+  function mulberry32(a) {
+    return function() {
+      let t = a += 0x6D2B79F5;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  const rng = mulberry32(SEED * 2654435761 + VARIANT * 1013904223 + 19349663);
+
+  // --- COLOR PALETTE ---
+  // Default: White/silver lines + Magenta accent
+  let PALETTE = [
+    '#FFFFFF', // 0: Pure incandescent white (front-most active nodes, pulse heads)
+    '#E8D8F0', // 1: Luminous silver-lilac (primary front edges, node containment rings)
+    '#FF007F', // 2: Electric magenta accent (active signal chains, halos, highlighted links)
+    '#FF7CE5', // 3: Brilliant orchid-magenta (comet pulse tails, high-activation highlights)
+    '#8A0052'  // 4: Deep crimson-magenta (far-hemisphere depth-cued edges, latitude rings)
+  ];
+
+  if (P.palette && typeof P.palette === 'string') {
+    const custom = P.palette.split(',').map(s => s.trim()).filter(Boolean);
+    if (custom.length >= 2) {
+      PALETTE = [
+        custom[0],
+        custom[1 % custom.length],
+        custom[2 % custom.length],
+        custom[3 % custom.length],
+        custom[4 % custom.length]
+      ];
+    }
+  }
+
+  function hexToRgb(hex) {
+    let h = hex.replace('#', '').trim();
+    if (h.length === 3) {
+      h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    }
+    const num = parseInt(h, 16) || 0;
+    return {
+      r: (num >> 16) & 255,
+      g: (num >> 8) & 255,
+      b: num & 255
+    };
+  }
+
+  const RGB = PALETTE.map(hexToRgb);
+
+  function rgba(idx, alpha) {
+    const c = RGB[idx % RGB.length];
+    const a = Math.max(0, Math.min(1, alpha));
+    return `rgba(${c.r},${c.g},${c.b},${a.toFixed(4)})`;
+  }
+
+  // --- SPHERICAL NETWORK PRESETS (VARIANT LOOKUP TABLE) ---
+  // Variant 0 is the exact requested 320-node Fibonacci sphere with 3-4 nearest neighbors,
+  // 1 whole turn per loop around Y, and +-8 deg tilt breathing (sin, k=1).
+  const PRESETS = [
+    // Variant 0 (Default): 320 nodes, 3-4 nearest neighbors, 1 turn Y, +-8 deg X tilt, 3 latitude rings
+    { numNodes: 320, kMin: 3, kMax: 4, rotCyclesY: 1, tiltBaseDeg: 10, tiltAmpDeg: 8, numPaths: 20, pathSteps: 18, latitudes: [-35, 0, 35] },
+    // Variant 1: 340 nodes, denser 4 nearest neighbors, counter-rotation Y, steeper +-8 deg tilt
+    { numNodes: 340, kMin: 4, kMax: 4, rotCyclesY: -1, tiltBaseDeg: -12, tiltAmpDeg: 8, numPaths: 22, pathSteps: 20, latitudes: [-42, 0, 42] },
+    // Variant 2: 280 nodes, 3-4 neighbors, open geodesic triangulated mesh, tropic latitude rings
+    { numNodes: 280, kMin: 3, kMax: 4, rotCyclesY: 1, tiltBaseDeg: 14, tiltAmpDeg: 8, numPaths: 18, pathSteps: 18, latitudes: [-23.5, 0, 23.5] },
+    // Variant 3: 360 nodes, 3-4 neighbors, high-density neural globe, wide latitude bands
+    { numNodes: 360, kMin: 3, kMax: 4, rotCyclesY: 1, tiltBaseDeg: -8, tiltAmpDeg: 8, numPaths: 24, pathSteps: 20, latitudes: [-48, 0, 48] },
+    // Variant 4: 300 nodes, 3 neighbors minimum-spanning triangulation, equatorial emphasis
+    { numNodes: 300, kMin: 3, kMax: 3, rotCyclesY: -1, tiltBaseDeg: 8, tiltAmpDeg: 8, numPaths: 20, pathSteps: 18, latitudes: [-30, 0, 30] },
+    // Variant 5: 320 nodes, 4 neighbors, dual-harmonic pulse speeds, polar-tropic latitudes
+    { numNodes: 320, kMin: 4, kMax: 4, rotCyclesY: 1, tiltBaseDeg: 16, tiltAmpDeg: 8, numPaths: 22, pathSteps: 19, latitudes: [-38, 0, 38] },
+    // Variant 6: 260 nodes, 3-4 neighbors, bold sacred-geometry geodesic sphere
+    { numNodes: 260, kMin: 3, kMax: 4, rotCyclesY: 1, tiltBaseDeg: -14, tiltAmpDeg: 8, numPaths: 18, pathSteps: 16, latitudes: [-32, 0, 32] },
+    // Variant 7: 350 nodes, 3-4 neighbors, high-velocity synaptic cascades
+    { numNodes: 350, kMin: 3, kMax: 4, rotCyclesY: -1, tiltBaseDeg: 11, tiltAmpDeg: 8, numPaths: 24, pathSteps: 20, latitudes: [-40, 0, 40] }
+  ];
+
+  const cfg = PRESETS[((VARIANT % PRESETS.length) + PRESETS.length) % PRESETS.length];
+  const NUM_NODES = cfg.numNodes; // 320 nodes
+
+  // --- PRECOMPUTE 3D FIBONACCI SPHERE NODES AT LOAD TIME ---
+  const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
+  const seedAzimuthOffset = rng() * TWO_PI;
+
+  const nodes = [];
+  for (let i = 0; i < NUM_NODES; i++) {
+    // Fibonacci spiral distribution on the unit sphere
+    const y0 = 1 - ((i + 0.5) / NUM_NODES) * 2; // smoothly spans (-1, +1)
+    const rLat = Math.sqrt(Math.max(0, 1 - y0 * y0));
+    const theta = i * GOLDEN_ANGLE + seedAzimuthOffset;
+
+    // Tiny tangential deterministic perturbation so mesh looks organic yet crystalline
+    const jitterAngle = (rng() - 0.5) * 0.035;
+    const x0 = Math.cos(theta + jitterAngle) * rLat;
+    const z0 = Math.sin(theta + jitterAngle) * rLat;
+
+    // Normalize onto exact unit sphere
+    const invLen = 1 / (Math.hypot(x0, y0, z0) || 1);
+    const ux = x0 * invLen;
+    const uy = y0 * invLen;
+    const uz = z0 * invLen;
+
+    // Compute local tangent basis vectors (t1, t2) for subtle 3D surface micro-orbit jitter
+    let tx1 = -uz;
+    let ty1 = 0;
+    let tz1 = ux;
+    const tLen = Math.hypot(tx1, ty1, tz1);
+    if (tLen > 1e-5) {
+      tx1 /= tLen;
+      tz1 /= tLen;
+    } else {
+      tx1 = 1;
+      ty1 = 0;
+      tz1 = 0;
+    }
+    // t2 = u x t1
+    const tx2 = uy * tz1 - uz * ty1;
+    const ty2 = uz * tx1 - ux * tz1;
+    const tz2 = ux * ty1 - uy * tx1;
+
+    nodes.push({
+      id: i,
+      ux: ux,
+      uy: uy,
+      uz: uz,
+      tx1: tx1, ty1: ty1, tz1: tz1,
+      tx2: tx2, ty2: ty2, tz2: tz2,
+      // Orbit radius strictly <= 0.35% of S (well under 0.5% S limit)
+      jitterAmp: 0.0045 + 0.0035 * rng(), // in unit-sphere coords (~0.25% of S when scaled by R=0.335*S)
+      jitterFreq: (i % 2 === 0) ? 1 : 2,
+      jitterPhase: rng() * TWO_PI,
+      ambientFreq: 3 + (i % 4), // integer {3, 4, 5, 6}
+      ambientPhase: rng() * TWO_PI,
+      isHub: (i % 9 === 0),
+      neighbors: [],
+      // Runtime projected coordinates & state:
+      rx: 0, ry: 0, rz: 0,
+      sx: 0, sy: 0,
+      persp: 1,
+      depthNorm: 0.5, // 0 = far back (z = -1), 1 = front closest (z = +1)
+      activation: 0
+    });
+  }
+
+  // --- PRECOMPUTE NEAREST-NEIGHBOR EDGES IN UNROTATED 3D SPACE ---
+  // Each node links to its 3 or 4 nearest neighbors on the sphere surface
+  const edges = [];
+  const edgeLookup = new Map();
+
+  function addEdge(idxA, idxB, dist3D) {
+    const a = Math.min(idxA, idxB);
+    const b = Math.max(idxA, idxB);
+    const key = `${a}_${b}`;
+    if (edgeLookup.has(key)) return edgeLookup.get(key);
+
+    const nA = nodes[a];
+    const nB = nodes[b];
+    const edgeObj = {
+      id: edges.length,
+      a: nA,
+      b: nB,
+      dist3D: dist3D,
+      weight: 0.35 + 0.65 * Math.pow(rng(), 0.9),
+      isHighlight: false,
+      phaseOffset: rng() * TWO_PI,
+      // Runtime values:
+      midZ: 0,
+      depthNorm: 0.5,
+      activation: 0
+    };
+    edges.push(edgeObj);
+    edgeLookup.set(key, edgeObj);
+    nA.neighbors.push({ node: nB, edge: edgeObj });
+    nB.neighbors.push({ node: nA, edge: edgeObj });
+    return edgeObj;
+  }
+
+  for (let i = 0; i < NUM_NODES; i++) {
+    const ni = nodes[i];
+    // Find top 4 closest nodes in 3D Euclidean distance
+    let b0 = -1, b1 = -1, b2 = -1, b3 = -1;
+    let d0 = 1e9, d1 = 1e9, d2 = 1e9, d3 = 1e9;
+
+    for (let j = 0; j < NUM_NODES; j++) {
+      if (i === j) continue;
+      const nj = nodes[j];
+      const dx = ni.ux - nj.ux;
+      const dy = ni.uy - nj.uy;
+      const dz = ni.uz - nj.uz;
+      const d2Val = dx * dx + dy * dy + dz * dz;
+
+      if (d2Val < d0) {
+        d3 = d2; b3 = b2;
+        d2 = d1; b2 = b1;
+        d1 = d0; b1 = b0;
+        d0 = d2Val; b0 = j;
+      } else if (d2Val < d1) {
+        d3 = d2; b3 = b2;
+        d2 = d1; b2 = b1;
+        d1 = d2Val; b1 = j;
+      } else if (d2Val < d2) {
+        d3 = d2; b3 = b2;
+        d2 = d2Val; b2 = j;
+      } else if (d2Val < d3) {
+        d3 = d2Val; b3 = j;
+      }
+    }
+
+    // Link 3 or 4 nearest neighbors deterministically
+    const kTarget = (cfg.kMin === cfg.kMax) ? cfg.kMin : ((i % 2 === 0) ? 3 : 4);
+    if (b0 !== -1) addEdge(i, b0, Math.sqrt(d0));
+    if (b1 !== -1) addEdge(i, b1, Math.sqrt(d1));
+    if (b2 !== -1) addEdge(i, b2, Math.sqrt(d2));
+    if (kTarget >= 4 && b3 !== -1) addEdge(i, b3, Math.sqrt(d3));
+  }
+
+  // Mark top 22% weighted edges as bright structural geodesic pathways
+  const sortedEdgeW = edges.map(e => e.weight).sort((a, b) => a - b);
+  const strongThreshold = sortedEdgeW[Math.floor(sortedEdgeW.length * 0.78)] || 0.7;
+  for (let i = 0; i < edges.length; i++) {
+    if (edges[i].weight >= strongThreshold) {
+      edges[i].isHighlight = true;
+    }
+  }
+
+  // --- PRECOMPUTE SIGNAL PATHS (Geodesic Chains of Linked Nodes with Arc-Length Tables) ---
+  // We build ~20 geodesic signal paths across the sphere surface, each stepping through
+  // 18-20 connected nodes with forward momentum so paths wrap smoothly around the globe.
+  const NUM_PATHS = cfg.numPaths;
+  const PATH_STEPS = cfg.pathSteps;
+  const signalPaths = [];
+  const nodeVisitCount = new Int32Array(NUM_NODES);
+
+  for (let p = 0; p < NUM_PATHS; p++) {
+    // Pick starting node evenly spaced across the Fibonacci sphere
+    const startIdx = Math.floor((p / NUM_PATHS) * NUM_NODES + (p * 17) % 13) % NUM_NODES;
+    let curr = nodes[startIdx];
+    let prev = null;
+
+    const chainNodes = [curr];
+    const chainEdges = [];
+    nodeVisitCount[curr.id]++;
+
+    // Initial preferred tangent direction on sphere
+    let dirX = curr.tx1 * Math.cos(p * 1.1) + curr.tx2 * Math.sin(p * 1.1);
+    let dirY = curr.ty1 * Math.cos(p * 1.1) + curr.ty2 * Math.sin(p * 1.1);
+    let dirZ = curr.tz1 * Math.cos(p * 1.1) + curr.tz2 * Math.sin(p * 1.1);
+
+    for (let s = 0; s < PATH_STEPS; s++) {
+      const nbrs = curr.neighbors;
+      if (nbrs.length === 0) break;
+
+      let bestNbr = nbrs[0];
+      let bestScore = -1e9;
+
+      for (let k = 0; k < nbrs.length; k++) {
+        const cand = nbrs[k];
+        if (prev && cand.node.id === prev.id && nbrs.length > 1) continue;
+
+        let vx = cand.node.ux - curr.ux;
+        let vy = cand.node.uy - curr.uy;
+        let vz = cand.node.uz - curr.uz;
+        const vLen = Math.hypot(vx, vy, vz) || 1;
+        vx /= vLen; vy /= vLen; vz /= vLen;
+
+        // Dot product with current geodesic heading keeps path flowing smoothly around the sphere
+        const align = vx * dirX + vy * dirY + vz * dirZ;
+        const visitPenalty = nodeVisitCount[cand.node.id] * 0.45;
+        const score = align * 1.6 - visitPenalty + cand.edge.weight * 0.35 + (rng() - 0.5) * 0.15;
+
+        if (score > bestScore) {
+          bestScore = score;
+          bestNbr = cand;
+        }
+      }
+
+      const nextNode = bestNbr.node;
+      const linkEdge = bestNbr.edge;
+      linkEdge.isHighlight = true;
+
+      // Update forward heading vector
+      let nx = nextNode.ux - curr.ux;
+      let ny = nextNode.uy - curr.uy;
+      let nz = nextNode.uz - curr.uz;
+      const nLen = Math.hypot(nx, ny, nz) || 1;
+      dirX = nx / nLen;
+      dirY = ny / nLen;
+      dirZ = nz / nLen;
+
+      chainNodes.push(nextNode);
+      chainEdges.push(linkEdge);
+      nodeVisitCount[nextNode.id]++;
+
+      prev = curr;
+      curr = nextNode;
+    }
+
+    // Build cumulative normalized arc-length table in 3D unrotated space
+    const cumArc = new Float32Array(chainNodes.length);
+    cumArc[0] = 0;
+    let totalLen = 0;
+    for (let i = 0; i < chainEdges.length; i++) {
+      totalLen += chainEdges[i].dist3D;
+      cumArc[i + 1] = totalLen;
+    }
+    const invTotal = 1 / (totalLen || 1);
+    for (let i = 0; i < cumArc.length; i++) {
+      cumArc[i] *= invTotal;
+    }
+
+    // Assign phase offset s0 and integer speed m in {1, 2} with 2 staggered pulses per path
+    // so that >35% of nodes are visibly lit and dozens of pulses are active at phase = 0.5
+    signalPaths.push({
+      id: p,
+      nodes: chainNodes,
+      edges: chainEdges,
+      cumArc: cumArc,
+      s0: (p * 0.61803398875) % 1.0,
+      m: (p % 3 === 0) ? 2 : 1,
+      pulseSubOffsets: [0.0, 0.50]
+    });
+  }
+
+  // --- HELPER FUNCTIONS ---
+  function fract(x) {
+    return x - Math.floor(x);
+  }
+
+  function circDist(a, b) {
+    const d = Math.abs(a - b);
+    return Math.min(d, 1 - d);
+  }
+
+  // Rotate a 3D point (x, y, z) first around Y by rotY, then around X by tiltX
+  function rotate3DAndProject(x, y, z, cosY, sinY, cosX, sinX, R, cx, cy, focalDist) {
+    // 1. Rotate around Y axis (one whole turn per loop)
+    const x1 = x * cosY + z * sinY;
+    const y1 = y;
+    const z1 = -x * sinY + z * cosY;
+
+    // 2. Tilt around X axis (breathing tilt +-8 degrees)
+    const rx = x1;
+    const ry = y1 * cosX - z1 * sinX;
+    const rz = y1 * sinX + z1 * cosX;
+
+    // 3. Weak perspective projection (focalDist = 3.6 sphere radii)
+    const persp = focalDist / (focalDist - rz);
+    const sx = cx + rx * R * persp;
+    const sy = cy + ry * R * persp;
+
+    return { rx, ry, rz, sx, sy, persp };
+  }
+
+  // Sample a precomputed signal path at normalized arc coordinate u in [0, 1]
+  // using the current frame's rotated & projected node screen positions
+  function samplePathScreen(path, u) {
+    const clamped = Math.max(0, Math.min(1, u));
+    const arr = path.cumArc;
+    const nSegs = arr.length - 1;
+
+    let lo = 0;
+    let hi = nSegs;
+    while (lo < hi - 1) {
+      const mid = (lo + hi) >> 1;
+      if (arr[mid] <= clamped) lo = mid;
+      else hi = mid;
+    }
+
+    const u0 = arr[lo];
+    const u1 = arr[hi];
+    const t = (u1 > u0) ? (clamped - u0) / (u1 - u0) : 0;
+
+    const n0 = path.nodes[lo];
+    const n1 = path.nodes[hi];
+    return {
+      sx: n0.sx + (n1.sx - n0.sx) * t,
+      sy: n0.sy + (n1.sy - n0.sy) * t,
+      rz: n0.rz + (n1.rz - n0.rz) * t,
+      depthNorm: n0.depthNorm + (n1.depthNorm - n0.depthNorm) * t,
+      persp: n0.persp + (n1.persp - n0.persp) * t
+    };
+  }
+
+  function drawGlowingDot(x, y, rCore, coreColorIdx, haloColorIdx, alpha, haloScale) {
+    if (alpha <= 0.005 || rCore <= 0.1) return;
+    const rHalo = rCore * (haloScale || 4.2);
+    const grad = ctx.createRadialGradient(x, y, 0, x, y, rHalo);
+    grad.addColorStop(0, rgba(coreColorIdx, Math.min(1, alpha * 0.96)));
+    grad.addColorStop(0.25, rgba(haloColorIdx, Math.min(1, alpha * 0.62)));
+    grad.addColorStop(0.60, rgba(haloColorIdx, Math.min(1, alpha * 0.18)));
+    grad.addColorStop(1, rgba(haloColorIdx, 0));
+
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(x, y, rHalo, 0, TWO_PI);
+    ctx.fill();
+
+    ctx.fillStyle = rgba(coreColorIdx, Math.min(1, alpha * 1.15));
+    ctx.beginPath();
+    ctx.arc(x, y, rCore, 0, TWO_PI);
+    ctx.fill();
+  }
+
+  // Pre-allocate index arrays for fast depth sorting without GC churn
+  const sortedNodeIndices = new Int32Array(NUM_NODES);
+  for (let i = 0; i < NUM_NODES; i++) sortedNodeIndices[i] = i;
+
+  const sortedEdgeIndices = new Int32Array(edges.length);
+  for (let i = 0; i < edges.length; i++) sortedEdgeIndices[i] = i;
+
+  // --- MAIN FRAME RENDERER ---
+  function renderFrame(t) {
+    const W = canvas.width;
+    const H = canvas.height;
+    const S = Math.min(W, H);
+    const cx = 0.5 * W;
+    const cy = 0.5 * H;
+
+    // 1. Reset canvas state completely for strict determinism
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.setLineDash([]);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 1;
+
+    // 2. Background Mode Handling
+    if (BG === 'alpha') {
+      ctx.clearRect(0, 0, W, H);
+    } else {
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // 3. Seamless loop phase in [0, 1)
+    const phase = (((t % DURATION) + DURATION) % DURATION) / DURATION;
+
+    // Multi-frequency integer harmonic oscillators
+    const p1 = TWO_PI * 1 * phase; // k = 1 primary Y rotation & +-8 deg tilt breathing
+    const p2 = TWO_PI * 2 * phase; // k = 2 harmonic wave & latitude shimmer
+    const p3 = TWO_PI * 3 * phase; // k = 3 secondary pulse harmonic
+    const p5 = TWO_PI * 5 * phase; // k = 5 ambient node twinkle
+
+    const strokeUnit = S * 0.001; // 2.16px at 4K
+
+    // Sphere radius occupies ~68% of shorter canvas side (diameter ~0.68*S, plus outer reticle ~0.73*S)
+    const R_SPHERE = S * (0.332 + 0.004 * Math.sin(p2));
+    const FOCAL_DIST = 3.6; // Weak perspective focal distance in sphere radii
+
+    // Rigid 3D rotation angles:
+    // - One whole turn per loop around Y axis: angleY = 2*PI*rotCyclesY*phase
+    // - Tilt breathing of +-8 degrees (sin, k=1): tiltX = (tiltBaseDeg + tiltAmpDeg * sin(2*PI*phase)) * DEG_TO_RAD
+    const angleY = TWO_PI * cfg.rotCyclesY * phase;
+    const tiltX = (cfg.tiltBaseDeg + cfg.tiltAmpDeg * Math.sin(p1)) * DEG_TO_RAD;
+
+    const cosY = Math.cos(angleY);
+    const sinY = Math.sin(angleY);
+    const cosX = Math.cos(tiltX);
+    const sinX = Math.sin(tiltX);
+
+    // 4. Rotate & Project all 320 Nodes in 3D, and Compute Base Ambient Activations
+    for (let i = 0; i < NUM_NODES; i++) {
+      const n = nodes[i];
+
+      // Subtle 3D tangent micro-jitter on the sphere surface (<= 0.25% of S)
+      const jAng = TWO_PI * n.jitterFreq * phase + n.jitterPhase;
+      const cJ = Math.cos(jAng) * n.jitterAmp;
+      const sJ = Math.sin(jAng) * n.jitterAmp;
+
+      const px = n.ux + n.tx1 * cJ + n.tx2 * sJ;
+      const py = n.uy + n.ty1 * cJ + n.ty2 * sJ;
+      const pz = n.uz + n.tz1 * cJ + n.tz2 * sJ;
+
+      const proj = rotate3DAndProject(px, py, pz, cosY, sinY, cosX, sinX, R_SPHERE, cx, cy, FOCAL_DIST);
+      n.rx = proj.rx;
+      n.ry = proj.ry;
+      n.rz = proj.rz;
+      n.sx = proj.sx;
+      n.sy = proj.sy;
+      n.persp = proj.persp;
+
+      // Normalized depth in [0, 1]: 0 is far back (rz = -1), 1 is closest front (rz = +1)
+      n.depthNorm = Math.max(0, Math.min(1, (proj.rz + 1.0) * 0.5));
+
+      // Traveling harmonic latitude wave + ambient twinkle (base brightness never drops to zero)
+      const latWave = 0.5 + 0.5 * Math.sin(n.uy * Math.PI * 3 - p2);
+      const twinkle = 0.5 + 0.5 * Math.sin(TWO_PI * n.ambientFreq * phase + n.ambientPhase);
+      n.activation = 0.16 + 0.10 * latWave + 0.06 * twinkle;
+    }
+
+    for (let i = 0; i < edges.length; i++) {
+      const e = edges[i];
+      e.midZ = 0.5 * (e.a.rz + e.b.rz);
+      e.depthNorm = Math.max(0, Math.min(1, (e.midZ + 1.0) * 0.5));
+      e.activation = 0;
+    }
+
+    // 5. Evaluate Signal Pulses along Linked Node Chains
+    const activePulses = [];
+
+    for (let p = 0; p < signalPaths.length; p++) {
+      const path = signalPaths[p];
+
+      for (let sub = 0; sub < path.pulseSubOffsets.length; sub++) {
+        const isPrimary = (sub === 0);
+        const strength = isPrimary ? 1.0 : 0.72;
+        const uCycle = fract(path.s0 + path.pulseSubOffsets[sub] + path.m * phase);
+
+        // uCycle in [0, 0.88] glides from start node to end node of the geodesic chain
+        const travelSpan = 0.88;
+        let arcU = 0;
+        let visAlpha = 0;
+
+        if (uCycle <= travelSpan) {
+          arcU = uCycle / travelSpan;
+          // Smooth envelope at chain start and end so pulses never pop
+          const env = Math.sin(arcU * Math.PI);
+          visAlpha = strength * Math.pow(env, 0.45);
+        } else {
+          arcU = 1.0;
+          visAlpha = 0;
+        }
+
+        // Exact circular distance formula for node activation:
+        // d = min(|a - u|, 1 - |a - u|); brightness = max over pulses of exp(-(d/0.04)^2)
+        for (let k = 0; k < path.nodes.length; k++) {
+          const node = path.nodes[k];
+          const aRing = path.cumArc[k] * travelSpan;
+          const d = circDist(aRing, uCycle);
+          const pulseAct = strength * Math.exp(-Math.pow(d / 0.045, 2));
+
+          if (pulseAct > node.activation) {
+            node.activation = pulseAct;
+          } else {
+            node.activation = Math.min(1.0, node.activation + pulseAct * 0.35);
+          }
+        }
+
+        // Edge activation as pulse traverses each geodesic link
+        for (let k = 0; k < path.edges.length; k++) {
+          const edge = path.edges[k];
+          const midRing = 0.5 * (path.cumArc[k] + path.cumArc[k + 1]) * travelSpan;
+          const dEdge = circDist(midRing, uCycle);
+          const eAct = strength * Math.exp(-Math.pow(dEdge / 0.052, 2));
+          if (eAct > edge.activation) {
+            edge.activation = eAct;
+          }
+        }
+
+        if (visAlpha > 0.02) {
+          activePulses.push({
+            path: path,
+            arcU: arcU,
+            alpha: visAlpha,
+            isPrimary: isPrimary
+          });
+        }
+      }
+    }
+
+    // Sympathetic neighbor activation spreading so lit nodes softly illuminate their immediate neighbors
+    for (let i = 0; i < edges.length; i++) {
+      const e = edges[i];
+      if (e.a.activation > 0.45 || e.b.activation > 0.45) {
+        const symp = Math.max(e.a.activation, e.b.activation) * 0.25;
+        if (symp > e.activation) e.activation = symp;
+      }
+    }
+
+    // Sort nodes and edges back-to-front by Z coordinate for accurate 3D depth cueing
+    sortedNodeIndices.sort((i, j) => nodes[i].rz - nodes[j].rz);
+    sortedEdgeIndices.sort((i, j) => edges[i].midZ - edges[j].midZ);
+
+    // =========================================================================
+    // LAYER 1: AMBIENT MAGENTA CORE GLOW & SCIENTIFIC CELESTIAL GIMBAL
+    // =========================================================================
+    // 1A. Soft radial ambient magenta halo behind the sphere (fades strictly to alpha 0)
+    {
+      const ambR = R_SPHERE * 1.38;
+      const ambGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, ambR);
+      ambGrad.addColorStop(0, rgba(4, 0.22));
+      ambGrad.addColorStop(0.48, rgba(2, 0.09));
+      ambGrad.addColorStop(0.78, rgba(4, 0.025));
+      ambGrad.addColorStop(1, rgba(4, 0));
+      ctx.fillStyle = ambGrad;
+      ctx.beginPath();
+      ctx.arc(cx, cy, ambR, 0, TWO_PI);
+      ctx.fill();
+    }
+
+    // 1B. Outer 2D Scientific Limb Bezel, Polar Axis & Degree Ticks
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    // Polar spin axis line tilted slightly or vertical reference axis
+    const axisExtent = R_SPHERE * 1.14;
+    ctx.setLineDash([strokeUnit * 2.5, strokeUnit * 4.5]);
+    ctx.beginPath();
+    ctx.moveTo(0, -axisExtent);
+    ctx.lineTo(0, axisExtent);
+    ctx.moveTo(-axisExtent, 0);
+    ctx.lineTo(axisExtent, 0);
+    ctx.strokeStyle = rgba(4, 0.22);
+    ctx.lineWidth = strokeUnit * 0.55;
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Outer limb containment circle (apparent horizon of the sphere)
+    const limbR = R_SPHERE * 1.045;
+    ctx.beginPath();
+    ctx.arc(0, 0, limbR, 0, TWO_PI);
+    ctx.strokeStyle = rgba(1, 0.22);
+    ctx.lineWidth = strokeUnit * 0.65;
+    ctx.stroke();
+
+    // Fine degree ticks around the outer celestial horizon ring
+    const numTicks = 72;
+    ctx.save();
+    ctx.rotate(p1 * 0.25 * 4); // 1 full turn per loop
+    ctx.beginPath();
+    for (let i = 0; i < numTicks; i++) {
+      const a = (i / numTicks) * TWO_PI;
+      const isMajor = (i % 6 === 0);
+      const rIn = limbR + strokeUnit * 1.5;
+      const rOut = rIn + S * (isMajor ? 0.010 : 0.0045);
+      ctx.moveTo(Math.cos(a) * rIn, Math.sin(a) * rIn);
+      ctx.lineTo(Math.cos(a) * rOut, Math.sin(a) * rOut);
+    }
+    ctx.strokeStyle = rgba(2, 0.28);
+    ctx.lineWidth = strokeUnit * 0.6;
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.restore();
+
+    // =========================================================================
+    // LAYER 2: THREE FAINT LATITUDE RINGS AS 3D CONSTRUCTION LINES (Back Half)
+    // =========================================================================
+    // Helper to draw either the back hemisphere (rz <= 0) or front hemisphere (rz >= 0)
+    // of the 3 latitude construction rings so they wrap authentically in 3D depth!
+    const LAT_STEPS = 120;
+    function drawLatitudeRingsHemisphere(isFrontHemisphere) {
+      for (let lIdx = 0; lIdx < cfg.latitudes.length; lIdx++) {
+        const latDeg = cfg.latitudes[lIdx];
+        const latRad = latDeg * DEG_TO_RAD;
+        const yLat = Math.sin(latRad);
+        const rLat = Math.cos(latRad);
+        const isEquator = (Math.abs(latDeg) < 1);
+
+        // Draw solid/dashed 3D latitude curve segments belonging to this hemisphere
+        ctx.save();
+        if (!isEquator) {
+          ctx.setLineDash([strokeUnit * 3.0, strokeUnit * 4.0]);
+        }
+
+        ctx.beginPath();
+        let penDown = false;
+        for (let s = 0; s <= LAT_STEPS; s++) {
+          const lon = (s / LAT_STEPS) * TWO_PI;
+          const x = Math.cos(lon) * rLat;
+          const z = Math.sin(lon) * rLat;
+          const proj = rotate3DAndProject(x, yLat, z, cosY, sinY, cosX, sinX, R_SPHERE, cx, cy, FOCAL_DIST);
+
+          const belongs = isFrontHemisphere ? (proj.rz >= -0.02) : (proj.rz <= 0.02);
+          if (belongs) {
+            if (!penDown) {
+              ctx.moveTo(proj.sx, proj.sy);
+              penDown = true;
+            } else {
+              ctx.lineTo(proj.sx, proj.sy);
+            }
+          } else {
+            penDown = false;
+          }
+        }
+
+        const baseAlpha = isFrontHemisphere
+          ? (isEquator ? 0.34 : 0.25)
+          : (isEquator ? 0.13 : 0.09);
+        ctx.strokeStyle = rgba(isEquator ? 1 : 2, baseAlpha);
+        ctx.lineWidth = strokeUnit * (isFrontHemisphere ? (isEquator ? 0.95 : 0.72) : 0.50);
+        ctx.stroke();
+        ctx.restore();
+
+        // Subtle meridian tick beads along the front hemisphere of the latitude rings
+        if (isFrontHemisphere) {
+          const tickCount = isEquator ? 24 : 16;
+          for (let k = 0; k < tickCount; k++) {
+            const lon = (k / tickCount) * TWO_PI;
+            const x = Math.cos(lon) * rLat;
+            const z = Math.sin(lon) * rLat;
+            const proj = rotate3DAndProject(x, yLat, z, cosY, sinY, cosX, sinX, R_SPHERE, cx, cy, FOCAL_DIST);
+            if (proj.rz > 0.15) {
+              const dCue = (proj.rz - 0.15) / 0.85;
+              ctx.fillStyle = rgba(1, 0.35 * dCue);
+              ctx.beginPath();
+              ctx.arc(proj.sx, proj.sy, strokeUnit * 0.85 * proj.persp, 0, TWO_PI);
+              ctx.fill();
+            }
+          }
+        }
+      }
+    }
+
+    // Draw back hemisphere of the 3 latitude construction rings first
+    drawLatitudeRingsHemisphere(false);
+
+    // =========================================================================
+    // LAYER 3: BACK-HEMISPHERE EDGES & NODES (Strong Depth Cueing)
+    // =========================================================================
+    // Render back hemisphere (rz < 0) with recessed alpha and thinner line weights
+    for (let idx = 0; idx < sortedEdgeIndices.length; idx++) {
+      const e = edges[sortedEdgeIndices[idx]];
+      if (e.midZ >= 0) continue; // Front hemisphere drawn after front latitude rings
+
+      const d = e.depthNorm; // in [0, 0.5)
+      const depthCurve = Math.pow(d, 1.55); // strong depth falloff toward far side
+      const act = e.activation;
+
+      const alpha = (0.04 + 0.22 * depthCurve) * (e.isHighlight ? 1.25 : 0.85) + 0.28 * act * depthCurve;
+      const lineW = strokeUnit * (0.35 + 0.55 * depthCurve + 0.55 * act);
+
+      ctx.beginPath();
+      ctx.moveTo(e.a.sx, e.a.sy);
+      ctx.lineTo(e.b.sx, e.b.sy);
+      ctx.strokeStyle = rgba(act > 0.25 ? 2 : (e.isHighlight ? 1 : 4), alpha);
+      ctx.lineWidth = lineW;
+      ctx.stroke();
+    }
+
+    // Back-hemisphere nodes (rz < 0)
+    for (let idx = 0; idx < sortedNodeIndices.length; idx++) {
+      const n = nodes[sortedNodeIndices[idx]];
+      if (n.rz >= 0) continue;
+
+      const d = n.depthNorm; // in [0, 0.5)
+      const depthCurve = Math.pow(d, 1.5);
+      const act = n.activation;
+
+      const rNode = strokeUnit * (1.1 + 1.4 * depthCurve + 0.9 * act) * n.persp;
+      const alpha = 0.08 + 0.35 * depthCurve + 0.35 * act * depthCurve;
+
+      if (act > 0.35) {
+        drawGlowingDot(n.sx, n.sy, rNode, 1, 2, alpha, 3.0);
+      } else {
+        ctx.fillStyle = rgba(n.isHub ? 1 : 4, alpha);
+        ctx.beginPath();
+        ctx.arc(n.sx, n.sy, rNode, 0, TWO_PI);
+        ctx.fill();
+      }
+    }
+
+    // Back-hemisphere traveling pulses (rz < 0)
+    if (BG === 'black') {
+      ctx.globalCompositeOperation = 'lighter';
+    }
+    for (let i = 0; i < activePulses.length; i++) {
+      const p = activePulses[i];
+      const headPt = samplePathScreen(p.path, p.arcU);
+      if (headPt.rz >= 0) continue;
+
+      const dFactor = 0.18 + 0.45 * headPt.depthNorm;
+      const pAlpha = p.alpha * dFactor;
+      const headR = strokeUnit * (p.isPrimary ? 2.1 : 1.6) * headPt.persp;
+
+      // Short fading tail on far side
+      for (let s = 1; s <= 6; s++) {
+        const uSample = p.arcU - s * 0.011;
+        if (uSample < 0) break;
+        const tPt = samplePathScreen(p.path, uSample);
+        const fade = Math.pow(1 - s / 7, 1.6) * pAlpha;
+        drawGlowingDot(tPt.sx, tPt.sy, headR * (0.4 + 0.5 * (1 - s / 7)), 3, 2, fade * 0.75, 2.6);
+      }
+      drawGlowingDot(headPt.sx, headPt.sy, headR, 0, 2, pAlpha, 3.6);
+    }
+
+    // =========================================================================
+    // LAYER 4: FRONT-HEMISPHERE LATITUDE RINGS & FRONT GEODESIC EDGES
+    // =========================================================================
+    ctx.globalCompositeOperation = 'source-over';
+    drawLatitudeRingsHemisphere(true);
+
+    if (BG === 'black') {
+      ctx.globalCompositeOperation = 'lighter';
+    }
+
+    // Front-hemisphere edges (midZ >= 0) with strong depth cueing & multi-pass glow
+    for (let idx = 0; idx < sortedEdgeIndices.length; idx++) {
+      const e = edges[sortedEdgeIndices[idx]];
+      if (e.midZ < 0) continue;
+
+      const d = e.depthNorm; // in [0.5, 1.0]
+      const frontIntensity = (d - 0.5) * 2.0; // 0 at horizon to 1 at front-center
+      const depthBoost = 0.35 + 0.65 * Math.pow(frontIntensity, 0.85);
+      const act = e.activation;
+
+      const isBrightEdge = e.isHighlight || (act > 0.15);
+      const coreW = strokeUnit * (0.65 + 1.15 * depthBoost + 1.25 * act);
+      const baseAlpha = (0.20 + 0.52 * depthBoost) * (e.isHighlight ? 1.15 : 0.78) + 0.55 * act;
+
+      if (!isBrightEdge) {
+        ctx.beginPath();
+        ctx.moveTo(e.a.sx, e.a.sy);
+        ctx.lineTo(e.b.sx, e.b.sy);
+        ctx.strokeStyle = rgba(1, Math.min(0.75, baseAlpha * 0.75));
+        ctx.lineWidth = coreW * 0.85;
+        ctx.stroke();
+      } else {
+        // Multi-stroke glowing edge (Magenta Halo -> Orchid Mid -> White/Silver Core)
+        // Pass 1: Wide magenta glow
+        ctx.beginPath();
+        ctx.moveTo(e.a.sx, e.a.sy);
+        ctx.lineTo(e.b.sx, e.b.sy);
+        ctx.strokeStyle = rgba(2, Math.min(0.45, baseAlpha * (0.18 + 0.22 * act)));
+        ctx.lineWidth = coreW * 3.8;
+        ctx.stroke();
+
+        // Pass 2: Medium orchid-magenta glow
+        ctx.beginPath();
+        ctx.moveTo(e.a.sx, e.a.sy);
+        ctx.lineTo(e.b.sx, e.b.sy);
+        ctx.strokeStyle = rgba(act > 0.25 ? 3 : 2, Math.min(0.80, baseAlpha * 0.48));
+        ctx.lineWidth = coreW * 1.9;
+        ctx.stroke();
+
+        // Pass 3: Crisp white-silver core
+        ctx.beginPath();
+        ctx.moveTo(e.a.sx, e.a.sy);
+        ctx.lineTo(e.b.sx, e.b.sy);
+        ctx.strokeStyle = rgba(act > 0.35 ? 0 : 1, Math.min(0.98, baseAlpha * 0.92));
+        ctx.lineWidth = coreW;
+        ctx.stroke();
+      }
+    }
+
+    // =========================================================================
+    // LAYER 5: FRONT-HEMISPHERE SIGNAL PULSES (Comet Heads & Fading Tails)
+    // =========================================================================
+    // Sample each front-hemisphere pulse at u, u - 0.01, u - 0.02 ... along normalized arc length
+    const TAIL_STEPS = 14;
+    const TAIL_DELTA = 0.0085;
+
+    for (let i = 0; i < activePulses.length; i++) {
+      const p = activePulses[i];
+      const headPt = samplePathScreen(p.path, p.arcU);
+      if (headPt.rz < 0) continue;
+
+      const frontFactor = 0.55 + 0.45 * ((headPt.depthNorm - 0.5) * 2.0);
+      const masterAlpha = Math.min(1.0, p.alpha * frontFactor * 1.15);
+
+      // Continuous tapered glowing tail along the geodesic chain
+      for (let pass = 0; pass < 2; pass++) {
+        const isHalo = (pass === 0);
+        for (let s = 0; s < TAIL_STEPS - 1; s++) {
+          const u0 = p.arcU - s * TAIL_DELTA;
+          const u1 = p.arcU - (s + 1) * TAIL_DELTA;
+          if (u1 < 0) break;
+
+          const pt0 = samplePathScreen(p.path, u0);
+          const pt1 = samplePathScreen(p.path, u1);
+          const falloff = Math.pow(1 - s / TAIL_STEPS, 1.75);
+          const segAlpha = masterAlpha * falloff * (isHalo ? 0.38 : 0.94);
+          const segW = strokeUnit * (p.isPrimary ? 2.3 : 1.75) * pt0.persp * (0.32 + 0.68 * falloff) * (isHalo ? 3.2 : 1.0);
+
+          ctx.beginPath();
+          ctx.moveTo(pt0.sx, pt0.sy);
+          ctx.lineTo(pt1.sx, pt1.sy);
+          ctx.strokeStyle = rgba(isHalo ? 2 : (s < 4 ? 0 : 3), segAlpha);
+          ctx.lineWidth = segW;
+          ctx.stroke();
+        }
+      }
+
+      // Sampled trailing spark beads at u - 0.01, u - 0.02 ...
+      for (let s = 1; s <= 7; s++) {
+        const uSample = p.arcU - s * 0.011;
+        if (uSample < 0) break;
+        const bPt = samplePathScreen(p.path, uSample);
+        const bFade = Math.pow(1 - s / 8, 1.65) * masterAlpha;
+        const bR = strokeUnit * (p.isPrimary ? 1.85 : 1.4) * bPt.persp * (0.42 + 0.58 * (1 - s / 8));
+        drawGlowingDot(bPt.sx, bPt.sy, bR, 0, 3, bFade * 0.88, 3.2);
+      }
+
+      // Brilliant Pulse Head at u
+      const headR = strokeUnit * (p.isPrimary ? 2.95 : 2.25) * headPt.persp;
+      drawGlowingDot(headPt.sx, headPt.sy, headR, 0, 2, masterAlpha, 5.4);
+
+      if (p.isPrimary && headPt.rz > 0.25) {
+        ctx.beginPath();
+        ctx.arc(headPt.sx, headPt.sy, headR * 2.35, 0, TWO_PI);
+        ctx.strokeStyle = rgba(3, masterAlpha * 0.68);
+        ctx.lineWidth = strokeUnit * 0.70;
+        ctx.stroke();
+      }
+    }
+
+    // =========================================================================
+    // LAYER 6: FRONT-HEMISPHERE NODES (Depth-Cued Rings, Halos & Hubs)
+    // =========================================================================
+    for (let idx = 0; idx < sortedNodeIndices.length; idx++) {
+      const n = nodes[sortedNodeIndices[idx]];
+      if (n.rz < 0) continue;
+
+      const d = n.depthNorm; // in [0.5, 1.0]
+      const frontNorm = (d - 0.5) * 2.0; // 0 at limb to 1 at front-most center
+      const depthScale = 0.45 + 0.55 * Math.pow(frontNorm, 0.8);
+      const act = n.activation;
+
+      const baseNodeR = strokeUnit * (n.isHub ? 3.2 : 2.45) * n.persp;
+      const nodeR = baseNodeR * (0.75 + 0.35 * depthScale + 0.35 * act);
+      const nodeAlpha = Math.min(1.0, (0.38 + 0.62 * depthScale) * (0.65 + 0.55 * act));
+
+      // 6A. Radial gradient magenta/white halo around front nodes
+      const haloR = nodeR * (3.2 + 2.6 * act + (n.isHub ? 0.8 : 0));
+      const grad = ctx.createRadialGradient(n.sx, n.sy, 0, n.sx, n.sy, haloR);
+      grad.addColorStop(0, rgba(0, Math.min(1, nodeAlpha * (0.65 + 0.35 * act))));
+      grad.addColorStop(0.24, rgba(3, Math.min(1, nodeAlpha * (0.45 + 0.35 * act))));
+      grad.addColorStop(0.55, rgba(2, Math.min(1, nodeAlpha * 0.22)));
+      grad.addColorStop(1, rgba(2, 0));
+
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(n.sx, n.sy, haloR, 0, TWO_PI);
+      ctx.fill();
+
+      // 6B. Precision containment ring around front-most and active nodes
+      if (frontNorm > 0.25 || act > 0.40 || n.isHub) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.fillStyle = (BG === 'alpha') ? 'rgba(14, 0, 10, 0.85)' : '#0B0108';
+        ctx.beginPath();
+        ctx.arc(n.sx, n.sy, nodeR * 1.15, 0, TWO_PI);
+        ctx.fill();
+        ctx.restore();
+
+        ctx.beginPath();
+        ctx.arc(n.sx, n.sy, nodeR * 1.25, 0, TWO_PI);
+        ctx.strokeStyle = rgba(act > 0.50 ? 0 : (n.isHub ? 3 : 1), nodeAlpha * 0.88);
+        ctx.lineWidth = strokeUnit * (0.85 + 0.55 * act) * n.persp;
+        ctx.stroke();
+
+        // Outer telemetry reticle on active hubs near the front
+        if ((n.isHub || act > 0.65) && frontNorm > 0.40) {
+          const retR = nodeR * (2.0 + 0.35 * act);
+          ctx.beginPath();
+          ctx.arc(n.sx, n.sy, retR, p1 + n.ambientPhase, p1 + n.ambientPhase + Math.PI * 0.65);
+          ctx.arc(n.sx, n.sy, retR, p1 + n.ambientPhase + Math.PI, p1 + n.ambientPhase + Math.PI * 1.65);
+          ctx.strokeStyle = rgba(2, nodeAlpha * 0.65);
+          ctx.lineWidth = strokeUnit * 0.65 * n.persp;
+          ctx.stroke();
+        }
+      }
+
+      // 6C. Incandescent White/Orchid Node Core
+      const coreR = nodeR * (0.52 + 0.28 * act);
+      drawGlowingDot(n.sx, n.sy, coreR, 0, 3, Math.min(1.0, nodeAlpha * 1.1), 2.4);
+    }
+  }
+
+  window.renderFrame = renderFrame;
+
+  // --- NORMAL PLAYBACK LOOP ---
+  let startTime = null;
+  function animate(timestamp) {
+    if (startTime === null) startTime = timestamp;
+    const elapsedSeconds = (timestamp - startTime) / 1000;
+    renderFrame(elapsedSeconds);
+    requestAnimationFrame(animate);
+  }
+
+  renderFrame(0);
+  requestAnimationFrame(animate);
+})();
+</script>
+</body>
+</html>

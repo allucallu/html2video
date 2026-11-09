@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Smart Focus & Thermal Target Lock HUD</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: #000000;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  canvas {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+    object-fit: contain;
+  }
+</style>
+</head>
+<body>
+<canvas id="stage" width="3840" height="2160"></canvas>
+<script>
+(function() {
+  'use strict';
+
+  const canvas = document.getElementById('stage');
+  const ctx = canvas.getContext('2d');
+
+  const DURATION = 4.0;
+  const FPS = 30;
+  const TAU = Math.PI * 2;
+
+  function resize() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    if (w > 0 && h > 0) {
+      if (h > w) {
+        canvas.width = 2160;
+        canvas.height = 3840;
+      } else {
+        canvas.width = 3840;
+        canvas.height = 2160;
+      }
+    }
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  function renderAtTime(t) {
+    const W = canvas.width;
+    const H = canvas.height;
+    const S = Math.min(W, H);
+    const u = S / 2160;
+
+    // 1. Clear Pure Black for Blend Mode Overlay
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, W, H);
+
+    const phase = ((t % DURATION) + DURATION) % DURATION / DURATION;
+    const p1 = phase * TAU;
+    const p2 = phase * TAU * 2;
+    const p4 = phase * TAU * 4;
+
+    const cx = W * 0.5;
+    const cy = H * 0.5;
+
+    // --- 1. CENTER TARGET LOCK: DUAL OPPOSING ROTATING DASHED RINGS ---
+    const boxScale = 1 + 0.05 * Math.sin(p2); // Harmonically breathes +-5%
+    const boxHalf = 180 * u * boxScale;
+
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    // Inner Dashed Ring (Rotates +1 turn per 4 seconds)
+    ctx.save();
+    ctx.rotate(p1);
+    ctx.strokeStyle = '#00F0FF';
+    ctx.lineWidth = 3.5 * u;
+    ctx.setLineDash([20 * u, 14 * u]);
+    ctx.beginPath();
+    ctx.arc(0, 0, 95 * u, 0, TAU);
+    ctx.stroke();
+    ctx.restore();
+
+    // Outer Dashed Ring (Rotates -2 turns per 4 seconds)
+    ctx.save();
+    ctx.rotate(-p2);
+    ctx.strokeStyle = '#00FF66';
+    ctx.lineWidth = 2.5 * u;
+    ctx.setLineDash([32 * u, 24 * u]);
+    ctx.beginPath();
+    ctx.arc(0, 0, 135 * u, 0, TAU);
+    ctx.stroke();
+    ctx.restore();
+
+    // Four Animated Bounding-Box Corner Brackets
+    const brLen = 42 * u;
+    ctx.strokeStyle = '#00F0FF';
+    ctx.lineWidth = 5 * u;
+    ctx.lineCap = 'square';
+    ctx.beginPath();
+    // Top-Left
+    ctx.moveTo(-boxHalf, -boxHalf + brLen); ctx.lineTo(-boxHalf, -boxHalf); ctx.lineTo(-boxHalf + brLen, -boxHalf);
+    // Top-Right
+    ctx.moveTo(boxHalf - brLen, -boxHalf); ctx.lineTo(boxHalf, -boxHalf); ctx.lineTo(boxHalf, -boxHalf + brLen);
+    // Bottom-Left
+    ctx.moveTo(-boxHalf, boxHalf - brLen); ctx.lineTo(-boxHalf, boxHalf); ctx.lineTo(-boxHalf + brLen, boxHalf);
+    // Bottom-Right
+    ctx.moveTo(boxHalf - brLen, boxHalf); ctx.lineTo(boxHalf, boxHalf); ctx.lineTo(boxHalf, boxHalf - brLen);
+    ctx.stroke();
+
+    // Center Cross Pip
+    ctx.strokeStyle = '#FACC15';
+    ctx.lineWidth = 2.5 * u;
+    ctx.beginPath();
+    ctx.moveTo(-12 * u, 0); ctx.lineTo(12 * u, 0);
+    ctx.moveTo(0, -12 * u); ctx.lineTo(0, 12 * u);
+    ctx.stroke();
+
+    // --- 2. SCANNING LASER LINE INSIDE BOUNDING BOX ---
+    const scanY = Math.sin(p2) * (boxHalf - 12 * u);
+
+    // Soft Cyan Laser Halo
+    const laserGlow = ctx.createLinearGradient(0, scanY - 14 * u, 0, scanY + 14 * u);
+    laserGlow.addColorStop(0, 'rgba(0, 240, 255, 0)');
+    laserGlow.addColorStop(0.5, 'rgba(0, 240, 255, 0.45)');
+    laserGlow.addColorStop(1, 'rgba(0, 240, 255, 0)');
+    ctx.fillStyle = laserGlow;
+    ctx.fillRect(-boxHalf + 10 * u, scanY - 14 * u, (boxHalf - 10 * u) * 2, 28 * u);
+
+    // Laser Core Beam
+    ctx.strokeStyle = '#00F0FF';
+    ctx.lineWidth = 3 * u;
+    ctx.beginPath();
+    ctx.moveTo(-boxHalf + 8 * u, scanY);
+    ctx.lineTo(boxHalf - 8 * u, scanY);
+    ctx.stroke();
+    ctx.restore();
+
+    // --- 3. FLOATING HUD CALLOUT DATA READOUTS (CONNECTED TO TARGET BOX) ---
+    const calloutStartX = cx + boxHalf;
+    const calloutStartY = cy - boxHalf * 0.5;
+    const elbowX = calloutStartX + 60 * u;
+    const calloutEndX = elbowX + 320 * u;
+
+    ctx.save();
+    // Diagonal Leader Line + Horizontal Shelf
+    ctx.strokeStyle = '#00F0FF';
+    ctx.lineWidth = 2.5 * u;
+    ctx.beginPath();
+    ctx.moveTo(calloutStartX, calloutStartY);
+    ctx.lineTo(elbowX, calloutStartY - 40 * u);
+    ctx.lineTo(calloutEndX, calloutStartY - 40 * u);
+    ctx.stroke();
+
+    // Endpoint Indicator Node
+    ctx.fillStyle = '#00F0FF';
+    ctx.beginPath();
+    ctx.arc(calloutStartX, calloutStartY, 4 * u, 0, TAU);
+    ctx.fill();
+
+    // Callout Data Block
+    const textY = calloutStartY - 55 * u;
+    ctx.font = `800 ${26 * u}px "Share Tech Mono", monospace`;
+    ctx.fillStyle = '#00FF66';
+    ctx.textAlign = 'left';
+    ctx.fillText('TARGET: LOCKED [PRIMARY]', elbowX + 10 * u, textY);
+
+    ctx.font = `700 ${20 * u}px "JetBrains Mono", monospace`;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText('CONFIDENCE: 99.4%', elbowX + 10 * u, textY + 45 * u);
+    ctx.fillText('OPTICAL ZOOM: 2.4X // NPU-AI', elbowX + 10 * u, textY + 75 * u);
+
+    // Left Sub-Callout Shelf
+    const leftStartX = cx - boxHalf;
+    const leftStartY = cy + boxHalf * 0.5;
+    const leftElbowX = leftStartX - 60 * u;
+    const leftEndX = leftElbowX - 260 * u;
+
+    ctx.strokeStyle = '#FACC15';
+    ctx.beginPath();
+    ctx.moveTo(leftStartX, leftStartY);
+    ctx.lineTo(leftElbowX, leftStartY + 35 * u);
+    ctx.lineTo(leftEndX, leftStartY + 35 * u);
+    ctx.stroke();
+
+    ctx.fillStyle = '#FACC15';
+    ctx.beginPath();
+    ctx.arc(leftStartX, leftStartY, 4 * u, 0, TAU);
+    ctx.fill();
+
+    ctx.font = `700 ${20 * u}px "Share Tech Mono", monospace`;
+    ctx.textAlign = 'right';
+    ctx.fillText('RADIAL RANGE: 14.8M', leftElbowX - 10 * u, leftStartY + 25 * u);
+    ctx.fillText('THERMAL SIG: 36.8°C', leftElbowX - 10 * u, leftStartY + 55 * u);
+    ctx.restore();
+
+    // --- 4. TOP-LEFT CORNER: MINI ANIMATED RADAR SWEEP ---
+    const radarX = 240 * u;
+    const radarY = 220 * u;
+    const radarRadius = 90 * u;
+
+    ctx.save();
+    ctx.translate(radarX, radarY);
+
+    // Concentric Guide Rings
+    ctx.strokeStyle = '#1D3B47';
+    ctx.lineWidth = 2 * u;
+    ctx.beginPath();
+    ctx.arc(0, 0, radarRadius * 0.35, 0, TAU);
+    ctx.arc(0, 0, radarRadius * 0.70, 0, TAU);
+    ctx.arc(0, 0, radarRadius, 0, TAU);
+    ctx.stroke();
+
+    // Radar Crosshairs
+    ctx.beginPath();
+    ctx.moveTo(-radarRadius, 0); ctx.lineTo(radarRadius, 0);
+    ctx.moveTo(0, -radarRadius); ctx.lineTo(0, radarRadius);
+    ctx.stroke();
+
+    // Rotating Radar Sweep Needle & Beam Gradient (+1 rotation per 4s)
+    ctx.rotate(p1);
+    const sweepGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, radarRadius);
+    sweepGrad.addColorStop(0, 'rgba(0, 240, 255, 0.45)');
+    sweepGrad.addColorStop(1, 'rgba(0, 240, 255, 0)');
+    ctx.fillStyle = sweepGrad;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, radarRadius, -0.4, 0, false);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.strokeStyle = '#00F0FF';
+    ctx.lineWidth = 2.5 * u;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(radarRadius, 0);
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.font = `700 ${22 * u}px "Share Tech Mono", monospace`;
+    ctx.fillStyle = '#00F0FF';
+    ctx.fillText('SCAN-RADAR // ACTIVE', radarX - radarRadius, radarY + radarRadius + 30 * u);
+
+    // --- 5. BOTTOM-LEFT CORNER: REAL-TIME SINE-WAVE TELEMETRY GRAPH ---
+    const graphX = 220 * u;
+    const graphY = H - 240 * u;
+    const graphW = 380 * u;
+    const graphH = 100 * u;
+
+    ctx.save();
+    ctx.strokeStyle = '#1D3B47';
+    ctx.lineWidth = 2 * u;
+    ctx.strokeRect(graphX, graphY, graphW, graphH);
+
+    // Draw Continuous Periodic Wave
+    ctx.strokeStyle = '#00FF66';
+    ctx.lineWidth = 3 * u;
+    ctx.beginPath();
+    for (let x = 0; x <= graphW; x += 4 * u) {
+      const frac = x / graphW;
+      const waveVal = Math.sin(p2 + frac * TAU * 3) * 0.35 + Math.cos(p1 + frac * TAU * 5) * 0.15;
+      const wy = graphY + graphH * 0.5 - waveVal * graphH;
+      if (x === 0) ctx.moveTo(graphX + x, wy);
+      else ctx.lineTo(graphX + x, wy);
+    }
+    ctx.stroke();
+
+    ctx.font = `700 ${20 * u}px "Share Tech Mono", monospace`;
+    ctx.fillStyle = '#00FF66';
+    ctx.fillText('SPECTRAL FEED // 120Hz', graphX, graphY + graphH + 30 * u);
+    ctx.restore();
+
+    // --- 6. BOTTOM-RIGHT CORNER: AI TRACKING ACTIVE + SEAMLESS FRAME COUNTER ---
+    const btmRtX = W - 220 * u;
+    const btmRtY = H - 180 * u;
+
+    ctx.save();
+    // Pulsing Emerald Dot
+    const emeraldPulse = 0.5 + 0.5 * Math.sin(p2);
+    ctx.fillStyle = `rgba(0, 255, 102, ${emeraldPulse})`;
+    ctx.beginPath();
+    ctx.arc(btmRtX - 350 * u, btmRtY - 8 * u, 12 * u, 0, TAU);
+    ctx.fill();
+
+    ctx.font = `800 ${32 * u}px "Share Tech Mono", monospace`;
+    ctx.fillStyle = '#00FF66';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('AI TRACKING ACTIVE', btmRtX, btmRtY - 8 * u);
+
+    // Seamless Frame Counter (00 to 29 frames looping every 1.0s, loop repeats at 4.0s)
+    const frameIndex = Math.floor((phase * 4 % 1) * 30);
+    const ffStr = String(frameIndex).padStart(2, '0');
+    const tcStr = `FRAME: 00:04:12:${ffStr}`;
+
+    ctx.font = `700 ${24 * u}px "JetBrains Mono", monospace`;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText(tcStr, btmRtX, btmRtY + 36 * u);
+    ctx.restore();
+  }
+
+  window.DURATION = DURATION;
+  window.FPS = FPS;
+  window.renderAtTime = renderAtTime;
+  window.renderFrame = renderAtTime;
+  window.asset = {
+    canvas: canvas,
+    render: renderAtTime,
+    params: { duration: DURATION, fps: FPS },
+    meta: { duration: DURATION, fps: FPS }
+  };
+  window.__assetReady = true;
+
+  document.fonts.ready.then(() => {
+    let start = null;
+    function loop(now) {
+      if (!start) start = now;
+      const t = (now - start) / 1000;
+      renderAtTime(t);
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  });
+})();
+</script>
+</body>
+</html>
+

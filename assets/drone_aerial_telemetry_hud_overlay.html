@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Drone & Gimbal Telemetry Viewfinder Overlay</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: #000000;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  canvas {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+    object-fit: contain;
+  }
+</style>
+</head>
+<body>
+<canvas id="stage" width="3840" height="2160"></canvas>
+<script>
+(function() {
+  'use strict';
+
+  const canvas = document.getElementById('stage');
+  const ctx = canvas.getContext('2d');
+
+  const DURATION = 4.0;
+  const FPS = 30;
+  const TAU = Math.PI * 2;
+
+  function resize() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    if (w > 0 && h > 0) {
+      if (h > w) {
+        canvas.width = 2160;
+        canvas.height = 3840;
+      } else {
+        canvas.width = 3840;
+        canvas.height = 2160;
+      }
+    }
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  function renderAtTime(t) {
+    const W = canvas.width;
+    const H = canvas.height;
+    const S = Math.min(W, H);
+    const u = S / 2160;
+
+    // Clear Pure Black for Blend Mode Overlay
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, W, H);
+
+    const phase = ((t % DURATION) + DURATION) % DURATION / DURATION;
+    const p1 = phase * TAU;
+    const p2 = phase * TAU * 2;
+
+    const cx = W * 0.5;
+    const cy = H * 0.5;
+
+    // --- 1. TOP CENTER: HORIZONTAL COMPASS TAPE ---
+    const compassW = 900 * u;
+    const compassH = 100 * u;
+    const compassX = cx - compassW * 0.5;
+    const compassY = 120 * u;
+
+    ctx.save();
+    // Clipped Ribbon Window
+    ctx.beginPath();
+    ctx.rect(compassX, compassY, compassW, compassH);
+    ctx.clip();
+
+    // Subtle background frame & border
+    ctx.strokeStyle = '#2B303C';
+    ctx.lineWidth = 2 * u;
+    ctx.strokeRect(compassX, compassY, compassW, compassH);
+
+    // Compass Tape Pan Motion (-180 to +180 px modulated by sine wave)
+    const panOffset = Math.sin(p1) * 180 * u;
+    const tapeCenter = cx + panOffset;
+
+    // Headings list: NW, 330, N, 030, NE, 060, E, 120, SE
+    const headings = [
+      { deg: 315, lbl: 'NW' },
+      { deg: 330, lbl: '330' },
+      { deg: 345, lbl: '345' },
+      { deg: 0,   lbl: 'N' },
+      { deg: 15,  lbl: '015' },
+      { deg: 30,  lbl: '030' },
+      { deg: 45,  lbl: 'NE' },
+      { deg: 60,  lbl: '060' },
+      { deg: 75,  lbl: '075' },
+      { deg: 90,  lbl: 'E' }
+    ];
+
+    const degSpacing = 22 * u; // 22px per 5 degrees
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+
+    for (let h of headings) {
+      let relDeg = h.deg;
+      if (relDeg > 180) relDeg -= 360; // N is center (0), NW is -45, E is +90
+      const hx = tapeCenter + (relDeg / 5) * degSpacing;
+
+      // Major Tick
+      ctx.strokeStyle = h.lbl === 'N' ? '#FF2424' : '#FFFFFF';
+      ctx.lineWidth = h.lbl === 'N' ? 4 * u : 2.5 * u;
+      ctx.beginPath();
+      ctx.moveTo(hx, compassY + compassH - 28 * u);
+      ctx.lineTo(hx, compassY + compassH);
+      ctx.stroke();
+
+      // Heading Text
+      ctx.font = `800 ${h.lbl === 'N' ? 26 * u : 20 * u}px "JetBrains Mono", monospace`;
+      ctx.fillStyle = h.lbl === 'N' ? '#FF2424' : (h.lbl.length === 2 ? '#00F0FF' : '#FFFFFF');
+      ctx.fillText(h.lbl, hx, compassY + 16 * u);
+
+      // Minor Sub-Ticks
+      ctx.strokeStyle = '#666E7F';
+      ctx.lineWidth = 1.5 * u;
+      for (let m = 1; m < 3; m++) {
+        const mx = hx + m * (degSpacing / 3);
+        ctx.beginPath();
+        ctx.moveTo(mx, compassY + compassH - 14 * u);
+        ctx.lineTo(mx, compassY + compassH);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+
+    // Fixed Amber Triangle Pointer at Center of Compass Tape
+    ctx.save();
+    ctx.fillStyle = '#F5A623';
+    ctx.beginPath();
+    ctx.moveTo(cx - 12 * u, compassY + compassH + 18 * u);
+    ctx.lineTo(cx + 12 * u, compassY + compassH + 18 * u);
+    ctx.lineTo(cx, compassY + compassH + 2 * u);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    // --- 2. CENTER: ARTIFICIAL HORIZON & GIMBAL PITCH LADDER ---
+    const rollAngle = Math.sin(p1) * 0.12; // Smooth roll tilt: -0.12 to +0.12 rad
+    const pitchShift = Math.cos(p1) * 25 * u; // Vertical pitch displacement: +-25px
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(rollAngle);
+    ctx.translate(0, pitchShift);
+
+    // Fixed Aircraft/Gimbal Reticle Center Symbol
+    ctx.strokeStyle = '#00F0FF';
+    ctx.lineWidth = 3.5 * u;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    // Left Wing
+    ctx.moveTo(-120 * u, 0); ctx.lineTo(-45 * u, 0); ctx.lineTo(-45 * u, 18 * u);
+    // Right Wing
+    ctx.moveTo(120 * u, 0); ctx.lineTo(45 * u, 0); ctx.lineTo(45 * u, 18 * u);
+    // Center Pip
+    ctx.arc(0, 0, 5 * u, 0, TAU);
+    ctx.stroke();
+
+    // Pitch Ladder Rungs: -10°, 0°, +10°
+    const rungs = [
+      { deg: -10, y: 130 * u },
+      { deg: 0,   y: 0 },
+      { deg: 10,  y: -130 * u }
+    ];
+
+    ctx.font = `700 ${20 * u}px "Share Tech Mono", monospace`;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = 2.5 * u;
+    ctx.textBaseline = 'middle';
+
+    for (let r of rungs) {
+      if (r.deg !== 0) {
+        const rungW = 140 * u;
+        const tickH = 14 * u;
+
+        // Left Rung
+        ctx.beginPath();
+        ctx.moveTo(-rungW, r.y); ctx.lineTo(-45 * u, r.y); ctx.lineTo(-45 * u, r.y + (r.deg > 0 ? tickH : -tickH));
+        // Right Rung
+        ctx.moveTo(rungW, r.y); ctx.lineTo(45 * u, r.y); ctx.lineTo(45 * u, r.y + (r.deg > 0 ? tickH : -tickH));
+        ctx.stroke();
+
+        ctx.textAlign = 'right';
+        ctx.fillText(`${r.deg > 0 ? '+' : ''}${r.deg}°`, -rungW - 12 * u, r.y);
+        ctx.textAlign = 'left';
+        ctx.fillText(`${r.deg > 0 ? '+' : ''}${r.deg}°`, rungW + 12 * u, r.y);
+      }
+    }
+    ctx.restore();
+
+    // --- 3. LEFT SCALE: VERTICAL SPEED & ALTITUDE TAPE ---
+    const altX = 260 * u;
+    const tapeH = 680 * u;
+    const tapeTop = cy - tapeH * 0.5;
+
+    ctx.save();
+    // Vertical Guide Rail
+    ctx.strokeStyle = '#2B303C';
+    ctx.lineWidth = 2.5 * u;
+    ctx.strokeRect(altX - 80 * u, tapeTop, 180 * u, tapeH);
+
+    // Altitude Ticks
+    const altBase = 142 + Math.sin(p1) * 6; // Floats around 142M
+    ctx.font = `700 ${22 * u}px "JetBrains Mono", monospace`;
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+
+    for (let a = -4; a <= 4; a++) {
+      const altVal = Math.round(altBase + a * 5);
+      const ay = cy - a * 65 * u;
+      if (ay > tapeTop + 20 * u && ay < tapeTop + tapeH - 20 * u) {
+        ctx.fillStyle = a === 0 ? '#00F0FF' : '#8892A4';
+        ctx.fillText(`${altVal}`, altX + 25 * u, ay);
+
+        ctx.strokeStyle = a === 0 ? '#00F0FF' : '#666E7F';
+        ctx.lineWidth = a === 0 ? 3 * u : 1.5 * u;
+        ctx.beginPath();
+        ctx.moveTo(altX + 40 * u, ay);
+        ctx.lineTo(altX + 65 * u, ay);
+        ctx.stroke();
+      }
+    }
+
+    // Altitude Readout Pill
+    const altPillW = 190 * u;
+    const altPillH = 58 * u;
+    ctx.fillStyle = '#00F0FF';
+    ctx.beginPath();
+    ctx.roundRect(altX - 85 * u, cy - altPillH * 0.5, altPillW, altPillH, 8 * u);
+    ctx.fill();
+
+    ctx.font = `800 ${28 * u}px "JetBrains Mono", monospace`;
+    ctx.fillStyle = '#000000';
+    ctx.textAlign = 'center';
+    ctx.fillText(`ALT ${altBase.toFixed(0)}M`, altX + 10 * u, cy + 1 * u);
+    ctx.restore();
+
+    // --- 4. RIGHT SCALE: GROUND SPEED TAPE ---
+    const spdX = W - 260 * u;
+
+    ctx.save();
+    ctx.strokeStyle = '#2B303C';
+    ctx.lineWidth = 2.5 * u;
+    ctx.strokeRect(spdX - 100 * u, tapeTop, 180 * u, tapeH);
+
+    const spdBase = 54 + Math.cos(p1) * 4; // Floats around 54 KM/H
+    ctx.font = `700 ${22 * u}px "JetBrains Mono", monospace`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+
+    for (let s = -4; s <= 4; s++) {
+      const spdVal = Math.round(spdBase + s * 5);
+      const sy = cy - s * 65 * u;
+      if (sy > tapeTop + 20 * u && sy < tapeTop + tapeH - 20 * u) {
+        ctx.fillStyle = s === 0 ? '#10B981' : '#8892A4';
+        ctx.fillText(`${spdVal}`, spdX - 25 * u, sy);
+
+        ctx.strokeStyle = s === 0 ? '#10B981' : '#666E7F';
+        ctx.lineWidth = s === 0 ? 3 * u : 1.5 * u;
+        ctx.beginPath();
+        ctx.moveTo(spdX - 65 * u, sy);
+        ctx.lineTo(spdX - 40 * u, sy);
+        ctx.stroke();
+      }
+    }
+
+    // Speed Readout Pill
+    const spdPillW = 210 * u;
+    const spdPillH = 58 * u;
+    ctx.fillStyle = '#10B981';
+    ctx.beginPath();
+    ctx.roundRect(spdX - 105 * u, cy - spdPillH * 0.5, spdPillW, spdPillH, 8 * u);
+    ctx.fill();
+
+    ctx.font = `800 ${26 * u}px "JetBrains Mono", monospace`;
+    ctx.fillStyle = '#000000';
+    ctx.textAlign = 'center';
+    ctx.fillText(`SPD ${spdBase.toFixed(0)}KM/H`, spdX, cy + 1 * u);
+    ctx.restore();
+
+    // --- 5. BOTTOM CORNERS TELEMETRY ---
+    const btmY = H - 150 * u;
+
+    // Bottom Left: GPS Satellite + Home Distance + Gimbal Pitch
+    ctx.save();
+    const gpsX = 220 * u;
+
+    // Vector Satellite Icon
+    ctx.strokeStyle = '#00F0FF';
+    ctx.lineWidth = 2.5 * u;
+    ctx.strokeRect(gpsX, btmY - 18 * u, 22 * u, 22 * u);
+    ctx.beginPath();
+    ctx.moveTo(gpsX - 16 * u, btmY - 7 * u); ctx.lineTo(gpsX, btmY - 7 * u);
+    ctx.moveTo(gpsX + 22 * u, btmY - 7 * u); ctx.lineTo(gpsX + 38 * u, btmY - 7 * u);
+    ctx.stroke();
+
+    // 5 Signal Bars
+    for (let g = 0; g < 5; g++) {
+      ctx.fillStyle = '#00F0FF';
+      ctx.fillRect(gpsX + 50 * u + g * 9 * u, btmY + 4 * u - (g + 1) * 5 * u, 6 * u, (g + 1) * 5 * u);
+    }
+
+    ctx.font = `700 ${30 * u}px "JetBrains Mono", monospace`;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('GPS 18 // H: 420M', gpsX + 115 * u, btmY - 7 * u);
+
+    const pitchAngle = (-15 + Math.sin(p2) * 2).toFixed(0);
+    ctx.font = `500 ${22 * u}px "Share Tech Mono", monospace`;
+    ctx.fillStyle = '#8892A4';
+    ctx.fillText(`GIMBAL PITCH: ${pitchAngle}° // YAW: LOCK`, gpsX, btmY + 40 * u);
+    ctx.restore();
+
+    // Bottom Right: ● REC 4K + Battery + Storage Remaining
+    ctx.save();
+    const btmRtX = W - 220 * u;
+
+    // Pulsing Red Dot
+    const recPulse = 0.5 + 0.5 * Math.sin(p2);
+    ctx.fillStyle = `rgba(255, 36, 36, ${recPulse})`;
+    ctx.beginPath();
+    ctx.arc(btmRtX - 220 * u, btmY - 7 * u, 12 * u, 0, TAU);
+    ctx.fill();
+
+    ctx.font = `800 ${32 * u}px "JetBrains Mono", monospace`;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('REC 4K UHD', btmRtX, btmY - 7 * u);
+
+    ctx.font = `500 ${22 * u}px "Share Tech Mono", monospace`;
+    ctx.fillStyle = '#8892A4';
+    ctx.fillText('BATT 24.8V // SD 128GB (84 MIN)', btmRtX, btmY + 40 * u);
+    ctx.restore();
+  }
+
+  window.DURATION = DURATION;
+  window.FPS = FPS;
+  window.renderAtTime = renderAtTime;
+  window.renderFrame = renderAtTime;
+  window.asset = {
+    canvas: canvas,
+    render: renderAtTime,
+    params: { duration: DURATION, fps: FPS },
+    meta: { duration: DURATION, fps: FPS }
+  };
+  window.__assetReady = true;
+
+  document.fonts.ready.then(() => {
+    let start = null;
+    function loop(now) {
+      if (!start) start = now;
+      const t = (now - start) / 1000;
+      renderAtTime(t);
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  });
+})();
+</script>
+</body>
+</html>
+

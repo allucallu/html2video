@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tag A Friend — Bespoke Vector Kinetic Engagement CTA</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: #000000;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  canvas {
+    display: block;
+    width: 100vw;
+    height: 56.25vw;
+    max-height: 100vh;
+    max-width: 177.78vh;
+    object-fit: contain;
+  }
+</style>
+</head>
+<body>
+<canvas id="stage" width="3840" height="2160"></canvas>
+<script>
+(function() {
+  'use strict';
+
+  const canvas = document.getElementById('stage');
+  const ctx = canvas.getContext('2d');
+
+  // --- CLI & URL PARAMETERS ---
+  const P = window.__cliParams || {};
+  const BG = P.bg || 'black';
+  const SEED = Number(P.seed) || 1;
+  const VARIANT = Number(P.variant) || 0;
+
+  const DURATION = 10;
+  const FPS = 30;
+  const TAU = Math.PI * 2;
+
+  window.DURATION = DURATION;
+  window.FPS = FPS;
+
+  // --- PALETTE PRESETS ---
+  const PRESET_PALETTES = [
+    // Variant 0: Neon Emerald, Imperial Gold & Pure White
+    ['#FFFFFF', '#DCFFEE', '#00E68A', '#FFC800', '#005C32'],
+    // Variant 1: Electric Cyan, Neon Magenta & White
+    ['#FFFFFF', '#DCF8FF', '#00E5FF', '#FF2888', '#005B75'],
+    // Variant 2: Hyper Magenta, Solar Gold & White
+    ['#FFFFFF', '#FFD8F0', '#FF1E8A', '#FFD000', '#78003C'],
+    // Variant 3: Royal Violet, Electric Cyan & White
+    ['#FFFFFF', '#EADCFF', '#9D4EDD', '#00F0FF', '#481078'],
+    // Variant 4: Solar Gold, Emerald Mint & White
+    ['#FFFFFF', '#FFF4DC', '#FFB800', '#00E699', '#785000'],
+    // Variant 5: Coral Sunset, Ice Cyan & White
+    ['#FFFFFF', '#FFE4D8', '#FF4D28', '#70F8FF', '#7A1C00']
+  ];
+
+  let rawPal = PRESET_PALETTES[((VARIANT % PRESET_PALETTES.length) + PRESET_PALETTES.length) % PRESET_PALETTES.length];
+  if (typeof P.palette === 'string' && P.palette.trim()) {
+    const custom = P.palette.split(',').map(s => s.trim()).filter(Boolean);
+    if (custom.length >= 2) {
+      rawPal = [
+        custom[0],
+        custom[1 % custom.length],
+        custom[2 % custom.length],
+        custom[3 % custom.length],
+        custom[4 % custom.length]
+      ];
+    }
+  }
+
+  function hexToRgb(hex) {
+    let h = hex.replace('#', '').trim();
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    const n = parseInt(h, 16) || 0;
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+
+  const RGB = rawPal.map(hexToRgb);
+  function rgba(idx, a) {
+    const c = RGB[idx % RGB.length];
+    const alpha = Math.max(0, Math.min(1, a));
+    return `rgba(${c[0]},${c[1]},${c[2]},${alpha.toFixed(4)})`;
+  }
+
+  // --- BESPOKE SCULPTURAL VECTOR FONT ENGINE (Double-Rail + Diamond Jewels) ---
+  // --- 100% PROPRIETARY ROUNDED GEOMETRIC VECTOR FONT (Zero External/OS Fonts, 100% Commercial-Free) ---
+  const VECTOR_FONT = {
+    '@': { w: 0.96, p: c => {
+      c.arc(0.48, 0.52, 0.18, 0.22, 0, TAU, false);
+      c.m(0.66, 0.32); c.l(0.66, 0.68);
+      c.b(0.66, 0.84, 0.88, 0.80, 0.88, 0.50);
+      c.b(0.88, 0.04, 0.08, 0.04, 0.08, 0.52);
+      c.b(0.08, 1.00, 0.68, 1.02, 0.78, 0.88);
+    }},
+    'T': { w: 0.70, p: c => {
+      c.m(0.04, 0); c.l(0.66, 0);
+      c.m(0.35, 0); c.l(0.35, 1);
+    }},
+    'A': { w: 0.82, p: c => {
+      c.m(0.06, 1); c.l(0.41, 0); c.l(0.76, 1);
+      c.m(0.18, 0.65); c.l(0.64, 0.65);
+    }},
+    'G': { w: 0.80, p: c => {
+      c.arc(0.42, 0.50, 0.34, 0.50, -Math.PI * 0.20, Math.PI * 0.18, true);
+      c.l(0.72, 0.52); c.l(0.45, 0.52);
+    }},
+    'F': { w: 0.62, p: c => {
+      c.m(0.56, 0); c.l(0.10, 0); c.l(0.10, 1);
+      c.m(0.10, 0.49); c.l(0.46, 0.49);
+    }},
+    'R': { w: 0.74, p: c => {
+      c.m(0.10, 1); c.l(0.10, 0); c.l(0.41, 0);
+      c.arc(0.41, 0.26, 0.24, 0.26, -Math.PI * 0.5, Math.PI * 0.5, false);
+      c.l(0.10, 0.52);
+      c.m(0.36, 0.52); c.l(0.66, 1);
+    }},
+    'I': { w: 0.28, p: c => { c.m(0.14, 0); c.l(0.14, 1); } },
+    'E': { w: 0.66, p: c => {
+      c.m(0.58, 0); c.l(0.10, 0); c.l(0.10, 1); c.l(0.58, 1);
+      c.m(0.10, 0.49); c.l(0.48, 0.49);
+    }},
+    'N': { w: 0.78, p: c => {
+      c.m(0.10, 1); c.l(0.10, 0); c.l(0.68, 1); c.l(0.68, 0);
+    }},
+    'D': { w: 0.78, p: c => {
+      c.m(0.10, 0); c.l(0.38, 0);
+      c.arc(0.38, 0.50, 0.34, 0.50, -Math.PI * 0.5, Math.PI * 0.5, false);
+      c.l(0.10, 1); c.l(0.10, 0);
+    }},
+    ' ': { w: 0.36, p: () => {} }
+  };
+
+  function createGlyphContext(ox, oy, scaleX, scaleY, slant) {
+    const tx = (x, y) => ox + (x + (1 - y) * slant) * scaleX;
+    const ty = (x, y) => oy + y * scaleY;
+    return {
+      m(x, y) { ctx.moveTo(tx(x, y), ty(x, y)); },
+      l(x, y) { ctx.lineTo(tx(x, y), ty(x, y)); },
+      b(x1, y1, x2, y2, x3, y3) {
+        ctx.bezierCurveTo(tx(x1, y1), ty(x1, y1), tx(x2, y2), ty(x2, y2), tx(x3, y3), ty(x3, y3));
+      },
+      arc(cx, cy, rx, ry, a0, a1, ccw) {
+        const steps = 28;
+        let delta = a1 - a0;
+        if (ccw && delta > 0) delta -= TAU;
+        if (!ccw && delta < 0) delta += TAU;
+        for (let i = 0; i <= steps; i++) {
+          const a = a0 + (i / steps) * delta;
+          const px = cx + Math.cos(a) * rx;
+          const py = cy + Math.sin(a) * ry;
+          if (i === 0) ctx.moveTo(tx(px, py), ty(px, py));
+          else ctx.lineTo(tx(px, py), ty(px, py));
+        }
+      }
+    };
+  }
+
+  function measureVectorText(str, capH, tracking) {
+    let total = 0;
+    for (let i = 0; i < str.length; i++) {
+      const g = VECTOR_FONT[str[i]] || VECTOR_FONT[' '];
+      total += g.w * capH;
+      if (i < str.length - 1) total += tracking;
+    }
+    return total;
+  }
+
+  function drawBespokeTextCentered(str, centerX, centerY, capH, tracking, opts) {
+    const totalW = measureVectorText(str, capH, tracking);
+    let curX = centerX - totalW * 0.5;
+    const slant = opts.slant || 0;
+    const wavePhase = opts.wavePhase || 0;
+    const waveAmp = opts.waveAmp || 0;
+    const strokeW = Math.max(opts.strokeW, capH * 0.165);
+    const mainIdx = opts.colorIdx !== undefined ? opts.colorIdx : 0;
+    const glowIdx = opts.glowIdx !== undefined ? opts.glowIdx : 2;
+    const alpha = opts.alpha !== undefined ? opts.alpha : 1;
+
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    for (let i = 0; i < str.length; i++) {
+      const ch = str[i];
+      const g = VECTOR_FONT[ch] || VECTOR_FONT[' '];
+      const yWave = Math.sin(wavePhase - i * 0.45) * waveAmp;
+      const topY = centerY - capH * 0.5 + yWave;
+
+      if (ch !== ' ') {
+        const helper = createGlyphContext(curX, topY, capH, capH, slant);
+
+        ctx.beginPath();
+        g.p(helper);
+        ctx.strokeStyle = rgba(glowIdx, alpha * 0.22);
+        ctx.lineWidth = strokeW * 1.9;
+        ctx.stroke();
+
+        ctx.beginPath();
+        g.p(helper);
+        ctx.strokeStyle = rgba(mainIdx, alpha);
+        ctx.lineWidth = strokeW;
+        ctx.stroke();
+      }
+
+      curX += g.w * capH + tracking;
+    }
+  }
+
+  function drawRadialGlow(x, y, r, colorIdx, alpha) {
+    if (r <= 0.5 || alpha <= 0.002) return;
+    const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
+    grad.addColorStop(0, rgba(colorIdx, alpha));
+    grad.addColorStop(0.35, rgba(colorIdx, alpha * 0.45));
+    grad.addColorStop(0.70, rgba(colorIdx, alpha * 0.12));
+    grad.addColorStop(1, rgba(colorIdx, 0));
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, TAU);
+    ctx.fill();
+  }
+
+  // Draw a Sacred-Geometry Vector Avatar Node (Head + Shoulders inside a Rotating Telemetry Ring)
+  function drawAvatarEmblem(cx, cy, radius, colorIdx, rotAngle, pulse, u, isBlackBg) {
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    drawRadialGlow(0, 0, radius * 2.2, colorIdx, 0.45 + 0.25 * pulse);
+
+    // Dark avatar chamber disc
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = !isBlackBg ? 'rgba(1, 10, 6, 0.92)' : '#010A06';
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, TAU);
+    ctx.fill();
+
+    if (isBlackBg) ctx.globalCompositeOperation = 'lighter';
+
+    // Rotating segmented outer target ring
+    ctx.save();
+    ctx.rotate(rotAngle);
+    for (let i = 0; i < 3; i++) {
+      const a0 = (i / 3) * TAU;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius * 1.18, a0, a0 + TAU * 0.20);
+      ctx.strokeStyle = rgba(colorIdx, 0.78);
+      ctx.lineWidth = u * 1.6;
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // Outer containment ring
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, TAU);
+    ctx.strokeStyle = rgba(colorIdx, 0.45);
+    ctx.lineWidth = u * 5.5;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, TAU);
+    ctx.strokeStyle = rgba(0, 0.95);
+    ctx.lineWidth = u * 2.0;
+    ctx.stroke();
+
+    // Stylized Geometric Person Silhouette (Head Circle + Shoulders Arc)
+    const headY = -radius * 0.22;
+    const headR = radius * 0.28;
+    ctx.beginPath();
+    ctx.arc(0, headY, headR, 0, TAU);
+    ctx.fillStyle = rgba(colorIdx, 0.35);
+    ctx.fill();
+    ctx.strokeStyle = rgba(0, 0.95);
+    ctx.lineWidth = u * 2.0;
+    ctx.stroke();
+
+    // Shoulders arch clipped cleanly inside the circle
+    ctx.beginPath();
+    ctx.arc(0, radius * 0.68, radius * 0.56, Math.PI * 1.15, Math.PI * 1.85);
+    ctx.strokeStyle = rgba(0, 0.95);
+    ctx.lineWidth = u * 2.2;
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  // --- MAIN RENDER FUNCTION ---
+  function renderFrame(t) {
+    const W = canvas.width;
+    const H = canvas.height;
+    const S = Math.min(W, H);
+    const cx = W * 0.5;
+    const cy = H * 0.5;
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.setLineDash([]);
+    ctx.lineWidth = 1;
+
+    const isBlackBg = (BG === 'black');
+    if (!isBlackBg) {
+      ctx.clearRect(0, 0, W, H);
+    } else {
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    const phase = (((t % DURATION) + DURATION) % DURATION) / DURATION;
+    const p1 = TAU * 1 * phase;
+    const p2 = TAU * 2 * phase;
+    const p3 = TAU * 3 * phase;
+    const u = S * 0.001; // 2.16px at 4K
+
+    // 1. Ambient Backdrop Glow
+    drawRadialGlow(cx, cy, S * 0.47, 4, 0.22 + 0.05 * Math.sin(p2));
+
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    // 2. Top Twin Friend Avatars, Synaptic Wave Bridge & Central "@" Mention Badge
+    const topY = -S * 0.115;
+    const avatarOffset = S * (0.175 + 0.008 * Math.sin(p2));
+    const avatarR = S * 0.052;
+
+    ctx.save();
+    ctx.translate(0, topY);
+
+    if (isBlackBg) ctx.globalCompositeOperation = 'lighter';
+
+    // Dual intertwined sinusoidal energy waves bridging Left Friend (-avatarOffset) and Right Friend (+avatarOffset)
+    const bridgeSteps = 72;
+    for (let strand = -1; strand <= 1; strand += 2) {
+      ctx.beginPath();
+      for (let s = 0; s <= bridgeSteps; s++) {
+        const frac = s / bridgeSteps;
+        const bx = -avatarOffset + frac * (avatarOffset * 2);
+        const env = Math.sin(frac * Math.PI);
+        const by = strand * S * 0.024 * env * Math.sin(frac * Math.PI * 3 - p3 * strand);
+        if (s === 0) ctx.moveTo(bx, by);
+        else ctx.lineTo(bx, by);
+      }
+      ctx.strokeStyle = rgba(strand === 1 ? 2 : 3, 0.65);
+      ctx.lineWidth = u * 2.2;
+      ctx.stroke();
+    }
+
+    // Bidirectionally traveling connection pulses between the two friends
+    for (let dir of [-1, 1]) {
+      const prog = ((phase * 2 + (dir === 1 ? 0 : 0.5)) % 1 + 1) % 1;
+      const frac = dir === 1 ? prog : (1 - prog);
+      const px = -avatarOffset + frac * (avatarOffset * 2);
+      const env = Math.sin(frac * Math.PI);
+      const py = dir * S * 0.024 * env * Math.sin(frac * Math.PI * 3 - p3 * dir);
+      drawRadialGlow(px, py, u * 15, dir === 1 ? 3 : 2, env * 0.95);
+      ctx.fillStyle = rgba(0, env);
+      ctx.beginPath();
+      ctx.arc(px, py, u * 3.2, 0, TAU);
+      ctx.fill();
+    }
+
+    // Draw Left & Right Friend Avatars
+    drawAvatarEmblem(-avatarOffset, 0, avatarR, 2, p1, 0.5 + 0.5 * Math.sin(p2), u, isBlackBg);
+    drawAvatarEmblem(avatarOffset, 0, avatarR, 3, -p1, 0.5 + 0.5 * Math.cos(p2), u, isBlackBg);
+
+    // Central Floating "@" Mention Medallion
+    const atR = S * 0.044;
+    const atScale = 1 + 0.06 * Math.sin(p2);
+    ctx.save();
+    ctx.scale(atScale, atScale);
+
+    drawRadialGlow(0, 0, atR * 2.4, 3, 0.65);
+
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = '#010A06';
+    ctx.beginPath();
+    ctx.arc(0, 0, atR, 0, TAU);
+    ctx.fill();
+
+    if (isBlackBg) ctx.globalCompositeOperation = 'lighter';
+    ctx.beginPath();
+    ctx.arc(0, 0, atR, 0, TAU);
+    ctx.strokeStyle = rgba(3, 0.95);
+    ctx.lineWidth = u * 2.6;
+    ctx.stroke();
+
+    // Custom Vector "@" Glyph inside the center medallion
+    drawBespokeTextCentered('@', 0, 0, atR * 1.12, 0, {
+      strokeW: u * 3.8,
+      colorIdx: 0,
+      glowIdx: 3,
+      inlineIdx: 2,
+      doubleRail: false,
+      alpha: 0.98
+    });
+    ctx.restore();
+
+    ctx.restore(); // end top twin-avatar bridge
+
+    // 3. Lower Tag Pill Capsule & Bespoke Vector Typography: "TAG A FRIEND"
+    const bannerY = S * 0.115;
+    const bw = S * 0.68;
+    const bh = S * 0.132;
+    const br = bh * 0.5;
+
+    // Dark chamber fill
+    ctx.fillStyle = !isBlackBg ? 'rgba(1, 10, 6, 0.92)' : '#010805';
+    ctx.beginPath();
+    ctx.roundRect(-bw * 0.5, bannerY - bh * 0.5, bw, bh, br);
+    ctx.fill();
+
+    // Inner recessed border
+    const pad = u * 6.5;
+    ctx.beginPath();
+    ctx.roundRect(-bw * 0.5 + pad, bannerY - bh * 0.5 + pad, bw - pad * 2, bh - pad * 2, br - pad);
+    ctx.strokeStyle = rgba(4, 0.55);
+    ctx.lineWidth = u * 1.0;
+    ctx.stroke();
+
+    if (isBlackBg) ctx.globalCompositeOperation = 'lighter';
+
+    // Traveling Emerald-Gold Rim around the capsule
+    const gx = Math.cos(p2) * bw * 0.5;
+    const gy = Math.sin(p2) * bh * 0.5;
+    const rimGrad = ctx.createLinearGradient(gx, bannerY + gy, -gx, bannerY - gy);
+    rimGrad.addColorStop(0, rgba(3, 0.95));
+    rimGrad.addColorStop(0.5, rgba(2, 0.80));
+    rimGrad.addColorStop(1, rgba(0, 0.95));
+
+    ctx.beginPath();
+    ctx.roundRect(-bw * 0.5, bannerY - bh * 0.5, bw, bh, br);
+    ctx.strokeStyle = rgba(2, 0.28);
+    ctx.lineWidth = u * 9.0;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.roundRect(-bw * 0.5, bannerY - bh * 0.5, bw, bh, br);
+    ctx.strokeStyle = rimGrad;
+    ctx.lineWidth = u * 2.8;
+    ctx.stroke();
+
+    // Bespoke Sculptural Double-Rail Vector Typography: "TAG A FRIEND"
+    const capH = S * 0.052;
+    const track = S * 0.0115;
+    drawBespokeTextCentered('TAG A FRIEND', 0, bannerY, capH, track, {
+      strokeW: u * 6.0,
+      colorIdx: 0,
+      glowIdx: 2,
+      inlineIdx: 3,
+      doubleRail: true,
+      wavePhase: p2,
+      waveAmp: u * 2.2,
+      alpha: 0.98
+    });
+
+    ctx.restore();
+  }
+
+  window.renderFrame = renderFrame;
+  window.renderAtTime = renderFrame;
+
+  let startTime = null;
+  function loop(now) {
+    if (startTime === null) startTime = now;
+    renderFrame((now - startTime) * 0.001);
+    requestAnimationFrame(loop);
+  }
+
+  renderFrame(0);
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
+

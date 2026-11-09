@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>What Do You Think? — Bespoke Vector Kinetic Engagement CTA</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: #000000;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  canvas {
+    display: block;
+    width: 100vw;
+    height: 56.25vw;
+    max-height: 100vh;
+    max-width: 177.78vh;
+    object-fit: contain;
+  }
+</style>
+</head>
+<body>
+<canvas id="stage" width="3840" height="2160"></canvas>
+<script>
+(function() {
+  'use strict';
+
+  const canvas = document.getElementById('stage');
+  const ctx = canvas.getContext('2d');
+
+  // --- CLI & URL PARAMETERS ---
+  const P = window.__cliParams || {};
+  const BG = P.bg || 'black';
+  const SEED = Number(P.seed) || 1;
+  const VARIANT = Number(P.variant) || 0;
+
+  const DURATION = 10;
+  const FPS = 30;
+  const TAU = Math.PI * 2;
+
+  window.DURATION = DURATION;
+  window.FPS = FPS;
+
+  // --- SEEDED PRNG ---
+  function mulberry32(a) {
+    return function() {
+      let t = a += 0x6D2B79F5;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  const rng = mulberry32(SEED * 2654435761 + VARIANT * 1013904223 + 127);
+
+  // --- PALETTE PRESETS ---
+  const PRESET_PALETTES = [
+    // Variant 0: Electric Cyan, Imperial Gold, Neon Magenta & Pure White
+    ['#FFFFFF', '#E6F7FF', '#00E5FF', '#FFB800', '#FF1E8A'],
+    // Variant 1: Imperial Gold, Emerald Mint, Electric Cyan & White
+    ['#FFFFFF', '#FFF6E0', '#FFB800', '#00E699', '#00B8FF'],
+    // Variant 2: Hyper Magenta, Solar Gold, Electric Cyan & White
+    ['#FFFFFF', '#FFE6F5', '#FF1E8A', '#FFD000', '#00E5FF'],
+    // Variant 3: Cyber Emerald, Solar Gold, Royal Violet & White
+    ['#FFFFFF', '#E0FFF0', '#00E682', '#FFC400', '#9D4EDD'],
+    // Variant 4: Royal Amethyst, Electric Cyan, Gold & White
+    ['#FFFFFF', '#F0E6FF', '#A63BFF', '#00F0FF', '#FFB800'],
+    // Variant 5: Solar Orange, Electric Cyan, Crimson & White
+    ['#FFFFFF', '#FFEDE0', '#FF6D00', '#00E5FF', '#FF2255']
+  ];
+
+  let rawPal = PRESET_PALETTES[((VARIANT % PRESET_PALETTES.length) + PRESET_PALETTES.length) % PRESET_PALETTES.length];
+  if (typeof P.palette === 'string' && P.palette.trim()) {
+    const custom = P.palette.split(',').map(s => s.trim()).filter(Boolean);
+    if (custom.length >= 2) {
+      rawPal = [
+        custom[0],
+        custom[1 % custom.length],
+        custom[2 % custom.length],
+        custom[3 % custom.length],
+        custom[4 % custom.length]
+      ];
+    }
+  }
+
+  function hexToRgb(hex) {
+    let h = hex.replace('#', '').trim();
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    const n = parseInt(h, 16) || 0;
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+
+  const RGB = rawPal.map(hexToRgb);
+  function rgba(idx, a) {
+    const c = RGB[idx % RGB.length];
+    const alpha = Math.max(0, Math.min(1, a));
+    return `rgba(${c[0]},${c[1]},${c[2]},${alpha.toFixed(4)})`;
+  }
+
+  // --- 100% PROPRIETARY ROUNDED GEOMETRIC VECTOR FONT (Zero External/OS Fonts, 100% Commercial-Free) ---
+  const VECTOR_FONT = {
+    'W': { w: 1.02, p: c => {
+      c.m(0.04, 0); c.l(0.25, 1); c.l(0.51, 0.28); c.l(0.77, 1); c.l(0.98, 0);
+    }},
+    'H': { w: 0.76, p: c => {
+      c.m(0.10, 0); c.l(0.10, 1);
+      c.m(0.66, 0); c.l(0.66, 1);
+      c.m(0.10, 0.49); c.l(0.66, 0.49);
+    }},
+    'A': { w: 0.82, p: c => {
+      c.m(0.06, 1); c.l(0.41, 0); c.l(0.76, 1);
+      c.m(0.18, 0.65); c.l(0.64, 0.65);
+    }},
+    'T': { w: 0.70, p: c => {
+      c.m(0.04, 0); c.l(0.66, 0);
+      c.m(0.35, 0); c.l(0.35, 1);
+    }},
+    'D': { w: 0.78, p: c => {
+      c.m(0.10, 0); c.l(0.38, 0);
+      c.arc(0.38, 0.50, 0.34, 0.50, -Math.PI * 0.5, Math.PI * 0.5, false);
+      c.l(0.10, 1); c.l(0.10, 0);
+    }},
+    'O': { w: 0.84, p: c => { c.arc(0.42, 0.50, 0.34, 0.50, 0, TAU, false); } },
+    'Y': { w: 0.74, p: c => {
+      c.m(0.06, 0); c.l(0.37, 0.52); c.l(0.68, 0);
+      c.m(0.37, 0.52); c.l(0.37, 1);
+    }},
+    'U': { w: 0.76, p: c => {
+      c.m(0.10, 0); c.l(0.10, 0.64);
+      c.arc(0.38, 0.64, 0.28, 0.36, Math.PI, 0, true);
+      c.l(0.66, 0);
+    }},
+    'I': { w: 0.28, p: c => { c.m(0.14, 0); c.l(0.14, 1); } },
+    'N': { w: 0.78, p: c => {
+      c.m(0.10, 1); c.l(0.10, 0); c.l(0.68, 1); c.l(0.68, 0);
+    }},
+    'K': { w: 0.74, p: c => {
+      c.m(0.10, 0); c.l(0.10, 1);
+      c.m(0.64, 0); c.l(0.12, 0.52);
+      c.m(0.28, 0.36); c.l(0.66, 1);
+    }},
+    '?': { w: 0.68, p: c => {
+      c.m(0.12, 0.22);
+      c.b(0.12, -0.02, 0.62, -0.02, 0.62, 0.26);
+      c.b(0.62, 0.46, 0.36, 0.48, 0.36, 0.70);
+      c.m(0.36, 0.96); c.l(0.36, 0.98);
+    }},
+    ' ': { w: 0.36, p: () => {} }
+  };
+
+  function createGlyphContext(ox, oy, scaleX, scaleY, slant) {
+    const tx = (x, y) => ox + (x + (1 - y) * slant) * scaleX;
+    const ty = (x, y) => oy + y * scaleY;
+    return {
+      m(x, y) { ctx.moveTo(tx(x, y), ty(x, y)); },
+      l(x, y) { ctx.lineTo(tx(x, y), ty(x, y)); },
+      b(x1, y1, x2, y2, x3, y3) {
+        ctx.bezierCurveTo(tx(x1, y1), ty(x1, y1), tx(x2, y2), ty(x2, y2), tx(x3, y3), ty(x3, y3));
+      },
+      arc(cx, cy, rx, ry, a0, a1, ccw) {
+        const steps = 28;
+        let delta = a1 - a0;
+        if (ccw && delta > 0) delta -= TAU;
+        if (!ccw && delta < 0) delta += TAU;
+        for (let i = 0; i <= steps; i++) {
+          const a = a0 + (i / steps) * delta;
+          const px = cx + Math.cos(a) * rx;
+          const py = cy + Math.sin(a) * ry;
+          if (i === 0) ctx.moveTo(tx(px, py), ty(px, py));
+          else ctx.lineTo(tx(px, py), ty(px, py));
+        }
+      }
+    };
+  }
+
+  function measureVectorText(str, capH, tracking) {
+    let total = 0;
+    for (let i = 0; i < str.length; i++) {
+      const g = VECTOR_FONT[str[i]] || VECTOR_FONT[' '];
+      total += g.w * capH;
+      if (i < str.length - 1) total += tracking;
+    }
+    return total;
+  }
+
+  function drawBespokeText(str, startX, centerY, capH, tracking, opts) {
+    let curX = startX;
+    const slant = opts.slant || 0;
+    const wavePhase = opts.wavePhase || 0;
+    const waveAmp = opts.waveAmp || 0;
+    const strokeW = Math.max(opts.strokeW, capH * 0.165);
+    const mainIdx = opts.colorIdx !== undefined ? opts.colorIdx : 0;
+    const glowIdx = opts.glowIdx !== undefined ? opts.glowIdx : 2;
+    const alpha = opts.alpha !== undefined ? opts.alpha : 1;
+
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    for (let i = 0; i < str.length; i++) {
+      const ch = str[i];
+      const g = VECTOR_FONT[ch] || VECTOR_FONT[' '];
+      const yWave = Math.sin(wavePhase - i * 0.45) * waveAmp;
+      const topY = centerY - capH * 0.5 + yWave;
+
+      if (ch !== ' ') {
+        const helper = createGlyphContext(curX, topY, capH, capH, slant);
+
+        ctx.beginPath();
+        g.p(helper);
+        ctx.strokeStyle = rgba(glowIdx, alpha * 0.22);
+        ctx.lineWidth = strokeW * 1.9;
+        ctx.stroke();
+
+        ctx.beginPath();
+        g.p(helper);
+        ctx.strokeStyle = rgba(mainIdx, alpha);
+        ctx.lineWidth = strokeW;
+        ctx.stroke();
+      }
+      curX += g.w * capH + tracking;
+    }
+  }
+
+  function drawRadialGlow(x, y, r, colorIdx, alpha) {
+    if (r <= 0.5 || alpha <= 0.002) return;
+    const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
+    grad.addColorStop(0, rgba(colorIdx, alpha));
+    grad.addColorStop(0.35, rgba(colorIdx, alpha * 0.45));
+    grad.addColorStop(0.70, rgba(colorIdx, alpha * 0.12));
+    grad.addColorStop(1, rgba(colorIdx, 0));
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, TAU);
+    ctx.fill();
+  }
+
+  // Build Thought Cloud / Dialogue Card with 3 Floating Thought Bubbles on Bottom-Left
+  function buildThoughtCardPath(x, y, w, h, cut) {
+    ctx.beginPath();
+    ctx.moveTo(x + cut, y);
+    ctx.lineTo(x + w - cut, y);
+    ctx.lineTo(x + w, y + cut);
+    ctx.lineTo(x + w, y + h - cut);
+    ctx.lineTo(x + w - cut, y + h);
+    ctx.lineTo(x + cut, y + h);
+    ctx.lineTo(x, y + h - cut);
+    ctx.lineTo(x, y + cut);
+    ctx.closePath();
+  }
+
+  // Sculpted Luminous Idea Bulb + Question Mark Hybrid Emblem
+  function drawIdeaQuestionMedallion(cx, cy, radius, phase, u, isBlackBg) {
+    const p1 = TAU * phase;
+    const p2 = TAU * 2 * phase;
+    const pulse = 0.5 + 0.5 * Math.sin(p2);
+
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    drawRadialGlow(0, 0, radius * 2.2, 3, 0.45 + 0.25 * pulse);
+
+    // 1. Rotating Outer Sacred-Geometry Protractor Ring
+    if (isBlackBg) ctx.globalCompositeOperation = 'lighter';
+    ctx.save();
+    ctx.rotate(p1);
+    ctx.setLineDash([u * 4, u * 5]);
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * 1.18, 0, TAU);
+    ctx.strokeStyle = rgba(2, 0.72);
+    ctx.lineWidth = u * 1.5;
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // 8 radiating idea spark rays around the medallion
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * TAU;
+      const rIn = radius * 1.24;
+      const rOut = radius * (1.36 + 0.08 * Math.sin(p2 + i));
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * rIn, Math.sin(a) * rIn);
+      ctx.lineTo(Math.cos(a) * rOut, Math.sin(a) * rOut);
+      ctx.strokeStyle = rgba(i % 2 === 0 ? 3 : 2, 0.78);
+      ctx.lineWidth = u * 2.0;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // 2. Dark Medallion Chamber Disc
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = '#030710';
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, TAU);
+    ctx.fill();
+
+    if (isBlackBg) ctx.globalCompositeOperation = 'lighter';
+
+    // Double-ring glowing medallion border
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, TAU);
+    ctx.strokeStyle = rgba(2, 0.45);
+    ctx.lineWidth = u * 6.5;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, TAU);
+    ctx.strokeStyle = rgba(0, 0.95);
+    ctx.lineWidth = u * 2.2;
+    ctx.stroke();
+
+    // 3. Sculpted Lightbulb Contour + Question Mark Filament Inside
+    const bR = radius * 0.56;
+    const bulbTopY = -radius * 0.14;
+
+    // Bulb glass dome path
+    ctx.beginPath();
+    ctx.arc(0, bulbTopY, bR, Math.PI * 0.78, Math.PI * 2.22);
+    ctx.quadraticCurveTo(bR * 0.52, radius * 0.35, bR * 0.38, radius * 0.48);
+    ctx.lineTo(-bR * 0.38, radius * 0.48);
+    ctx.quadraticCurveTo(-bR * 0.52, radius * 0.35, Math.cos(Math.PI * 0.78) * bR, bulbTopY + Math.sin(Math.PI * 0.78) * bR);
+    ctx.closePath();
+
+    ctx.fillStyle = rgba(3, 0.18 + 0.12 * pulse);
+    ctx.fill();
+    ctx.strokeStyle = rgba(3, 0.92);
+    ctx.lineWidth = u * 2.2;
+    ctx.stroke();
+
+    // Bulb screw base ribs at the bottom
+    for (let r = 0; r < 2; r++) {
+      const ry = radius * (0.58 + r * 0.12);
+      const rw = bR * (0.32 - r * 0.06);
+      ctx.beginPath();
+      ctx.moveTo(-rw, ry);
+      ctx.lineTo(rw, ry);
+      ctx.strokeStyle = rgba(1, 0.90);
+      ctx.lineWidth = u * 2.2;
+      ctx.stroke();
+    }
+
+    // Incandescent Question Mark (?) Filament glowing inside the bulb!
+    const qS = bR * 0.62;
+    ctx.beginPath();
+    ctx.moveTo(-qS * 0.48, bulbTopY - qS * 0.28);
+    ctx.bezierCurveTo(
+      -qS * 0.48, bulbTopY - qS * 0.95,
+       qS * 0.54, bulbTopY - qS * 0.95,
+       qS * 0.54, bulbTopY - qS * 0.22
+    );
+    ctx.bezierCurveTo(
+       qS * 0.54, bulbTopY + qS * 0.16,
+       0,         bulbTopY + qS * 0.18,
+       0,         bulbTopY + qS * 0.52
+    );
+    ctx.strokeStyle = rgba(3, 0.55);
+    ctx.lineWidth = u * 6.5;
+    ctx.stroke();
+
+    ctx.strokeStyle = rgba(0, 0.98);
+    ctx.lineWidth = u * 2.6;
+    ctx.stroke();
+
+    // Question mark dot
+    drawRadialGlow(0, bulbTopY + qS * 0.85, u * 9, 3, 0.95);
+    ctx.fillStyle = rgba(0, 1);
+    ctx.beginPath();
+    ctx.arc(0, bulbTopY + qS * 0.85, u * 2.6, 0, TAU);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  // --- MAIN RENDER FUNCTION ---
+  function renderFrame(t) {
+    const W = canvas.width;
+    const H = canvas.height;
+    const S = Math.min(W, H);
+    const cx = W * 0.5;
+    const cy = H * 0.5;
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.setLineDash([]);
+    ctx.lineWidth = 1;
+
+    const isBlackBg = (BG === 'black');
+    if (!isBlackBg) {
+      ctx.clearRect(0, 0, W, H);
+    } else {
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    const phase = (((t % DURATION) + DURATION) % DURATION) / DURATION;
+    const p1 = TAU * 1 * phase;
+    const p2 = TAU * 2 * phase;
+    const p3 = TAU * 3 * phase;
+    const u = S * 0.001; // 2.16px at 4K
+
+    // 1. Ambient Backdrop Glow
+    drawRadialGlow(cx, cy, S * 0.48, 2, 0.16 + 0.04 * Math.sin(p2));
+    drawRadialGlow(cx + S * 0.12, cy, S * 0.34, 4, 0.14 + 0.04 * Math.cos(p2));
+
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    // Subtle floating oscillation of the entire card
+    const floatY = Math.sin(p1) * (S * 0.008);
+    ctx.translate(0, floatY);
+
+    // 2. Main Unified Interactive Poll / Question HUD Card
+    const cardW = S * 0.72;
+    const cardH = S * 0.255;
+    const cut = S * 0.032;
+    const cardX = -cardW * 0.5;
+    const cardY = -cardH * 0.5;
+
+    // 3 Trailing Thought-Cloud Circles descending from the bottom-left corner of the card
+    const thoughtChain = [
+      { x: cardX + S * 0.085, y: cardY + cardH + S * 0.028, r: S * 0.016, delay: 0.0 },
+      { x: cardX + S * 0.048, y: cardY + cardH + S * 0.062, r: S * 0.011, delay: 0.6 },
+      { x: cardX + S * 0.020, y: cardY + cardH + S * 0.088, r: S * 0.007, delay: 1.2 }
+    ];
+
+    if (isBlackBg) ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < thoughtChain.length; i++) {
+      const tc = thoughtChain[i];
+      const bob = Math.sin(p2 - tc.delay) * (u * 3.5);
+      drawRadialGlow(tc.x, tc.y + bob, tc.r * 2.5, 2, 0.55);
+      ctx.beginPath();
+      ctx.arc(tc.x, tc.y + bob, tc.r, 0, TAU);
+      ctx.fillStyle = '#030710';
+      ctx.fill();
+      ctx.strokeStyle = rgba(i === 0 ? 0 : 2, 0.90);
+      ctx.lineWidth = u * 2.0;
+      ctx.stroke();
+    }
+
+    // Offset Secondary Holographic Frame behind the main card
+    ctx.save();
+    const holoX = S * 0.014 * Math.cos(p1);
+    const holoY = -S * 0.014 * Math.sin(p1);
+    buildThoughtCardPath(cardX + holoX, cardY + holoY, cardW, cardH, cut);
+    ctx.strokeStyle = rgba(4, 0.42);
+    ctx.lineWidth = u * 1.6;
+    ctx.stroke();
+    ctx.restore();
+
+    // Dark Opaque Interior of the Main Card
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = !isBlackBg ? 'rgba(2, 6, 14, 0.92)' : '#02060D';
+    buildThoughtCardPath(cardX, cardY, cardW, cardH, cut);
+    ctx.fill();
+
+    // Inner recessed architectural border
+    const inPad = u * 7.5;
+    buildThoughtCardPath(cardX + inPad, cardY + inPad, cardW - inPad * 2, cardH - inPad * 2, cut * 0.8);
+    ctx.strokeStyle = rgba(2, 0.32);
+    ctx.lineWidth = u * 1.0;
+    ctx.stroke();
+
+    if (isBlackBg) ctx.globalCompositeOperation = 'lighter';
+
+    // Traveling Dual-Tone (Cyan-Gold-Magenta) Glowing Rim around the Card
+    const gx = Math.cos(p2) * cardW * 0.5;
+    const gy = Math.sin(p2) * cardH * 0.5;
+    const rimGrad = ctx.createLinearGradient(gx, gy, -gx, -gy);
+    rimGrad.addColorStop(0, rgba(2, 0.98));
+    rimGrad.addColorStop(0.5, rgba(3, 0.95));
+    rimGrad.addColorStop(1, rgba(4, 0.98));
+
+    buildThoughtCardPath(cardX, cardY, cardW, cardH, cut);
+    ctx.strokeStyle = rgba(2, 0.25);
+    ctx.lineWidth = u * 9.5;
+    ctx.stroke();
+
+    buildThoughtCardPath(cardX, cardY, cardW, cardH, cut);
+    ctx.strokeStyle = rimGrad;
+    ctx.lineWidth = u * 2.8;
+    ctx.stroke();
+
+    // Corner Gold Bracket Accents on the Card
+    const bOff = u * 10;
+    const bLen = S * 0.028;
+    for (let [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+      const bx = sx * (cardW * 0.5 + bOff);
+      const by = sy * (cardH * 0.5 + bOff);
+      ctx.beginPath();
+      ctx.moveTo(bx - sx * bLen, by);
+      ctx.lineTo(bx - sx * (cut * 0.4), by);
+      ctx.lineTo(bx, by - sy * (cut * 0.4));
+      ctx.lineTo(bx, by - sy * bLen);
+      ctx.strokeStyle = rgba(3, 0.88);
+      ctx.lineWidth = u * 2.4;
+      ctx.stroke();
+    }
+
+    // 3. Left Medallion: Sculpted Lightbulb + Question Mark (?) Emblem
+    const medalX = cardX + S * 0.115;
+    const medalY = 0;
+    const medalR = S * 0.068;
+    drawIdeaQuestionMedallion(medalX, medalY, medalR, phase, u, isBlackBg);
+
+    // Vertical Telemetry Divider separating Medallion and Typography
+    const divX = medalX + medalR * 1.48;
+    ctx.beginPath();
+    ctx.moveTo(divX, cardY + S * 0.035);
+    ctx.lineTo(divX, cardY + cardH - S * 0.035);
+    ctx.strokeStyle = rgba(2, 0.28);
+    ctx.lineWidth = u * 1.2;
+    ctx.stroke();
+
+    // 4. Right Side Bespoke Vector Typography: "WHAT DO YOU" + "THINK?"
+    const textLeftX = divX + S * 0.032;
+
+    // Top Line: "WHAT DO YOU" (Gold Slanted Editorial Vector Font)
+    const capH1 = S * 0.030;
+    const track1 = S * 0.0095;
+    const line1Y = cardY + cardH * 0.26;
+
+    drawBespokeText('WHAT DO YOU', textLeftX, line1Y, capH1, track1, {
+      strokeW: u * 3.5,
+      colorIdx: 3,
+      glowIdx: 3,
+      inlineIdx: 0,
+      slant: 0.12,
+      doubleRail: false,
+      wavePhase: p2,
+      waveAmp: u * 1.2,
+      alpha: 0.96
+    });
+
+    // Middle Hero Line: "THINK?" (Heavy Double-Rail Sculpted Vector Font)
+    const capH2 = S * 0.062;
+    const track2 = S * 0.0135;
+    const line2Y = cardY + cardH * 0.58;
+
+    drawBespokeText('THINK?', textLeftX, line2Y, capH2, track2, {
+      strokeW: u * 6.8,
+      colorIdx: 0,
+      glowIdx: 2,
+      inlineIdx: 3,
+      doubleRail: true,
+      wavePhase: p2 - 0.4,
+      waveAmp: u * 2.2,
+      alpha: 0.98
+    });
+
+    // 5. Bottom Dual-Option Live Poll Meter Bar inside the Card
+    const barLeft = textLeftX;
+    const barRight = cardX + cardW - S * 0.048;
+    const barW = barRight - barLeft;
+    const barY = cardY + cardH * 0.84;
+    const splitRatio = 0.54 + 0.18 * Math.sin(p2); // Oscillates smoothly between 36% and 72%
+    const splitX = barLeft + barW * splitRatio;
+
+    // Left Option Track (Cyan)
+    ctx.beginPath();
+    ctx.moveTo(barLeft, barY);
+    ctx.lineTo(splitX - u * 6, barY);
+    ctx.strokeStyle = rgba(2, 0.95);
+    ctx.lineWidth = u * 4.5;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+
+    // Right Option Track (Magenta/Gold)
+    ctx.beginPath();
+    ctx.moveTo(splitX + u * 6, barY);
+    ctx.lineTo(barRight, barY);
+    ctx.strokeStyle = rgba(4, 0.92);
+    ctx.lineWidth = u * 4.5;
+    ctx.stroke();
+
+    // Glowing Diamond Slider Node at splitX
+    drawRadialGlow(splitX, barY, u * 15, 3, 0.95);
+    const dR = u * 5.5;
+    ctx.fillStyle = rgba(0, 1);
+    ctx.beginPath();
+    ctx.moveTo(splitX, barY - dR);
+    ctx.lineTo(splitX + dR, barY);
+    ctx.lineTo(splitX, barY + dR);
+    ctx.lineTo(splitX - dR, barY);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  window.renderFrame = renderFrame;
+  window.renderAtTime = renderFrame;
+
+  let startTime = null;
+  function loop(now) {
+    if (startTime === null) startTime = now;
+    renderFrame((now - startTime) * 0.001);
+    requestAnimationFrame(loop);
+  }
+
+  renderFrame(0);
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

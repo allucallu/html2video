@@ -87,6 +87,10 @@ const preset = String(pick('preset', 'slow'));
 
 // ---------- browser launch ----------
 const launchArgs = [
+  '--no-sandbox',
+  '--disable-setuid-sandbox',
+  '--disable-dev-shm-usage',
+  '--disable-gpu',
   '--force-color-profile=srgb',
   '--disable-background-timer-throttling',
   '--disable-renderer-backgrounding'
@@ -121,9 +125,29 @@ await page.addInitScript((initParams) => {
 }, params);
 
 await page.goto(pathToFileURL(assetPath).href);
+
+// Tunggu hingga fungsi render (renderFrame / renderAtTime / asset.render) tersedia
 await page.waitForFunction(() => {
-  return window.__assetReady === true || typeof window.renderFrame === 'function' || (window.asset && typeof window.asset.render === 'function');
-}, null, { timeout: 60000 });
+  return (
+    window.__assetReady === true ||
+    typeof window.renderFrame === 'function' ||
+    typeof window.renderAtTime === 'function' ||
+    typeof window.render === 'function' ||
+    (window.asset && typeof window.asset.render === 'function')
+  );
+}, null, { timeout: 30000 });
+
+// Tunggu web fonts (Google Fonts) selesai loading agar teks tidak berubah di tengah rendering
+await page.evaluate(async () => {
+  if (document.fonts && document.fonts.ready) {
+    try {
+      await Promise.race([
+        document.fonts.ready,
+        new Promise((res) => setTimeout(res, 4000))
+      ]);
+    } catch (_) {}
+  }
+});
 
 // Sinkronkan parameter akhir & ukuran canvas
 await page.evaluate(({ p, w, h }) => {
@@ -133,9 +157,12 @@ await page.evaluate(({ p, w, h }) => {
   c.height = h;
   window.__engineCanvas = c;
 
-  // Auto-adaptasi jika aset menggunakan window.renderFrame atau window.render
+  // Auto-adaptasi jika aset menggunakan window.renderFrame, window.renderAtTime, atau window.render
   if (!window.asset) {
-    const renderFn = typeof window.renderFrame === 'function' ? window.renderFrame : (typeof window.render === 'function' ? window.render : null);
+    const renderFn =
+      typeof window.renderFrame === 'function' ? window.renderFrame :
+      typeof window.renderAtTime === 'function' ? window.renderAtTime :
+      typeof window.render === 'function' ? window.render : null;
     window.asset = {
       canvas: c,
       render: renderFn || (() => {}),
@@ -143,8 +170,11 @@ await page.evaluate(({ p, w, h }) => {
       meta: { duration: window.DURATION || 10, fps: window.FPS || 30 }
     };
   } else {
-    if (typeof window.asset.render !== 'function' && typeof window.renderFrame === 'function') {
-      window.asset.render = window.renderFrame;
+    if (typeof window.asset.render !== 'function') {
+      window.asset.render =
+        typeof window.renderFrame === 'function' ? window.renderFrame :
+        typeof window.renderAtTime === 'function' ? window.renderAtTime :
+        typeof window.render === 'function' ? window.render : (() => {});
     }
     if (!window.asset.params) window.asset.params = {};
     if (!window.asset.params.duration) window.asset.params.duration = window.DURATION || 10;
@@ -379,7 +409,10 @@ const ffArgs = [
 ];
 
 const ff = spawn('ffmpeg', ffArgs, { stdio: ['pipe', 'inherit', 'inherit'] });
-const ffDone = new Promise((res, rej) => ff.on('close', (c) => (c === 0 ? res() : rej(new Error('ffmpeg keluar dengan kode ' + c)))));
+const ffDone = new Promise((res, rej) => {
+  ff.on('error', (err) => rej(new Error('Gagal mengeksekusi ffmpeg: ' + err.message)));
+  ff.on('close', (c) => (c === 0 ? res() : rej(new Error('ffmpeg keluar dengan kode ' + c))));
+});
 ff.stdin.on('error', () => {});
 
 // ---------- loop render frame ----------
