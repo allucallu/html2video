@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fintech Tap & Flow - 6s Seamless Loop (Fixed Corner)</title>
+  <style>
+    :root {
+      /* Hitam Solid (#000000) - Ubah ke #FFFFFF atau #00FF00 sesuai kebutuhan */
+      --bg-solid: #000000;
+      --surface-dark: #0B1120;
+      --surface-card: #111827;
+      --border-subtle: #1E293B;
+      --blue: #2563EB;
+      --blue-bright: #3B82F6;
+      --cyan: #38BDF8;
+      --emerald: #10B981;
+      --emerald-dark: #064E3B;
+      --amber: #FBBF24;
+      --coral: #FB7185;
+      --white: #F8FAFC;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-solid);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    .canvas {
+      width: 100vw;
+      max-width: 1920px;
+      aspect-ratio: 16 / 9;
+      background-color: var(--bg-solid);
+      overflow: hidden;
+    }
+
+    /* =====================================================
+       MASTER SEAMLESS LOOP (6 DETIK)
+    ===================================================== */
+
+    /* 1. Gerakan Tap Kartu Debit ke Ponsel (Siklus 3s) */
+    .card-tap-motion {
+      animation: tapCard 3s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+    }
+    @keyframes tapCard {
+      0%, 100% {
+        transform: translate(0px, 0px) rotate(-10deg);
+      }
+      42%, 55% {
+        transform: translate(95px, -18px) rotate(-3deg);
+      }
+    }
+
+    /* 2. Gelombang Sinyal NFC Saat Kartu Menyentuh Ponsel (Siklus 3s) */
+    .nfc-ring-1 {
+      transform-origin: 760px 470px;
+      animation: nfcPulse 3s ease-out infinite;
+    }
+    .nfc-ring-2 {
+      transform-origin: 760px 470px;
+      animation: nfcPulse 3s ease-out infinite 0.18s;
+    }
+    @keyframes nfcPulse {
+      0%, 38% {
+        transform: scale(0.4);
+        opacity: 0;
+      }
+      48% {
+        transform: scale(0.95);
+        opacity: 0.9;
+      }
+      85%, 100% {
+        transform: scale(1.7);
+        opacity: 0;
+      }
+    }
+
+    /* 3. Ponsel Melayang Stabil (Siklus 6s) */
+    .phone-levitate {
+      animation: phoneFloat 6s ease-in-out infinite;
+    }
+    @keyframes phoneFloat {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-16px); }
+    }
+
+    /* 4. Progress Bar di Layar Ponsel (Siklus 3s) */
+    .progress-fill {
+      transform-origin: 62px 350px;
+      animation: fillProgress 3s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    }
+    @keyframes fillProgress {
+      0%, 35% { transform: scaleX(0.15); }
+      60%, 85% { transform: scaleX(1); }
+      100% { transform: scaleX(0.15); }
+    }
+
+    /* 5. Lencana Centang Sukses di Layar Ponsel (Siklus 3s) */
+    .success-badge {
+      transform-origin: 170px 215px;
+      animation: badgePop 3s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    @keyframes badgePop {
+      0%, 46% { transform: scale(0.75); opacity: 0.45; }
+      58%, 85% { transform: scale(1.08); opacity: 1; }
+      95%, 100% { transform: scale(0.75); opacity: 0.45; }
+    }
+
+    /* 6. Garis Aliran Data Putus-Putus (Siklus 2s) */
+    .flow-stream {
+      stroke-dasharray: 14 14;
+      animation: dashFlow 2s linear infinite;
+    }
+    @keyframes dashFlow {
+      from { stroke-dashoffset: 56; }
+      to { stroke-dashoffset: 0; }
+    }
+
+    /* 7. Koin Dolar Meluncur dari Ponsel ke Wallet Kanan (Siklus 3s) */
+    .transfer-token {
+      animation: sendToken 3s cubic-bezier(0.55, 0, 0.45, 1) infinite;
+    }
+    @keyframes sendToken {
+      0%, 48% {
+        transform: translate(0px, 0px) scale(0.5);
+        opacity: 0;
+      }
+      58% {
+        opacity: 1;
+        transform: translate(65px, -35px) scale(1);
+      }
+      85% {
+        opacity: 1;
+        transform: translate(230px, -15px) scale(1);
+      }
+      96%, 100% {
+        opacity: 0;
+        transform: translate(265px, 0px) scale(0.6);
+      }
+    }
+
+    /* 8. Kartu Struk & Koin Melayang di Sisi Kanan (Siklus 6s) */
+    .right-card-float {
+      animation: floatRight 6s ease-in-out infinite;
+    }
+    @keyframes floatRight {
+      0%, 100% { transform: translateY(-12px); }
+      50% { transform: translateY(14px); }
+    }
+
+    .coin-orbit-1 { animation: bobCoin 3s ease-in-out infinite; }
+    .coin-orbit-2 { animation: bobCoin 3s ease-in-out infinite 1.5s; }
+    @keyframes bobCoin {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-15px); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="canvas">
+    <svg viewBox="0 0 1920 1080" width="100%" height="100%">
+      <defs>
+        <!-- Glow Halus untuk Latar Hitam Solid -->
+        <radialGradient id="centerGlow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#1D4ED8" stop-opacity="0.22"/>
+          <stop offset="65%" stop-color="#10B981" stop-opacity="0.06"/>
+          <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+        </radialGradient>
+
+        <!-- Clip Path Presisi untuk Bodi Kartu Debit -->
+        <clipPath id="debitCardClip">
+          <rect x="0" y="0" width="350" height="220" rx="24"/>
+        </clipPath>
+      </defs>
+
+      <!-- Aura Ambient Tengah -->
+      <circle cx="960" cy="540" r="540" fill="url(#centerGlow)"/>
+
+      <!-- Lingkaran Orbit Teknis Tipis -->
+      <circle cx="960" cy="540" r="410" fill="none" stroke="#1E293B" stroke-width="2" stroke-dasharray="8 16"/>
+      <circle cx="960" cy="540" r="290" fill="none" stroke="#0F172A" stroke-width="2"/>
+
+      <!-- =====================================================
+           JALUR KONEKSI DATA (KIRI -> TENGAH -> KANAN)
+      ====================================================== -->
+      <path class="flow-stream" d="M560 540 C640 540, 690 500, 775 500" fill="none" stroke="var(--blue-bright)" stroke-width="4" stroke-linecap="round"/>
+      <path class="flow-stream" d="M1145 500 C1230 500, 1280 540, 1370 540" fill="none" stroke="var(--emerald)" stroke-width="4" stroke-linecap="round"/>
+
+      <!-- Gelombang NFC Saat Tap -->
+      <circle class="nfc-ring-1" cx="760" cy="470" r="55" fill="none" stroke="var(--cyan)" stroke-width="4"/>
+      <circle class="nfc-ring-2" cx="760" cy="470" r="55" fill="none" stroke="var(--blue-bright)" stroke-width="3"/>
+
+      <!-- =====================================================
+           1. KARTU DEBIT NIR-SENTUH (SUDUT SUDAH DIRAPIKAN)
+      ====================================================== -->
+      <g class="card-tap-motion">
+        <g transform="translate(270, 415)">
+          <!-- Isi Kartu Terpotong Rapi Sesuai Radius rx="24" -->
+          <g clip-path="url(#debitCardClip)">
+            <!-- Warna Dasar Kartu -->
+            <rect x="0" y="0" width="350" height="220" fill="var(--blue)"/>
+            <!-- Aksen Geometris Sudut Kartu (Terpotong Mulus oleh ClipPath) -->
+            <path d="M210 0 L350 0 L350 140 Q270 110 210 0 Z" fill="#1D4ED8"/>
+          </g>
+
+          <!-- Garis Tepian Kartu di Lapisan Atas -->
+          <rect x="0" y="0" width="350" height="220" rx="24" fill="none" stroke="#60A5FA" stroke-width="3"/>
+          
+          <!-- Chip EMV -->
+          <rect x="36" y="44" width="52" height="38" rx="8" fill="var(--amber)"/>
+          <line x1="36" y1="63" x2="88" y2="63" stroke="#B45309" stroke-width="2"/>
+          <line x1="62" y1="44" x2="62" y2="82" stroke="#B45309" stroke-width="2"/>
+
+          <!-- Simbol Contactless -->
+          <g transform="translate(282, 48)" stroke="#FFFFFF" stroke-width="3.5" fill="none" stroke-linecap="round">
+            <path d="M0 14 A14 14 0 0 1 14 0"/>
+            <path d="M6 20 A10 10 0 0 1 20 6"/>
+            <path d="M12 26 A6 6 0 0 1 26 12"/>
+          </g>
+
+          <!-- Bar Nomor Kartu & Dual Circle -->
+          <rect x="36" y="144" width="120" height="10" rx="5" fill="#93C5FD"/>
+          <rect x="36" y="164" width="70" height="10" rx="5" fill="#60A5FA"/>
+          <circle cx="276" cy="156" r="20" fill="var(--coral)"/>
+          <circle cx="300" cy="156" r="20" fill="var(--amber)" opacity="0.92"/>
+        </g>
+      </g>
+
+      <!-- =====================================================
+           2. SMARTPHONE DIGITAL VAULT (TENGAH)
+      ====================================================== -->
+      <g class="phone-levitate">
+        <g transform="translate(790, 215)">
+          <rect x="0" y="0" width="340" height="650" rx="46" fill="var(--surface-dark)" stroke="var(--blue-bright)" stroke-width="6"/>
+          <rect x="16" y="16" width="308" height="618" rx="34" fill="#0F172A"/>
+          <rect x="120" y="32" width="100" height="20" rx="10" fill="#000000"/>
+
+          <!-- Lencana Verifikasi Transaksi -->
+          <g class="success-badge">
+            <circle cx="170" cy="215" r="64" fill="var(--emerald-dark)" stroke="var(--emerald)" stroke-width="4"/>
+            <path d="M144 216 L162 234 L198 196" fill="none" stroke="var(--emerald)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+          </g>
+
+          <!-- Label & Progress Bar Transfer -->
+          <rect x="95" y="310" width="150" height="14" rx="7" fill="#334155"/>
+          <rect x="62" y="346" width="216" height="14" rx="7" fill="#1E293B"/>
+          <rect class="progress-fill" x="62" y="346" width="216" height="14" rx="7" fill="var(--emerald)"/>
+
+          <!-- Kartu Mini Riwayat Transaksi -->
+          <g transform="translate(46, 405)">
+            <rect x="0" y="0" width="248" height="72" rx="16" fill="#1E293B"/>
+            <circle cx="38" cy="36" r="18" fill="var(--blue)"/>
+            <text x="38" y="42" text-anchor="middle" fill="#FFFFFF" font-family="system-ui, sans-serif" font-size="20" font-weight="800">$</text>
+            <rect x="72" y="22" width="95" height="11" rx="5.5" fill="#94A3B8"/>
+            <rect x="72" y="41" width="60" height="9" rx="4.5" fill="#475569"/>
+            <rect x="184" y="25" width="44" height="22" rx="11" fill="var(--emerald-dark)"/>
+          </g>
+
+          <g transform="translate(46, 495)">
+            <rect x="0" y="0" width="248" height="72" rx="16" fill="#1E293B" opacity="0.7"/>
+            <circle cx="38" cy="36" r="18" fill="var(--emerald)"/>
+            <text x="38" y="42" text-anchor="middle" fill="#FFFFFF" font-family="system-ui, sans-serif" font-size="20" font-weight="800">$</text>
+            <rect x="72" y="22" width="110" height="11" rx="5.5" fill="#64748B"/>
+            <rect x="72" y="41" width="50" height="9" rx="4.5" fill="#475569"/>
+          </g>
+        </g>
+      </g>
+
+      <!-- =====================================================
+           3. TOKEN TRANSAKSI MELUNCUR KE KANAN
+      ====================================================== -->
+      <g class="transfer-token" transform="translate(1130, 505)">
+        <circle cx="0" cy="0" r="28" fill="var(--emerald)" stroke="#FFFFFF" stroke-width="4"/>
+        <text x="0" y="10" text-anchor="middle" fill="#FFFFFF" font-family="system-ui, sans-serif" font-size="28" font-weight="800">$</text>
+      </g>
+
+      <!-- =====================================================
+           4. DIGITAL RECEIPT & KOIN DOLAR (KANAN)
+      ====================================================== -->
+      <g class="right-card-float">
+        <g transform="translate(1350, 390)">
+          <rect x="0" y="0" width="290" height="290" rx="28" fill="var(--surface-card)" stroke="var(--emerald)" stroke-width="4"/>
+          
+          <circle cx="72" cy="70" r="32" fill="var(--emerald-dark)"/>
+          <g fill="var(--emerald)" transform="translate(54, 52)">
+            <polygon points="18,0 36,11 0,11"/>
+            <rect x="4" y="14" width="5" height="14"/>
+            <rect x="12" y="14" width="5" height="14"/>
+            <rect x="20" y="14" width="5" height="14"/>
+            <rect x="28" y="14" width="5" height="14"/>
+            <rect x="1" y="31" width="34" height="5" rx="2"/>
+          </g>
+
+          <rect x="122" y="52" width="120" height="16" rx="8" fill="#FFFFFF"/>
+          <rect x="122" y="78" width="75" height="12" rx="6" fill="#64748B"/>
+
+          <line x1="32" y1="132" x2="258" y2="132" stroke="#334155" stroke-width="3" stroke-dasharray="8 8"/>
+
+          <rect x="44" y="195" width="26" height="55" rx="8" fill="#1E293B"/>
+          <rect x="88" y="175" width="26" height="75" rx="8" fill="var(--blue)"/>
+          <rect x="132" y="155" width="26" height="95" rx="8" fill="var(--blue-bright)"/>
+          <rect x="176" y="168" width="26" height="82" rx="8" fill="var(--emerald)"/>
+          <rect x="220" y="145" width="26" height="105" rx="8" fill="var(--amber)"/>
+        </g>
+      </g>
+
+      <!-- Koin Dolar Melayang -->
+      <g class="coin-orbit-1" transform="translate(1310, 325)">
+        <circle cx="0" cy="0" r="44" fill="var(--emerald)" stroke="#6EE7B7" stroke-width="4"/>
+        <text x="0" y="14" text-anchor="middle" fill="#FFFFFF" font-family="system-ui, sans-serif" font-size="40" font-weight="800">$</text>
+      </g>
+
+      <g class="coin-orbit-2" transform="translate(1615, 710)">
+        <circle cx="0" cy="0" r="38" fill="var(--amber)" stroke="#FEF08A" stroke-width="4"/>
+        <text x="0" y="12" text-anchor="middle" fill="#0F172A" font-family="system-ui, sans-serif" font-size="34" font-weight="800">$</text>
+      </g>
+
+      <!-- Partikel Geometris Minimalis -->
+      <circle cx="480" cy="310" r="10" fill="var(--cyan)"/>
+      <circle cx="620" cy="760" r="12" fill="var(--blue-bright)"/>
+      <rect x="1230" y="750" width="18" height="18" rx="4" transform="rotate(20 1230 750)" fill="var(--coral)"/>
+    </svg>
+  </div>
+
+</body>
+</html>

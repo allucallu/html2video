@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Editorial Motion Graphics - From Friction to Flow</title>
+  <style>
+    :root {
+      --bg-scene-1: #F1F5F9;
+      --bg-scene-2: #65D448;
+      --bg-scene-3: #F8FAFC;
+      --navy: #0F172A;
+      --blue: #1D4ED8;
+      --blue-bright: #3B82F6;
+      --yellow: #FACC15;
+      --yellow-glow: #FEF08A;
+      --coral: #FF8A8A;
+      --emerald: #16A34A;
+      --slate: #94A3B8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: #090D16;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Kanvas Utama 16:9 (Skalabel ke 1920x1080 & 3840x2160) */
+    .canvas {
+      position: relative;
+      width: 100vw;
+      max-width: 1920px;
+      aspect-ratio: 16 / 9;
+      background: var(--bg-scene-1);
+      overflow: hidden;
+      box-shadow: 0 30px 90px rgba(0, 0, 0, 0.65);
+    }
+
+    .scene {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      will-change: transform, opacity, clip-path;
+    }
+
+    /* Grid Latar Belakang Halus (Editorial Texture) */
+    .bg-grid {
+      position: absolute;
+      inset: 0;
+      background-image: 
+        linear-gradient(to right, rgba(15, 23, 42, 0.04) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(15, 23, 42, 0.04) 1px, transparent 1px);
+      background-size: 60px 60px;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    /* =====================================================
+       MASTER TIMELINE (10 DETIK SEAMLESS LOOP)
+       Babak 1: 0.0s - 3.3s (0% - 33%)
+       Babak 2: 3.3s - 6.6s (33% - 66%)
+       Babak 3: 6.6s - 10.0s (66% - 100%)
+    ===================================================== */
+
+    /* --- BABAK 1: DEEP FOCUS & IDEATION --- */
+    .scene-1 {
+      background: var(--bg-scene-1);
+      z-index: 1;
+      animation: s1Master 10s cubic-bezier(0.76, 0, 0.24, 1) infinite;
+    }
+
+    @keyframes s1Master {
+      0%, 28% { opacity: 1; transform: scale(1); }
+      34%, 94% { opacity: 0; transform: scale(0.94); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+
+    /* Animasi Mikro Babak 1 */
+    .s1-orbit {
+      transform-origin: 960px 330px;
+      animation: spinSlow 12s linear infinite;
+    }
+    .s1-orbit-reverse {
+      transform-origin: 960px 330px;
+      animation: spinReverse 9s linear infinite;
+    }
+    @keyframes spinSlow { to { transform: rotate(360deg); } }
+    @keyframes spinReverse { to { transform: rotate(-360deg); } }
+
+    .s1-bar-1 { animation: waveBar 1.2s ease-in-out infinite; transform-origin: center 520px; }
+    .s1-bar-2 { animation: waveBar 1.2s ease-in-out infinite 0.2s; transform-origin: center 520px; }
+    .s1-bar-3 { animation: waveBar 1.2s ease-in-out infinite 0.4s; transform-origin: center 520px; }
+    .s1-bar-4 { animation: waveBar 1.2s ease-in-out infinite 0.6s; transform-origin: center 520px; }
+
+    @keyframes waveBar {
+      0%, 100% { transform: scaleY(0.45); }
+      50% { transform: scaleY(1.15); }
+    }
+
+    .s1-leaf {
+      transform-origin: 540px 670px;
+      animation: leafSway 3.5s ease-in-out infinite;
+    }
+    @keyframes leafSway {
+      0%, 100% { transform: rotate(-3deg); }
+      50% { transform: rotate(4deg); }
+    }
+
+    /* --- BABAK 2: THE SPARK / BREAKTHROUGH --- */
+    .scene-2 {
+      background: var(--bg-scene-2);
+      z-index: 2;
+      clip-path: circle(0% at 50% 50%);
+      animation: s2Master 10s cubic-bezier(0.76, 0, 0.24, 1) infinite;
+    }
+
+    @keyframes s2Master {
+      0%, 27% { clip-path: circle(0% at 50% 50%); }
+      35%, 61% { clip-path: circle(85% at 50% 50%); }
+      68%, 100% { clip-path: circle(0% at 50% 50%); }
+    }
+
+    .s2-bulb {
+      transform-origin: 960px 540px;
+      animation: bulbSpring 10s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    @keyframes bulbSpring {
+      0%, 30% { transform: scale(0.3) translateY(80px); }
+      38%, 60% { transform: scale(1) translateY(0); }
+      67%, 100% { transform: scale(0.5) translateY(-80px); }
+    }
+
+    .s2-filament {
+      stroke-dasharray: 420;
+      stroke-dashoffset: 420;
+      animation: filamentDraw 10s ease-out infinite;
+    }
+    @keyframes filamentDraw {
+      0%, 34% { stroke-dashoffset: 420; }
+      42%, 65% { stroke-dashoffset: 0; }
+      68%, 100% { stroke-dashoffset: 420; }
+    }
+
+    .s2-glass {
+      animation: glassFlash 10s ease-in-out infinite;
+    }
+    @keyframes glassFlash {
+      0%, 39% { fill: var(--yellow); }
+      42%, 61% { fill: var(--yellow-glow); }
+      65%, 100% { fill: var(--yellow); }
+    }
+
+    .s2-rays line {
+      stroke-dasharray: 70;
+      stroke-dashoffset: 70;
+      animation: rayBurst 10s ease-out infinite;
+    }
+    @keyframes rayBurst {
+      0%, 40% { stroke-dashoffset: 70; opacity: 0; }
+      45%, 56% { stroke-dashoffset: 0; opacity: 1; }
+      60%, 100% { stroke-dashoffset: -70; opacity: 0; }
+    }
+
+    /* --- BABAK 3: DIGITAL VALUE & EXECUTION --- */
+    .scene-3 {
+      background: var(--bg-scene-3);
+      z-index: 3;
+      clip-path: inset(100% 0 0 0);
+      animation: s3Master 10s cubic-bezier(0.76, 0, 0.24, 1) infinite;
+    }
+
+    @keyframes s3Master {
+      0%, 60% { clip-path: inset(100% 0 0 0); }
+      67%, 93% { clip-path: inset(0% 0 0 0); }
+      100% { clip-path: inset(0 0 100% 0); }
+    }
+
+    .s3-float-slow { animation: floatY 3.6s ease-in-out infinite; }
+    .s3-float-med { animation: floatY 2.9s ease-in-out infinite 0.4s; }
+    .s3-float-fast { animation: floatY 2.4s ease-in-out infinite 0.8s; }
+
+    @keyframes floatY {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-16px); }
+    }
+
+    .s3-bill-flow {
+      animation: billSlide 2.5s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+    }
+    @keyframes billSlide {
+      0%, 100% { transform: translateX(0px); }
+      50% { transform: translateX(-45px); }
+    }
+
+    .s3-pulse-ring {
+      transform-origin: 830px 440px;
+      animation: ringPulse 2.2s ease-out infinite;
+    }
+    @keyframes ringPulse {
+      0% { transform: scale(0.85); opacity: 0.8; }
+      100% { transform: scale(1.45); opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="canvas">
+    <div class="bg-grid"></div>
+
+    <!-- =====================================================
+         BABAK 1: DEEP FOCUS (WORKSPACE & THINKING NODES)
+    ====================================================== -->
+    <div class="scene scene-1">
+      <svg viewBox="0 0 1920 1080" width="100%" height="100%">
+        <!-- Lingkaran Dekoratif Latar -->
+        <circle cx="960" cy="540" r="360" fill="#E2E8F0" opacity="0.6"/>
+
+        <!-- Orbit Pikiran (Atas Laptop) -->
+        <g class="s1-orbit">
+          <circle cx="960" cy="330" r="145" fill="none" stroke="#CBD5E1" stroke-width="3" stroke-dasharray="12 12"/>
+          <circle cx="960" cy="185" r="16" fill="var(--coral)"/>
+          <circle cx="1105" cy="330" r="12" fill="var(--blue)"/>
+        </g>
+        <g class="s1-orbit-reverse">
+          <circle cx="960" cy="330" r="95" fill="none" stroke="var(--blue-bright)" stroke-width="2.5" opacity="0.5"/>
+          <circle cx="865" cy="330" r="11" fill="var(--navy)"/>
+        </g>
+
+        <!-- Tanaman Geometris Minimalis (Kiri Meja) -->
+        <g class="s1-leaf">
+          <path d="M540 670 C500 590, 460 550, 485 515 C510 485, 540 555, 545 670 Z" fill="#10B981"/>
+          <path d="M545 670 C535 550, 545 455, 575 455 C605 455, 595 565, 555 670 Z" fill="#059669"/>
+          <path d="M555 670 C580 585, 620 535, 640 560 C660 585, 610 630, 565 670 Z" fill="#34D399"/>
+        </g>
+        <!-- Pot Silinder Bersih -->
+        <rect x="495" y="665" width="100" height="115" rx="14" fill="var(--blue)"/>
+        <rect x="485" y="655" width="120" height="22" rx="8" fill="var(--navy)"/>
+
+        <!-- Laptop Modern (Tengah Meja) -->
+        <g>
+          <!-- Bodi Layar -->
+          <rect x="730" y="420" width="460" height="310" rx="22" fill="var(--navy)"/>
+          <rect x="748" y="438" width="424" height="274" rx="12" fill="#FFFFFF"/>
+          
+          <!-- Header Jendela Aplikasi -->
+          <rect x="748" y="438" width="424" height="34" rx="12" fill="#E2E8F0"/>
+          <circle cx="772" cy="455" r="6" fill="var(--coral)"/>
+          <circle cx="792" cy="455" r="6" fill="var(--yellow)"/>
+          <circle cx="812" cy="455" r="6" fill="var(--bg-scene-2)"/>
+
+          <!-- Waveform Berpikir di Dalam Layar -->
+          <g fill="var(--blue)">
+            <rect class="s1-bar-1" x="900" y="520" width="18" height="95" rx="9"/>
+            <rect class="s1-bar-2" x="934" y="520" width="18" height="95" rx="9" fill="var(--blue-bright)"/>
+            <rect class="s1-bar-3" x="968" y="520" width="18" height="95" rx="9" fill="var(--coral)"/>
+            <rect class="s1-bar-4" x="1002" y="520" width="18" height="95" rx="9"/>
+          </g>
+
+          <!-- Alas Laptop -->
+          <path d="M675 730 L1245 730 L1225 758 C1220 765, 1210 768, 1195 768 L725 768 C710 768, 700 765, 695 758 Z" fill="#CBD5E1"/>
+          <rect x="905" y="730" width="110" height="10" rx="5" fill="#94A3B8"/>
+        </g>
+
+        <!-- Kartu Catatan Melayang (Kanan Meja) -->
+        <g transform="translate(1280, 520)">
+          <rect x="0" y="0" width="170" height="120" rx="18" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="3"/>
+          <circle cx="34" cy="36" r="12" fill="var(--coral)"/>
+          <rect x="58" y="28" width="82" height="14" rx="7" fill="#CBD5E1"/>
+          <rect x="24" y="66" width="120" height="12" rx="6" fill="#E2E8F0"/>
+          <rect x="24" y="88" width="85" height="12" rx="6" fill="#E2E8F0"/>
+        </g>
+
+        <!-- Garis Permukaan Meja -->
+        <line x1="380" y1="780" x2="1540" y2="780" stroke="var(--navy)" stroke-width="8" stroke-linecap="round"/>
+      </svg>
+    </div>
+
+    <!-- =====================================================
+         BABAK 2: THE SPARK (GEOMETRIC LIGHTBULB)
+    ====================================================== -->
+    <div class="scene scene-2">
+      <svg viewBox="0 0 1920 1080" width="100%" height="100%">
+        <!-- Lingkaran Aura Halus -->
+        <circle cx="960" cy="540" r="340" fill="#7CE063" opacity="0.5"/>
+
+        <!-- Sinar Geometris Simetris (Kiri & Kanan) -->
+        <g class="s2-rays" stroke="var(--navy)" stroke-width="12" stroke-linecap="round">
+          <line x1="720" y1="330" x2="660" y2="285"/>
+          <line x1="665" y1="450" x2="590" y2="450"/>
+          <line x1="720" y1="570" x2="660" y2="615"/>
+
+          <line x1="1200" y1="330" x2="1260" y2="285"/>
+          <line x1="1255" y1="450" x2="1330" y2="450"/>
+          <line x1="1200" y1="570" x2="1260" y2="615"/>
+        </g>
+
+        <!-- Grup Bohlam Simetris -->
+        <g class="s2-bulb">
+          <!-- Kaca Bohlam -->
+          <path class="s2-glass" d="M845 585 C775 515, 780 385, 865 320 C920 278, 1000 278, 1055 320 C1140 385, 1145 515, 1075 585 C1045 615, 1030 645, 1030 680 L890 680 C890 645, 875 615, 845 585 Z" fill="var(--yellow)"/>
+          
+          <!-- Kilau Kaca Minimalis -->
+          <path d="M1035 355 A115 115 0 0 1 1080 445" fill="none" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round" opacity="0.75"/>
+
+          <!-- Filamen Geometris Biru -->
+          <path class="s2-filament" d="M925 680 L925 525 C925 480, 895 480, 895 515 C895 545, 960 545, 960 500 C960 465, 935 465, 935 500 C935 545, 1025 545, 1025 515 C1025 480, 995 480, 995 525 L995 680" fill="none" stroke="var(--blue)" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+
+          <!-- Dudukan Ulir Bohlam -->
+          <rect x="880" y="685" width="160" height="24" rx="12" fill="var(--navy)"/>
+          <rect x="888" y="716" width="144" height="24" rx="12" fill="var(--navy)"/>
+          <path d="M910 747 L1010 747 L995 782 C990 792, 982 796, 970 796 L950 796 C938 796, 930 792, 925 782 Z" fill="var(--navy)"/>
+          <line x1="912" y1="728" x2="1008" y2="728" stroke="var(--blue-bright)" stroke-width="4" stroke-linecap="round"/>
+        </g>
+      </svg>
+    </div>
+
+    <!-- =====================================================
+         BABAK 3: DIGITAL VALUE (FINTECH & CASHLESS FLOW)
+    ====================================================== -->
+    <div class="scene scene-3">
+      <svg viewBox="0 0 1920 1080" width="100%" height="100%">
+        <defs>
+          <!-- Clipping presisi agar uang kertas masuk mulus ke celah layar ponsel -->
+          <clipPath id="walletSlotClip">
+            <rect x="830" y="340" width="600" height="420"/>
+          </clipPath>
+        </defs>
+
+        <!-- Lingkaran Latar Belakang -->
+        <circle cx="960" cy="540" r="370" fill="#EFF6FF"/>
+
+        <!-- Kartu Debit Biru (Kanan Atas - Parallax) -->
+        <g class="s3-float-slow">
+          <g transform="translate(1060, 240) rotate(12)">
+            <rect x="0" y="0" width="340" height="210" rx="24" fill="var(--blue)"/>
+            <!-- Chip EMV -->
+            <rect x="36" y="42" width="48" height="36" rx="8" fill="var(--yellow)"/>
+            <!-- Gelombang Contactless -->
+            <g transform="translate(275, 48)" stroke="#93C5FD" stroke-width="3.5" fill="none" stroke-linecap="round">
+              <path d="M0 14 A14 14 0 0 1 14 0"/>
+              <path d="M5 19 A10 10 0 0 1 19 5"/>
+            </g>
+            <!-- Nomor Kartu Abstrak & Logo -->
+            <rect x="36" y="135" width="110" height="10" rx="5" fill="#60A5FA"/>
+            <rect x="36" y="156" width="65" height="10" rx="5" fill="#3B82F6"/>
+            <circle cx="268" cy="148" r="20" fill="var(--coral)" opacity="0.9"/>
+            <circle cx="292" cy="148" r="20" fill="var(--yellow)" opacity="0.9"/>
+          </g>
+        </g>
+
+        <!-- Smartphone Modern (Kiri Tengah) -->
+        <g class="s3-float-med">
+          <g transform="translate(650, 230)">
+            <!-- Bayangan Sisi 3D -->
+            <rect x="-14" y="12" width="310" height="580" rx="42" fill="var(--blue)"/>
+            <!-- Bodi Utama Ponsel -->
+            <rect x="0" y="0" width="310" height="580" rx="40" fill="#FFFFFF" stroke="var(--navy)" stroke-width="8"/>
+            <!-- Dynamic Island / Notch -->
+            <rect x="105" y="22" width="100" height="22" rx="11" fill="var(--navy)"/>
+
+            <!-- Badge Bank / Instansi di Layar -->
+            <circle class="s3-pulse-ring" cx="180" cy="210" r="56" fill="none" stroke="var(--emerald)" stroke-width="4"/>
+            <circle cx="155" cy="175" r="52" fill="#DCFCE7"/>
+            <g fill="var(--emerald)" transform="translate(127, 148)">
+              <polygon points="28,0 56,16 0,16"/>
+              <rect x="8" y="20" width="7" height="20"/>
+              <rect x="20" y="20" width="7" height="20"/>
+              <rect x="32" y="20" width="7" height="20"/>
+              <rect x="44" y="20" width="7" height="20"/>
+              <rect x="4" y="43" width="48" height="7" rx="3"/>
+            </g>
+
+            <!-- Bar Status Transaksi -->
+            <rect x="75" y="255" width="160" height="14" rx="7" fill="#E2E8F0"/>
+            <rect x="105" y="280" width="100" height="12" rx="6" fill="#CBD5E1"/>
+
+            <!-- Celah Slot Dompet Digital -->
+            <rect x="176" y="345" width="8" height="175" rx="4" fill="var(--navy)"/>
+          </g>
+        </g>
+
+        <!-- Uang Kertas Digital Meluncur ke Slot Ponsel -->
+        <g clip-path="url(#walletSlotClip)">
+          <g class="s3-bill-flow">
+            <rect x="830" y="595" width="260" height="130" rx="16" fill="var(--blue)"/>
+            <rect x="846" y="611" width="228" height="98" rx="10" fill="#FFFFFF"/>
+            <circle cx="960" cy="660" r="30" fill="#DCFCE7"/>
+            <text x="960" y="672" text-anchor="middle" fill="var(--emerald)" font-family="system-ui, sans-serif" font-size="36" font-weight="800">$</text>
+            <!-- Aksen Sudut Uang -->
+            <circle cx="866" cy="631" r="6" fill="var(--blue)"/>
+            <circle cx="1054" cy="631" r="6" fill="var(--blue)"/>
+            <circle cx="866" cy="689" r="6" fill="var(--blue)"/>
+            <circle cx="1054" cy="689" r="6" fill="var(--blue)"/>
+          </g>
+        </g>
+
+        <!-- 3 Koin Dolar Geometris Melayang -->
+        <!-- Koin 1 (Kiri Atas) -->
+        <g class="s3-float-fast" transform="translate(540, 310)">
+          <circle cx="6" cy="8" r="46" fill="var(--navy)"/>
+          <circle cx="0" cy="0" r="46" fill="var(--emerald)"/>
+          <circle cx="0" cy="0" r="34" fill="#FFFFFF"/>
+          <text x="0" y="13" text-anchor="middle" fill="var(--emerald)" font-family="system-ui, sans-serif" font-size="38" font-weight="800">$</text>
+        </g>
+
+        <!-- Koin 2 (Tengah Kanan) -->
+        <g class="s3-float-slow" transform="translate(1150, 535)">
+          <circle cx="6" cy="8" r="52" fill="var(--navy)"/>
+          <circle cx="0" cy="0" r="52" fill="var(--emerald)"/>
+          <circle cx="0" cy="0" r="39" fill="#FFFFFF"/>
+          <text x="0" y="14" text-anchor="middle" fill="var(--emerald)" font-family="system-ui, sans-serif" font-size="42" font-weight="800">$</text>
+        </g>
+
+        <!-- Koin 3 (Kanan Bawah) -->
+        <g class="s3-float-med" transform="translate(1280, 740)">
+          <circle cx="5" cy="7" r="40" fill="var(--navy)"/>
+          <circle cx="0" cy="0" r="40" fill="var(--emerald)"/>
+          <circle cx="0" cy="0" r="29" fill="#FFFFFF"/>
+          <text x="0" y="11" text-anchor="middle" fill="var(--emerald)" font-family="system-ui, sans-serif" font-size="32" font-weight="800">$</text>
+        </g>
+
+        <!-- Partikel Geometris Minimalis -->
+        <circle cx="510" cy="560" r="10" fill="var(--coral)"/>
+        <circle cx="1390" cy="490" r="12" fill="var(--blue-bright)"/>
+        <rect x="560" y="710" width="18" height="18" rx="4" transform="rotate(25 560 710)" fill="var(--yellow)"/>
+      </svg>
+    </div>
+
+  </div>
+
+</body>
+</html>

@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Cloud Pipeline & Server Stack - 6s Seamless Loop</title>
+  <style>
+    :root {
+      /* Putih Solid (#FFFFFF) - Ubah ke #000000 atau #00FF00 sesuai kebutuhan */
+      --bg-solid: #FFFFFF;
+      --navy: #0F172A;
+      --navy-mid: #1E293B;
+      --blue: #2563EB;
+      --blue-bright: #3B82F6;
+      --blue-soft: #EFF6FF;
+      --blue-border: #BFDBFE;
+      --cyan: #0EA5E9;
+      --violet: #7C3AED;
+      --violet-soft: #F5F3FF;
+      --emerald: #10B981;
+      --emerald-dark: #059669;
+      --emerald-soft: #ECFDF5;
+      --amber: #F59E0B;
+      --slate: #94A3B8;
+      --slate-light: #E2E8F0;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-solid);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    .canvas {
+      width: 100vw;
+      max-width: 1920px;
+      aspect-ratio: 16 / 9;
+      background-color: var(--bg-solid);
+      overflow: hidden;
+    }
+
+    /* =====================================================
+       MASTER SEAMLESS LOOP (6 DETIK)
+       Semua siklus sinkron: 6s, 3s, 2s
+    ===================================================== */
+
+    /* 1. Cloud Utama Melayang Stabil (6s) */
+    .cloud-float {
+      animation: floatCloud 6s ease-in-out infinite;
+    }
+    @keyframes floatCloud {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-10px); }
+    }
+
+    /* 2. Aliran Garis Data (2s) */
+    .stream-dash {
+      stroke-dasharray: 12 12;
+      animation: moveDash 2s linear infinite;
+    }
+    @keyframes moveDash {
+      from { stroke-dashoffset: 48; }
+      to { stroke-dashoffset: 0; }
+    }
+
+    /* 3. Sinyal Input dari Satelit Kiri & Kanan ke Cloud (3s) */
+    .input-left-orb {
+      animation: feedLeft 3s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+    }
+    @keyframes feedLeft {
+      0% { transform: translate(0px, 0px) scale(0.5); opacity: 0; }
+      20% { transform: translate(65px, -30px) scale(1); opacity: 1; }
+      45% { transform: translate(235px, -30px) scale(0.8); opacity: 1; }
+      52%, 100% { transform: translate(265px, -30px) scale(0.2); opacity: 0; }
+    }
+
+    .input-right-orb {
+      animation: feedRight 3s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+    }
+    @keyframes feedRight {
+      0% { transform: translate(0px, 0px) scale(0.5); opacity: 0; }
+      20% { transform: translate(-65px, -30px) scale(1); opacity: 1; }
+      45% { transform: translate(-235px, -30px) scale(0.8); opacity: 1; }
+      52%, 100% { transform: translate(-265px, -30px) scale(0.2); opacity: 0; }
+    }
+
+    /* 4. Denyut Jaringan Neural di Dalam Cloud (3s) */
+    .neural-node-1 {
+      transform-origin: 960px 235px;
+      animation: nodePulse 3s ease-in-out infinite 0s;
+    }
+    .neural-node-2 {
+      transform-origin: 905px 315px;
+      animation: nodePulse 3s ease-in-out infinite 0.2s;
+    }
+    .neural-node-3 {
+      transform-origin: 1015px 315px;
+      animation: nodePulse 3s ease-in-out infinite 0.4s;
+    }
+    @keyframes nodePulse {
+      0%, 40%, 90%, 100% { transform: scale(1); }
+      55% { transform: scale(1.32); }
+    }
+
+    /* 5. Paket Hasil AI Turun Melalui Pipa Tengah ke Rak Server (3s) */
+    .vertical-payload {
+      animation: dropToServer 3s cubic-bezier(0.55, 0, 0.45, 1) infinite;
+    }
+    @keyframes dropToServer {
+      0%, 42% {
+        transform: translateY(0px) scale(0.4);
+        opacity: 0;
+      }
+      52% {
+        transform: translateY(45px) scale(1);
+        opacity: 1;
+      }
+      76% {
+        transform: translateY(185px) scale(1);
+        opacity: 1;
+      }
+      84%, 100% {
+        transform: translateY(215px) scale(0.3);
+        opacity: 0;
+      }
+    }
+
+    /* 6. Aktivasi 3 Bilah Rak Server Secara Berurutan (3s) */
+    .blade-bar-1 {
+      transform-origin: 835px 655px;
+      animation: fillBlade 3s ease-in-out infinite 0.1s;
+    }
+    .blade-bar-2 {
+      transform-origin: 835px 745px;
+      animation: fillBlade 3s ease-in-out infinite 0.25s;
+    }
+    .blade-bar-3 {
+      transform-origin: 835px 835px;
+      animation: fillBlade 3s ease-in-out infinite 0.4s;
+    }
+    @keyframes fillBlade {
+      0%, 65% { transform: scaleX(0.35); fill: var(--blue-bright); }
+      78%, 92% { transform: scaleX(1); fill: var(--emerald); }
+      100% { transform: scaleX(0.35); fill: var(--blue-bright); }
+    }
+
+    /* 7. Gerakan Melayang Satelit & Kartu Output (6s) */
+    .sat-bob-1 { animation: bobUp 6s ease-in-out infinite; }
+    .sat-bob-2 { animation: bobDown 6s ease-in-out infinite; }
+
+    @keyframes bobUp {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-14px); }
+    }
+    @keyframes bobDown {
+      0%, 100% { transform: translateY(-14px); }
+      50% { transform: translateY(0px); }
+    }
+
+    /* 8. Roda Gigi & Lencana Sukses Output (6s & 3s) */
+    .mini-gear {
+      transform-origin: 48px 48px;
+      animation: spinGear 6s linear infinite;
+    }
+    @keyframes spinGear { to { transform: rotate(360deg); } }
+
+    .check-pop {
+      transform-origin: 48px 48px;
+      animation: popCheck 3s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    @keyframes popCheck {
+      0%, 70%, 100% { transform: scale(0.85); }
+      82%, 94% { transform: scale(1.12); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="canvas">
+    <svg viewBox="0 0 1920 1080" width="100%" height="100%">
+      <!-- =====================================================
+           DEKORASI LATAR BELAKANG EDITORIAL
+      ====================================================== -->
+      <circle cx="960" cy="540" r="440" fill="var(--blue-soft)" opacity="0.55"/>
+      <circle cx="960" cy="540" r="440" fill="none" stroke="var(--blue-border)" stroke-width="2" stroke-dasharray="10 14"/>
+      <circle cx="960" cy="540" r="310" fill="none" stroke="#DBEAFE" stroke-width="2"/>
+
+      <!-- =====================================================
+           JALUR KONEKSI PIPELINE (ATAS -> TENGAH -> BAWAH)
+      ====================================================== -->
+      <!-- Jalur Satelit Kiri ke Cloud -->
+      <path d="M510 340 L630 340 L690 295 L770 295" fill="none" stroke="var(--blue-border)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path class="stream-dash" d="M510 340 L630 340 L690 295 L770 295" fill="none" stroke="var(--blue-bright)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+
+      <!-- Jalur Satelit Kanan ke Cloud -->
+      <path d="M1410 340 L1290 340 L1230 295 L1150 295" fill="none" stroke="#DDD6FE" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path class="stream-dash" d="M1410 340 L1290 340 L1230 295 L1150 295" fill="none" stroke="var(--violet)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+
+      <!-- Saluran Vertikal Utama (Cloud -> Server Rack) -->
+      <rect x="944" y="380" width="32" height="220" fill="#DBEAFE"/>
+      <line x1="944" y1="380" x2="944" y2="600" stroke="var(--blue-border)" stroke-width="3"/>
+      <line x1="976" y1="380" x2="976" y2="600" stroke="var(--blue-border)" stroke-width="3"/>
+      <line class="stream-dash" x1="960" y1="385" x2="960" y2="595" stroke="var(--blue)" stroke-width="4" stroke-linecap="round"/>
+
+      <!-- Jalur Distribusi Output dari Server Rack ke Kiri & Kanan -->
+      <path d="M750 745 L630 745 L570 790 L495 790" fill="none" stroke="#A7F3D0" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path class="stream-dash" d="M750 745 L630 745 L570 790 L495 790" fill="none" stroke="var(--emerald)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+
+      <path d="M1170 745 L1290 745 L1350 790 L1425 790" fill="none" stroke="#A7F3D0" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path class="stream-dash" d="M1170 745 L1290 745 L1350 790 L1425 790" fill="none" stroke="var(--emerald)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+
+      <!-- =====================================================
+           1. SATELIT INPUT DATA (KIRI ATAS & KANAN ATAS)
+      ====================================================== -->
+      <!-- Satelit Input Kiri (API / Code Stream) -->
+      <g transform="translate(310, 275)">
+        <g class="sat-bob-1">
+          <rect x="8" y="10" width="200" height="130" rx="22" fill="#DBEAFE"/>
+          <rect x="0" y="0" width="200" height="130" rx="22" fill="#FFFFFF" stroke="var(--navy)" stroke-width="4"/>
+          
+          <rect x="24" y="24" width="52" height="52" rx="14" fill="var(--blue-soft)"/>
+          <!-- Simbol Kurung Siku Kode (< >) -->
+          <path d="M44 40 L34 50 L44 60 M56 40 L66 50 L56 60" fill="none" stroke="var(--blue)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+          
+          <rect x="90" y="34" width="84" height="11" rx="5.5" fill="var(--navy)"/>
+          <rect x="90" y="53" width="54" height="9" rx="4.5" fill="var(--slate)"/>
+
+          <rect x="24" y="92" width="152" height="14" rx="7" fill="var(--blue-soft)"/>
+          <rect x="28" y="95" width="95" height="8" rx="4" fill="var(--blue-bright)"/>
+        </g>
+      </g>
+
+      <!-- Satelit Input Kanan (Multi-Node Sensor / Data) -->
+      <g transform="translate(1410, 275)">
+        <g class="sat-bob-2">
+          <rect x="8" y="10" width="200" height="130" rx="22" fill="#EDE9FE"/>
+          <rect x="0" y="0" width="200" height="130" rx="22" fill="#FFFFFF" stroke="var(--navy)" stroke-width="4"/>
+          
+          <rect x="24" y="24" width="52" height="52" rx="14" fill="var(--violet-soft)"/>
+          <!-- Simbol Gelombang Sinyal -->
+          <rect x="35" y="48" width="6" height="16" rx="3" fill="var(--violet)"/>
+          <rect x="47" y="38" width="6" height="26" rx="3" fill="var(--violet)"/>
+          <rect x="59" y="43" width="6" height="21" rx="3" fill="var(--violet)"/>
+
+          <rect x="90" y="34" width="84" height="11" rx="5.5" fill="var(--navy)"/>
+          <rect x="90" y="53" width="54" height="9" rx="4.5" fill="var(--slate)"/>
+
+          <rect x="24" y="92" width="152" height="14" rx="7" fill="var(--violet-soft)"/>
+          <rect x="28" y="95" width="112" height="8" rx="4" fill="var(--violet)"/>
+        </g>
+      </g>
+
+      <!-- =====================================================
+           2. PAKET DATA BERGERAK (INPUT -> CLOUD -> SERVER)
+      ====================================================== -->
+      <!-- Bola Data Kiri ke Cloud -->
+      <g transform="translate(520, 325)">
+        <g class="input-left-orb">
+          <circle cx="0" cy="0" r="14" fill="var(--blue)" stroke="#FFFFFF" stroke-width="3"/>
+        </g>
+      </g>
+
+      <!-- Bola Data Kanan ke Cloud -->
+      <g transform="translate(1400, 325)">
+        <g class="input-right-orb">
+          <circle cx="0" cy="0" r="14" fill="var(--violet)" stroke="#FFFFFF" stroke-width="3"/>
+        </g>
+      </g>
+
+      <!-- Kapsul Hasil AI Turun di Saluran Tengah -->
+      <g transform="translate(960, 395)">
+        <g class="vertical-payload">
+          <rect x="-18" y="-22" width="36" height="44" rx="12" fill="var(--emerald)" stroke="var(--navy)" stroke-width="3.5"/>
+          <path d="M-7 1 L-2 6 L8 -5" fill="none" stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </g>
+      </g>
+
+      <!-- =====================================================
+           3. CLOUD AI CORE & NEURAL MESH (ATAS TENGAH)
+      ====================================================== -->
+      <g class="cloud-float">
+        <!-- Bayangan Cloud -->
+        <path d="M815 392 H1125 C1185 392 1228 348 1228 292 C1228 242 1192 202 1144 195 C1126 135 1072 95 1005 95 C932 95 872 146 862 215 C808 224 768 268 768 322 C768 364 786 392 815 392 Z" fill="#DBEAFE"/>
+        
+        <!-- Bodi Utama Cloud -->
+        <path d="M803 380 H1113 C1173 380 1216 336 1216 280 C1216 230 1180 190 1132 183 C1114 123 1060 83 993 83 C920 83 860 134 850 203 C796 212 756 256 756 310 C756 352 774 380 803 380 Z" fill="#FFFFFF" stroke="var(--navy)" stroke-width="6" stroke-linejoin="round"/>
+
+        <!-- Jaringan Neural Node di Dalam Cloud -->
+        <g>
+          <!-- Garis Penghubung Segitiga Neural -->
+          <polygon points="960,235 905,315 1015,315" fill="none" stroke="var(--blue-bright)" stroke-width="4" stroke-linejoin="round"/>
+          <line x1="960" y1="235" x2="960" y2="288" stroke="var(--cyan)" stroke-width="3" stroke-dasharray="4 4"/>
+
+          <!-- 3 Node Berdenyut -->
+          <g class="neural-node-1">
+            <circle cx="960" cy="235" r="22" fill="var(--blue)" stroke="var(--navy)" stroke-width="4"/>
+            <circle cx="960" cy="235" r="7" fill="#FFFFFF"/>
+          </g>
+          <g class="neural-node-2">
+            <circle cx="905" cy="315" r="20" fill="var(--cyan)" stroke="var(--navy)" stroke-width="4"/>
+            <circle cx="905" cy="315" r="6" fill="#FFFFFF"/>
+          </g>
+          <g class="neural-node-3">
+            <circle cx="1015" cy="315" r="20" fill="var(--violet)" stroke="var(--navy)" stroke-width="4"/>
+            <circle cx="1015" cy="315" r="6" fill="#FFFFFF"/>
+          </g>
+        </g>
+      </g>
+
+      <!-- =====================================================
+           4. 3-BLADE SERVER RACK (BAWAH TENGAH)
+      ====================================================== -->
+      <g transform="translate(750, 600)">
+        <!-- Bayangan Rak Server -->
+        <rect x="14" y="14" width="420" height="300" rx="28" fill="#DCFCE7"/>
+        <!-- Rangka Utama Rak Server -->
+        <rect x="0" y="0" width="420" height="300" rx="28" fill="var(--navy)" stroke="var(--navy)" stroke-width="6"/>
+
+        <!-- Blade Server 1 (Atas) -->
+        <g transform="translate(24, 24)">
+          <rect x="0" y="0" width="372" height="72" rx="16" fill="var(--navy-mid)" stroke="#334155" stroke-width="2"/>
+          <circle cx="34" cy="36" r="10" fill="var(--emerald)"/>
+          <!-- Track & Bar Progres Blade 1 -->
+          <rect x="61" y="25" width="210" height="22" rx="11" fill="#0F172A"/>
+          <rect class="blade-bar-1" x="-774" y="-630" width="210" height="22" rx="11" fill="var(--blue-bright)" transform="translate(835, 655)"/>
+          <!-- Ventilasi Blade -->
+          <g fill="#475569">
+            <rect x="294" y="24" width="8" height="24" rx="4"/>
+            <rect x="312" y="24" width="8" height="24" rx="4"/>
+            <rect x="330" y="24" width="8" height="24" rx="4"/>
+          </g>
+        </g>
+
+        <!-- Blade Server 2 (Tengah) -->
+        <g transform="translate(24, 114)">
+          <rect x="0" y="0" width="372" height="72" rx="16" fill="var(--navy-mid)" stroke="#334155" stroke-width="2"/>
+          <circle cx="34" cy="36" r="10" fill="var(--emerald)"/>
+          <rect x="61" y="25" width="210" height="22" rx="11" fill="#0F172A"/>
+          <rect class="blade-bar-2" x="-774" y="-720" width="210" height="22" rx="11" fill="var(--blue-bright)" transform="translate(835, 745)"/>
+          <g fill="#475569">
+            <rect x="294" y="24" width="8" height="24" rx="4"/>
+            <rect x="312" y="24" width="8" height="24" rx="4"/>
+            <rect x="330" y="24" width="8" height="24" rx="4"/>
+          </g>
+        </g>
+
+        <!-- Blade Server 3 (Bawah) -->
+        <g transform="translate(24, 204)">
+          <rect x="0" y="0" width="372" height="72" rx="16" fill="var(--navy-mid)" stroke="#334155" stroke-width="2"/>
+          <circle cx="34" cy="36" r="10" fill="var(--cyan)"/>
+          <rect x="61" y="25" width="210" height="22" rx="11" fill="#0F172A"/>
+          <rect class="blade-bar-3" x="-774" y="-810" width="210" height="22" rx="11" fill="var(--blue-bright)" transform="translate(835, 835)"/>
+          <g fill="#475569">
+            <rect x="294" y="24" width="8" height="24" rx="4"/>
+            <rect x="312" y="24" width="8" height="24" rx="4"/>
+            <rect x="330" y="24" width="8" height="24" rx="4"/>
+          </g>
+        </g>
+      </g>
+
+      <!-- =====================================================
+           5. MODUL HASIL OTOMASI (KIRI BAWAH & KANAN BAWAH)
+      ====================================================== -->
+      <!-- Output Kiri: Workflow Automation -->
+      <g transform="translate(275, 735)">
+        <g class="sat-bob-2">
+          <rect x="8" y="10" width="220" height="110" rx="22" fill="#DCFCE7"/>
+          <rect x="0" y="0" width="220" height="110" rx="22" fill="#FFFFFF" stroke="var(--navy)" stroke-width="4"/>
+
+          <circle cx="48" cy="48" r="24" fill="var(--emerald-soft)"/>
+          <!-- Roda Gigi Berputar -->
+          <g class="mini-gear">
+            <circle cx="48" cy="48" r="11" fill="none" stroke="var(--emerald)" stroke-width="4.5"/>
+            <rect x="45.5" y="31" width="5" height="5" rx="1" fill="var(--emerald)"/>
+            <rect x="45.5" y="60" width="5" height="5" rx="1" fill="var(--emerald)"/>
+            <rect x="31" y="45.5" width="5" height="5" rx="1" fill="var(--emerald)"/>
+            <rect x="60" y="45.5" width="5" height="5" rx="1" fill="var(--emerald)"/>
+          </g>
+
+          <rect x="86" y="34" width="104" height="11" rx="5.5" fill="var(--navy)"/>
+          <rect x="86" y="53" width="68" height="9" rx="4.5" fill="var(--slate)"/>
+          <rect x="24" y="84" width="172" height="10" rx="5" fill="var(--emerald)"/>
+        </g>
+      </g>
+
+      <!-- Output Kanan: Verified Deployment -->
+      <g transform="translate(1425, 735)">
+        <g class="sat-bob-1">
+          <rect x="8" y="10" width="220" height="110" rx="22" fill="#DCFCE7"/>
+          <rect x="0" y="0" width="220" height="110" rx="22" fill="#FFFFFF" stroke="var(--navy)" stroke-width="4"/>
+
+          <g class="check-pop">
+            <circle cx="48" cy="48" r="24" fill="var(--emerald)"/>
+            <path d="M38 48 L45 55 L59 41" fill="none" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </g>
+
+          <rect x="86" y="34" width="104" height="11" rx="5.5" fill="var(--navy)"/>
+          <rect x="86" y="53" width="68" height="9" rx="4.5" fill="var(--slate)"/>
+          <rect x="24" y="84" width="172" height="10" rx="5" fill="var(--emerald)"/>
+        </g>
+      </g>
+
+      <!-- Aksen Partikel Geometris Minimalis -->
+      <circle cx="620" cy="215" r="10" fill="var(--amber)"/>
+      <circle cx="1300" cy="215" r="10" fill="var(--violet)"/>
+      <rect x="635" y="655" width="16" height="16" rx="4" transform="rotate(20 635 655)" fill="var(--emerald)"/>
+      <rect x="1270" y="655" width="16" height="16" rx="4" transform="rotate(-20 1270 655)" fill="var(--blue-bright)"/>
+    </svg>
+  </div>
+
+</body>
+</html>

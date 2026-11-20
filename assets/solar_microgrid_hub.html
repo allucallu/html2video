@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Solar Microgrid & Circular Battery Hub - 6s Seamless Loop</title>
+  <style>
+    :root {
+      /* Hitam Solid (#000000) - Ubah ke #FFFFFF atau #00FF00 sesuai kebutuhan */
+      --bg-solid: #000000;
+      --surface-dark: #0B1120;
+      --surface-card: #111827;
+      --border-slate: #1E293B;
+      --emerald: #10B981;
+      --emerald-bright: #34D399;
+      --emerald-dark: #064E3B;
+      --lime: #84CC16;
+      --amber: #F59E0B;
+      --amber-bright: #FBBF24;
+      --amber-dark: #451A03;
+      --blue: #2563EB;
+      --blue-bright: #3B82F6;
+      --cyan: #38BDF8;
+      --slate: #64748B;
+      --white: #F8FAFC;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-solid);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    .canvas {
+      width: 100vw;
+      max-width: 1920px;
+      aspect-ratio: 16 / 9;
+      background-color: var(--bg-solid);
+      overflow: hidden;
+    }
+
+    /* =====================================================
+       MASTER SEAMLESS LOOP (6 DETIK)
+       Semua durasi sinkron: 6s, 3s, 2s
+    ===================================================== */
+
+    /* 1. Putaran Sinar Matahari & Cincin Orbit Luar (6s) */
+    .sun-rays-spin {
+      animation: spinCW 6s linear infinite;
+    }
+    .hub-orbit-ccw {
+      transform-origin: 960px 540px;
+      animation: spinCCW 6s linear infinite;
+    }
+    @keyframes spinCW { to { transform: rotate(360deg); } }
+    @keyframes spinCCW { to { transform: rotate(-360deg); } }
+
+    /* 2. Berkas Foton Surya Turun ke Panel (Siklus 2s) */
+    .photon-beam {
+      stroke-dasharray: 16 18;
+      animation: shootPhoton 2s linear infinite;
+    }
+    @keyframes shootPhoton {
+      from { stroke-dashoffset: 68; }
+      to { stroke-dashoffset: 0; }
+    }
+
+    /* 3. Kilau Sel Panel Surya Saat Menyerap Cahaya (Siklus 3s) */
+    .solar-cell-glow {
+      animation: cellAbsorb 3s ease-in-out infinite;
+    }
+    @keyframes cellAbsorb {
+      0%, 100% { fill: #1E3A8A; }
+      35%, 65% { fill: var(--blue-bright); }
+    }
+
+    /* 4. Aliran Garis Sirkuit Daya (Siklus 2s) */
+    .power-trace {
+      stroke-dasharray: 12 14;
+      animation: traceMove 2s linear infinite;
+    }
+    @keyframes traceMove {
+      from { stroke-dashoffset: 52; }
+      to { stroke-dashoffset: 0; }
+    }
+
+    /* 5. Pulsa Energi Kuning dari Panel Surya ke Hub Pusat (Siklus 3s) */
+    .solar-pulse-orb {
+      animation: solarToHub 3s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+    }
+    @keyframes solarToHub {
+      0% {
+        transform: translate(0px, 0px) scale(0.4);
+        opacity: 0;
+      }
+      18% {
+        transform: translate(75px, 0px) scale(1);
+        opacity: 1;
+      }
+      46% {
+        transform: translate(235px, -110px) scale(1);
+        opacity: 1;
+      }
+      55%, 100% {
+        transform: translate(275px, -110px) scale(0.2);
+        opacity: 0;
+      }
+    }
+
+    /* 6. Pengisian Cincin Baterai Melingkar (Keliling r=148 -> ~930, Siklus 3s) */
+    .battery-ring-fill {
+      stroke-dasharray: 930;
+      stroke-dashoffset: 930;
+      transform-origin: 960px 540px;
+      transform: rotate(-90deg);
+      animation: chargeRadial 3s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+    }
+    @keyframes chargeRadial {
+      0%, 10% {
+        stroke-dashoffset: 930;
+        stroke: var(--amber-bright);
+      }
+      45% {
+        stroke-dashoffset: 380;
+        stroke: var(--amber-bright);
+      }
+      62%, 88% {
+        stroke-dashoffset: 0;
+        stroke: var(--emerald);
+      }
+      98%, 100% {
+        stroke-dashoffset: 930;
+        stroke: var(--amber-bright);
+      }
+    }
+
+    /* 7. Denyut Inti Daun & Petir Saat 100% Terisi (Siklus 3s) */
+    .core-emblem-pop {
+      animation: popCore 3s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    @keyframes popCore {
+      0%, 54%, 94%, 100% { transform: scale(1); }
+      65%, 85% { transform: scale(1.16); }
+    }
+
+    .hub-shockwave {
+      animation: expandWave 3s ease-out infinite;
+    }
+    @keyframes expandWave {
+      0%, 55% { transform: scale(0.75); opacity: 0; }
+      66% { transform: scale(1); opacity: 0.9; }
+      96%, 100% { transform: scale(1.55); opacity: 0; }
+    }
+
+    /* 8. Pulsa Energi Hijau dari Hub ke Rumah Pintar (Siklus 3s) */
+    .green-pulse-orb {
+      animation: hubToHome 3s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+    }
+    @keyframes hubToHome {
+      0%, 58% {
+        transform: translate(0px, 0px) scale(0.4);
+        opacity: 0;
+      }
+      68% {
+        transform: translate(80px, 0px) scale(1);
+        opacity: 1;
+      }
+      90% {
+        transform: translate(240px, 0px) scale(1);
+        opacity: 1;
+      }
+      98%, 100% {
+        transform: translate(275px, 0px) scale(0.3);
+        opacity: 0;
+      }
+    }
+
+    /* 9. Jendela & Indikator Smart Home Menyala Saat Daya Masuk (Siklus 3s) */
+    .home-window-glow {
+      animation: lightHome 3s ease-in-out infinite;
+    }
+    @keyframes lightHome {
+      0%, 72%, 96%, 100% { fill: #1E293B; }
+      80%, 92% { fill: var(--amber-bright); }
+    }
+
+    .home-charge-bar {
+      animation: fillHomeBar 3s ease-in-out infinite;
+    }
+    @keyframes fillHomeBar {
+      0%, 72%, 96%, 100% { fill: #1E293B; }
+      80%, 92% { fill: var(--emerald); }
+    }
+
+    /* 10. Gerakan Melayang Modul Kanan (6s) */
+    .home-card-float {
+      animation: bobHome 6s ease-in-out infinite;
+    }
+    @keyframes bobHome {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-12px); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="canvas">
+    <svg viewBox="0 0 1920 1080" width="100%" height="100%">
+      <defs>
+        <!-- Glow Ambient Tengah -->
+        <radialGradient id="ecoAmbient" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#10B981" stop-opacity="0.22"/>
+          <stop offset="55%" stop-color="#F59E0B" stop-opacity="0.07"/>
+          <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+        </radialGradient>
+
+        <!-- ClipPath Presisi untuk Kisi Panel Surya -->
+        <clipPath id="solarGridClip">
+          <polygon points="48,0 242,0 290,145 0,145"/>
+        </clipPath>
+      </defs>
+
+      <!-- Cahaya Latar Tengah -->
+      <circle cx="960" cy="540" r="530" fill="url(#ecoAmbient)"/>
+
+      <!-- =====================================================
+           CINCIN ORBIT LUAR HUB PUSAT
+      ====================================================== -->
+      <g class="hub-orbit-ccw">
+        <circle cx="960" cy="540" r="245" fill="none" stroke="#1E293B" stroke-width="3" stroke-dasharray="16 16"/>
+        <circle cx="960" cy="295" r="7" fill="var(--amber-bright)"/>
+        <circle cx="960" cy="785" r="7" fill="var(--emerald)"/>
+      </g>
+
+      <!-- =====================================================
+           JALUR TRANSMISI DAYA (SOLAR -> HUB -> SMART HOME)
+      ====================================================== -->
+      <!-- Jalur Kiri (Panel Surya ke Hub Pusat) -->
+      <path d="M510 650 L620 650 L695 540 L765 540" fill="none" stroke="#451A03" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+      <path class="power-trace" d="M510 650 L620 650 L695 540 L765 540" fill="none" stroke="var(--amber-bright)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+
+      <!-- Jalur Kanan (Hub Pusat ke Smart Home) -->
+      <line x1="1155" y1="540" x2="1410" y2="540" stroke="#064E3B" stroke-width="6" stroke-linecap="round"/>
+      <line class="power-trace" x1="1155" y1="540" x2="1410" y2="540" stroke="var(--emerald)" stroke-width="4" stroke-linecap="round"/>
+
+      <!-- =====================================================
+           1. MATAHARI & PANEL SURYA FOTOVOLTAIK (SISI KIRI)
+      ====================================================== -->
+      <!-- Matahari Geometris (Kiri Atas) -->
+      <g transform="translate(275, 290)">
+        <g class="sun-rays-spin">
+          <g stroke="var(--amber-bright)" stroke-width="5" stroke-linecap="round">
+            <line x1="0" y1="-64" x2="0" y2="-48"/>
+            <line x1="0" y1="48" x2="0" y2="64"/>
+            <line x1="-64" y1="0" x2="-48" y2="0"/>
+            <line x1="48" y1="0" x2="64" y2="0"/>
+            <line x1="-45" y1="-45" x2="-34" y2="-34"/>
+            <line x1="34" y1="34" x2="45" y2="45"/>
+            <line x1="45" y1="-45" x2="34" y2="-34"/>
+            <line x1="-34" y1="34" x2="-45" y2="45"/>
+          </g>
+        </g>
+        <circle cx="0" cy="0" r="34" fill="var(--amber)" stroke="var(--amber-bright)" stroke-width="4"/>
+      </g>
+
+      <!-- Berkas Sinar Foton Menuju Panel Surya -->
+      <g stroke="var(--amber-bright)" stroke-width="3.5" stroke-linecap="round" opacity="0.85">
+        <line class="photon-beam" x1="305" y1="355" x2="355" y2="475"/>
+        <line class="photon-beam" x1="345" y1="335" x2="405" y2="475"/>
+        <line class="photon-beam" x1="385" y1="320" x2="455" y2="475"/>
+      </g>
+
+      <!-- Unit Panel Surya (Kiri Bawah) -->
+      <g transform="translate(245, 495)">
+        <!-- Tiang Penyangga Panel -->
+        <rect x="133" y="145" width="24" height="125" fill="#334155"/>
+        <rect x="85" y="260" width="120" height="16" rx="8" fill="#475569"/>
+
+        <!-- Permukaan Kisi Panel Surya (Perspektif Trapesium Presisi) -->
+        <g clip-path="url(#solarGridClip)">
+          <polygon points="48,0 242,0 290,145 0,145" fill="#0F172A"/>
+          <!-- Sel Fotovoltaik Menyala -->
+          <polygon class="solar-cell-glow" points="54,10 236,10 278,135 12,135" fill="#1E3A8A"/>
+          <!-- Garis Kisi Sel Horizontal & Vertikal -->
+          <g stroke="#0F172A" stroke-width="4">
+            <line x1="36" y1="52" x2="254" y2="52"/>
+            <line x1="22" y1="95" x2="268" y2="95"/>
+            <line x1="108" y1="0" x2="88" y2="145"/>
+            <line x1="145" y1="0" x2="145" y2="145"/>
+            <line x1="182" y1="0" x2="202" y2="145"/>
+          </g>
+        </g>
+
+        <!-- Bingkai Luar Panel -->
+        <polygon points="48,0 242,0 290,145 0,145" fill="none" stroke="var(--cyan)" stroke-width="5" stroke-linejoin="round"/>
+      </g>
+
+      <!-- =====================================================
+           2. PULSA ENERGI BERGERAK SEPANJANG JALUR
+      ====================================================== -->
+      <!-- Pulsa Energi Surya (Kuning) Masuk ke Hub -->
+      <g transform="translate(520, 650)">
+        <g class="solar-pulse-orb">
+          <circle cx="0" cy="0" r="15" fill="var(--amber-bright)" stroke="#FFFFFF" stroke-width="3.5"/>
+        </g>
+      </g>
+
+      <!-- Pulsa Energi Bersih (Hijau) Keluar ke Smart Home -->
+      <g transform="translate(1155, 540)">
+        <g class="green-pulse-orb">
+          <circle cx="0" cy="0" r="15" fill="var(--emerald)" stroke="#FFFFFF" stroke-width="3.5"/>
+        </g>
+      </g>
+
+      <!-- =====================================================
+           3. CIRCULAR SMART BATTERY HUB (PUSAT)
+      ====================================================== -->
+      <g>
+        <!-- Gelombang Ekspansi Saat Terisi Penuh -->
+        <g transform="translate(960, 540)">
+          <circle class="hub-shockwave" cx="0" cy="0" r="195" fill="none" stroke="var(--emerald)" stroke-width="4"/>
+        </g>
+
+        <!-- Casing Luar Hub Baterai -->
+        <circle cx="960" cy="540" r="195" fill="var(--surface-dark)" stroke="#1E293B" stroke-width="8"/>
+
+        <!-- Track Cincin Baterai (Latar Gelap) -->
+        <circle cx="960" cy="540" r="148" fill="none" stroke="#1E293B" stroke-width="26"/>
+
+        <!-- Cincin Pengisian Daya Melingkar (Progress Ring) -->
+        <circle class="battery-ring-fill" cx="960" cy="540" r="148" fill="none" stroke="var(--amber-bright)" stroke-width="26" stroke-linecap="round"/>
+
+        <!-- Inti Tengah Hub -->
+        <circle cx="960" cy="540" r="106" fill="var(--surface-card)" stroke="#334155" stroke-width="3"/>
+
+        <!-- Emblem Daun & Petir Terpadu -->
+        <g transform="translate(960, 540)">
+          <g class="core-emblem-pop">
+            <!-- Bentuk Daun Eco Hijau -->
+            <path d="M-34 32 C-34 -14 4 -36 38 -36 C38 4 16 38 -30 38 Z" fill="var(--emerald)"/>
+            <!-- Petir Putih di Tengah Daun -->
+            <polygon points="6,-20 -14,4 -1,4 -5,22 16,-2 3,-2" fill="#FFFFFF"/>
+          </g>
+        </g>
+      </g>
+
+      <!-- =====================================================
+           4. SMART HOME & ECO GRID POD (SISI KANAN)
+      ====================================================== -->
+      <g transform="translate(1410, 355)">
+        <g class="home-card-float">
+          <!-- Bodi Kartu Smart Home -->
+          <rect x="0" y="0" width="290" height="370" rx="30" fill="var(--surface-card)" stroke="var(--emerald)" stroke-width="4"/>
+
+          <!-- Ilustrasi Rumah Pintar Geometris (Atas) -->
+          <g transform="translate(65, 36)">
+            <!-- Atap Rumah -->
+            <polygon points="80,0 160,64 0,64" fill="var(--emerald)" stroke="var(--emerald-bright)" stroke-width="3" stroke-linejoin="round"/>
+            <!-- Panel Surya Mini di Atap -->
+            <polygon points="84,16 132,54 96,54 70,32" fill="var(--blue-bright)"/>
+            <!-- Dinding Rumah -->
+            <rect x="20" y="64" width="120" height="86" rx="10" fill="#0F172A" stroke="#334155" stroke-width="3"/>
+            <!-- Jendela Menyala Saat Daya Masuk -->
+            <rect class="home-window-glow" x="40" y="84" width="32" height="32" rx="6" fill="#1E293B"/>
+            <rect class="home-window-glow" x="88" y="84" width="32" height="32" rx="6" fill="#1E293B"/>
+            <!-- Pintu -->
+            <rect x="68" y="122" width="24" height="28" rx="4" fill="var(--emerald-dark)"/>
+          </g>
+
+          <!-- Garis Pemisah -->
+          <line x1="32" y1="215" x2="258" y2="215" stroke="#1E293B" stroke-width="3"/>
+
+          <!-- Indikator Status Efisiensi Grid -->
+          <rect x="36" y="242" width="135" height="14" rx="7" fill="#F8FAFC"/>
+          <rect x="36" y="266" width="85" height="10" rx="5" fill="var(--slate)"/>
+
+          <!-- Bar Daya Aktif Bawah -->
+          <rect x="36" y="302" width="218" height="28" rx="14" fill="#0F172A"/>
+          <rect class="home-charge-bar" x="42" y="308" width="206" height="16" rx="8" fill="#1E293B"/>
+        </g>
+      </g>
+
+      <!-- Aksen Partikel Geometris Minimalis -->
+      <circle cx="660" cy="310" r="10" fill="var(--amber-bright)"/>
+      <circle cx="1275" cy="320" r="11" fill="var(--emerald)"/>
+      <rect x="1265" y="735" width="16" height="16" rx="4" transform="rotate(20 1265 735)" fill="var(--cyan)"/>
+    </svg>
+  </div>
+
+</body>
+</html>

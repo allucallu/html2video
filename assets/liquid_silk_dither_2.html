@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Liquid Silk 1-Bit Dither Loop 4K</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background-color: #000000;
+      overflow: hidden;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      color: #ffffff;
+    }
+    #stage {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #000000;
+    }
+    canvas {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #000000;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+    #hud {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 16px;
+      background: rgba(12, 12, 12, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: 6px;
+      font-size: 12px;
+      z-index: 10;
+    }
+    #hud.hidden {
+      display: none !important;
+    }
+    button, select {
+      background: #000000;
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      padding: 5px 10px;
+      font-family: inherit;
+      font-size: 12px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover, select:hover {
+      background: #ffffff;
+      color: #000000;
+    }
+    .stat {
+      color: rgba(255, 255, 255, 0.75);
+      min-width: 120px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas id="canvas" width="3840" height="2160"></canvas>
+  </div>
+
+  <div id="hud">
+    <button id="btnToggle">Pause</button>
+    <button id="btnSeam">Loop Seam Test</button>
+    <label>
+      Pixel:
+      <select id="selPixel">
+        <option value="4">4x4 px</option>
+        <option value="6" selected>6x6 px (Optimal 4K)</option>
+        <option value="8">8x8 px</option>
+      </select>
+    </label>
+    <button id="btnSnap">PNG 4K</button>
+    <span class="stat" id="statLabel">000 / 600 (0.0%)</span>
+  </div>
+
+  <script>
+    (() => {
+      const params = new URLSearchParams(window.location.search);
+      const WIDTH = parseInt(params.get('width') || '3840', 10);
+      const HEIGHT = parseInt(params.get('height') || '2160', 10);
+      const FPS = parseInt(params.get('fps') || '60', 10);
+      const DURATION = parseFloat(params.get('duration') || '10');
+      const TOTAL_FRAMES = Math.round(FPS * DURATION);
+      const INITIAL_PIXEL_SIZE = parseInt(params.get('pixel') || '6', 10);
+      const IS_HEADLESS = params.get('render') === '1' || navigator.webdriver === true;
+
+      const canvas = document.getElementById('canvas');
+      canvas.width = WIDTH;
+      canvas.height = HEIGHT;
+
+      const ctx = canvas.getContext('2d', { alpha: false });
+      ctx.imageSmoothingEnabled = false;
+
+      const hud = document.getElementById('hud');
+      if (IS_HEADLESS) hud.classList.add('hidden');
+
+      // --- Deterministic Mulberry32 PRNG & 4D Simplex Noise ---
+      function mulberry32(seed) {
+        return function () {
+          let t = (seed += 0x6d2b79f5);
+          t = Math.imul(t ^ (t >>> 15), t | 1);
+          t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+      }
+
+      const rng = mulberry32(202611);
+      const perm = new Uint8Array(512);
+      const pBase = new Uint8Array(256);
+      for (let i = 0; i < 256; i++) pBase[i] = i;
+      for (let i = 255; i > 0; i--) {
+        const j = Math.floor(rng() * (i + 1));
+        const tmp = pBase[i];
+        pBase[i] = pBase[j];
+        pBase[j] = tmp;
+      }
+      for (let i = 0; i < 512; i++) perm[i] = pBase[i & 255];
+
+      const GRAD4 = [
+        [0,1,1,1],[0,1,1,-1],[0,1,-1,1],[0,1,-1,-1],
+        [0,-1,1,1],[0,-1,1,-1],[0,-1,-1,1],[0,-1,-1,-1],
+        [1,0,1,1],[1,0,1,-1],[1,0,-1,1],[1,0,-1,-1],
+        [-1,0,1,1],[-1,0,1,-1],[-1,0,-1,1],[-1,0,-1,-1],
+        [1,1,0,1],[1,1,0,-1],[1,-1,0,1],[1,-1,0,-1],
+        [-1,1,0,1],[-1,1,0,-1],[-1,-1,0,1],[-1,-1,0,-1],
+        [1,1,1,0],[1,1,-1,0],[1,-1,1,0],[1,-1,-1,0],
+        [-1,1,1,0],[-1,1,-1,0],[-1,-1,1,0],[-1,-1,-1,0]
+      ];
+
+      const F4 = (Math.sqrt(5.0) - 1.0) / 4.0;
+      const G4 = (5.0 - Math.sqrt(5.0)) / 20.0;
+
+      function noise4D(x, y, z, w) {
+        let n0, n1, n2, n3, n4;
+        const s = (x + y + z + w) * F4;
+        const i = Math.floor(x + s);
+        const j = Math.floor(y + s);
+        const k = Math.floor(z + s);
+        const l = Math.floor(w + s);
+        const t = (i + j + k + l) * G4;
+
+        const x0 = x - (i - t);
+        const y0 = y - (j - t);
+        const z0 = z - (k - t);
+        const w0 = w - (l - t);
+
+        let rankx = 0, ranky = 0, rankz = 0, rankw = 0;
+        if (x0 > y0) rankx++; else ranky++;
+        if (x0 > z0) rankx++; else rankz++;
+        if (x0 > w0) rankx++; else rankw++;
+        if (y0 > z0) ranky++; else rankz++;
+        if (y0 > w0) ranky++; else rankw++;
+        if (z0 > w0) rankz++; else rankw++;
+
+        const i1 = rankx >= 3 ? 1 : 0;
+        const j1 = ranky >= 3 ? 1 : 0;
+        const k1 = rankz >= 3 ? 1 : 0;
+        const l1 = rankw >= 3 ? 1 : 0;
+
+        const i2 = rankx >= 2 ? 1 : 0;
+        const j2 = ranky >= 2 ? 1 : 0;
+        const k2 = rankz >= 2 ? 1 : 0;
+        const l2 = rankw >= 2 ? 1 : 0;
+
+        const i3 = rankx >= 1 ? 1 : 0;
+        const j3 = ranky >= 1 ? 1 : 0;
+        const k3 = rankz >= 1 ? 1 : 0;
+        const l3 = rankw >= 1 ? 1 : 0;
+
+        const x1 = x0 - i1 + G4;
+        const y1 = y0 - j1 + G4;
+        const z1 = z0 - k1 + G4;
+        const w1 = w0 - l1 + G4;
+
+        const x2 = x0 - i2 + 2.0 * G4;
+        const y2 = y0 - j2 + 2.0 * G4;
+        const z2 = z0 - k2 + 2.0 * G4;
+        const w2 = w0 - l2 + 2.0 * G4;
+
+        const x3 = x0 - i3 + 3.0 * G4;
+        const y3 = y0 - j3 + 3.0 * G4;
+        const z3 = z0 - k3 + 3.0 * G4;
+        const w3 = w0 - l3 + 3.0 * G4;
+
+        const x4 = x0 - 1.0 + 4.0 * G4;
+        const y4 = y0 - 1.0 + 4.0 * G4;
+        const z4 = z0 - 1.0 + 4.0 * G4;
+        const w4 = w0 - 1.0 + 4.0 * G4;
+
+        const ii = i & 255;
+        const jj = j & 255;
+        const kk = k & 255;
+        const ll = l & 255;
+
+        let t0 = 0.6 - x0 * x0 - y0 * y0 - z0 * z0 - w0 * w0;
+        if (t0 < 0) n0 = 0.0;
+        else {
+          const g0 = GRAD4[perm[ii + perm[jj + perm[kk + perm[ll]]]] & 31];
+          t0 *= t0;
+          n0 = t0 * t0 * (g0[0] * x0 + g0[1] * y0 + g0[2] * z0 + g0[3] * w0);
+        }
+
+        let t1 = 0.6 - x1 * x1 - y1 * y1 - z1 * z1 - w1 * w1;
+        if (t1 < 0) n1 = 0.0;
+        else {
+          const g1 = GRAD4[perm[ii + i1 + perm[jj + j1 + perm[kk + k1 + perm[ll + l1]]]] & 31];
+          t1 *= t1;
+          n1 = t1 * t1 * (g1[0] * x1 + g1[1] * y1 + g1[2] * z1 + g1[3] * w1);
+        }
+
+        let t2 = 0.6 - x2 * x2 - y2 * y2 - z2 * z2 - w2 * w2;
+        if (t2 < 0) n2 = 0.0;
+        else {
+          const g2 = GRAD4[perm[ii + i2 + perm[jj + j2 + perm[kk + k2 + perm[ll + l2]]]] & 31];
+          t2 *= t2;
+          n2 = t2 * t2 * (g2[0] * x2 + g2[1] * y2 + g2[2] * z2 + g2[3] * w2);
+        }
+
+        let t3 = 0.6 - x3 * x3 - y3 * y3 - z3 * z3 - w3 * w3;
+        if (t3 < 0) n3 = 0.0;
+        else {
+          const g3 = GRAD4[perm[ii + i3 + perm[jj + j3 + perm[kk + k3 + perm[ll + l3]]]] & 31];
+          t3 *= t3;
+          n3 = t3 * t3 * (g3[0] * x3 + g3[1] * y3 + g3[2] * z3 + g3[3] * w3);
+        }
+
+        let t4 = 0.6 - x4 * x4 - y4 * y4 - z4 * z4 - w4 * w4;
+        if (t4 < 0) n4 = 0.0;
+        else {
+          const g4 = GRAD4[perm[ii + 1 + perm[jj + 1 + perm[kk + 1 + perm[ll + 1]]]] & 31];
+          t4 *= t4;
+          n4 = t4 * t4 * (g4[0] * x4 + g4[1] * y4 + g4[2] * z4 + g4[3] * w4);
+        }
+
+        return 27.0 * (n0 + n1 + n2 + n3 + n4);
+      }
+
+      // Bayer Matrix 8x8 Precomputed Thresholds (0.0 .. 1.0)
+      const BAYER_8X8 = new Float32Array(64);
+      const BAYER_RAW = [
+         0, 32,  8, 40,  2, 34, 10, 42,
+        48, 16, 56, 24, 50, 18, 58, 26,
+        12, 44,  4, 36, 14, 46,  6, 38,
+        60, 28, 52, 20, 62, 30, 54, 22,
+         3, 35, 11, 43,  1, 33,  9, 41,
+        51, 19, 59, 27, 49, 17, 57, 25,
+        15, 47,  7, 39, 13, 45,  5, 37,
+        63, 31, 55, 23, 61, 29, 53, 21
+      ];
+      for (let i = 0; i < 64; i++) {
+        BAYER_8X8[i] = (BAYER_RAW[i] + 0.5) / 64.0;
+      }
+
+      // Offscreen grid buffer
+      const offCanvas = document.createElement('canvas');
+      const offCtx = offCanvas.getContext('2d', { alpha: false });
+      let cols = 0;
+      let rows = 0;
+      let imgData = null;
+      let buf32 = null;
+
+      const state = {
+        frame: 0,
+        totalFrames: TOTAL_FRAMES,
+        fps: FPS,
+        width: WIDTH,
+        height: HEIGHT,
+        pixelSize: INITIAL_PIXEL_SIZE,
+        contrast: 1.45,
+        bias: -0.05,
+        playing: !IS_HEADLESS
+      };
+
+      function resizeGrid() {
+        cols = Math.ceil(state.width / state.pixelSize);
+        rows = Math.ceil(state.height / state.pixelSize);
+        offCanvas.width = cols;
+        offCanvas.height = rows;
+        imgData = offCtx.createImageData(cols, rows);
+        buf32 = new Uint32Array(imgData.data.buffer);
+      }
+
+      resizeGrid();
+
+      const TAU = Math.PI * 2;
+      const BLACK_32 = 0xff000000; // #000000
+      const WHITE_32 = 0xffffffff; // #FFFFFF
+
+      function fbmPeriodic(x, y, cz, cw) {
+        let sum = 0.0;
+        let amp = 0.55;
+        let freq = 1.0;
+        let px = x;
+        let py = y;
+
+        for (let i = 0; i < 3; i++) {
+          const tScale = 1.0 + i * 0.35;
+          sum += amp * noise4D(px * freq, py * freq, cz * tScale, cw * tScale);
+          // Rotasi ringan antar oktaf
+          const nx = 0.8 * px - 0.6 * py;
+          const ny = 0.6 * px + 0.8 * py;
+          px = nx;
+          py = ny;
+          freq *= 2.05;
+          amp *= 0.48;
+        }
+        return sum;
+      }
+
+      function renderFrame(frameIndex) {
+        const normalizedFrame = ((frameIndex % state.totalFrames) + state.totalFrames) % state.totalFrames;
+        state.frame = normalizedFrame;
+        const progress = normalizedFrame / state.totalFrames;
+        const angle = progress * TAU;
+
+        // Lingkaran 4D untuk seamless loop sempurna
+        const r1 = 0.52;
+        const cz1 = Math.cos(angle) * r1;
+        const cw1 = Math.sin(angle) * r1;
+
+        const r2 = 0.62;
+        const cz2 = Math.cos(angle + 1.5707963) * r2;
+        const cw2 = Math.sin(angle + 1.5707963) * r2;
+
+        const invRows = 1.65 / rows;
+        const halfCols = cols * 0.5;
+        const halfRows = rows * 0.5;
+
+        let ptr = 0;
+        for (let y = 0; y < rows; y++) {
+          const uy = (y - halfRows) * invRows;
+          const bayerRow = (y & 7) << 3;
+
+          for (let x = 0; x < cols; x++) {
+            const ux = (x - halfCols) * invRows;
+
+            // Domain Warping 2-lapis untuk efek lipatan sutra cair
+            const qx = fbmPeriodic(ux, uy, cz1, cw1);
+            const qy = fbmPeriodic(ux + 5.2, uy + 1.3, cz2, cw2);
+
+            const wx = ux + 1.85 * qx;
+            const wy = uy + 1.85 * qy;
+            const silk = fbmPeriodic(wx + 1.7, wy + 9.2, cz1, cw1);
+
+            // Sorotan lipatan kain sutra (ridge highlight)
+            let ridge = 1.0 - Math.abs(silk);
+            if (ridge < 0.0) ridge = 0.0;
+            ridge = ridge * ridge;
+
+            let lum = (silk * 0.5 + 0.5) * 0.45 + ridge * 0.55;
+            lum = (lum - 0.5) * state.contrast + 0.5 + state.bias;
+
+            const thresh = BAYER_8X8[bayerRow + (x & 7)];
+            buf32[ptr++] = lum > thresh ? WHITE_32 : BLACK_32;
+          }
+        }
+
+        offCtx.putImageData(imgData, 0, 0);
+
+        // Upscale tajam ke kanvas 4K
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(offCanvas, 0, 0, state.width, state.height);
+
+        if (!IS_HEADLESS) {
+          const pct = (progress * 100).toFixed(1);
+          const fStr = String(normalizedFrame).padStart(3, '0');
+          document.getElementById('statLabel').textContent = `${fStr} / ${state.totalFrames} (${pct}%)`;
+        }
+      }
+
+      // Kontrak deterministik untuk headless rendering
+      window.asset = {
+        width: state.width,
+        height: state.height,
+        fps: state.fps,
+        duration: DURATION,
+        totalFrames: state.totalFrames,
+        setFrame(f) {
+          state.playing = false;
+          renderFrame(Math.floor(f));
+        },
+        setProgress(p) {
+          state.playing = false;
+          renderFrame(Math.floor(p * state.totalFrames));
+        },
+        setConfig(cfg = {}) {
+          if (cfg.pixelSize && cfg.pixelSize !== state.pixelSize) {
+            state.pixelSize = cfg.pixelSize;
+            resizeGrid();
+          }
+          if (cfg.contrast !== undefined) state.contrast = cfg.contrast;
+          if (cfg.bias !== undefined) state.bias = cfg.bias;
+          renderFrame(state.frame);
+        }
+      };
+
+      // UI Preview Controls
+      const btnToggle = document.getElementById('btnToggle');
+      const btnSeam = document.getElementById('btnSeam');
+      const selPixel = document.getElementById('selPixel');
+      const btnSnap = document.getElementById('btnSnap');
+
+      selPixel.value = String(INITIAL_PIXEL_SIZE);
+
+      btnToggle.addEventListener('click', () => {
+        state.playing = !state.playing;
+        btnToggle.textContent = state.playing ? 'Pause' : 'Play';
+      });
+
+      btnSeam.addEventListener('click', () => {
+        state.frame = Math.max(0, state.totalFrames - 15);
+        state.playing = true;
+        btnToggle.textContent = 'Pause';
+      });
+
+      selPixel.addEventListener('change', (e) => {
+        state.pixelSize = parseInt(e.target.value, 10);
+        resizeGrid();
+        renderFrame(state.frame);
+      });
+
+      btnSnap.addEventListener('click', () => {
+        renderFrame(state.frame);
+        const link = document.createElement('a');
+        link.download = `liquid-silk-dither-4k-f${state.frame}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      });
+
+      renderFrame(0);
+
+      let lastTime = performance.now();
+      const frameInterval = 1000 / state.fps;
+
+      function tick(now) {
+        if (state.playing) {
+          const delta = now - lastTime;
+          if (delta >= frameInterval) {
+            lastTime = now - (delta % frameInterval);
+            renderFrame(state.frame + 1);
+          }
+        } else {
+          lastTime = now;
+        }
+        requestAnimationFrame(tick);
+      }
+
+      requestAnimationFrame(tick);
+    })();
+  </script>
+</body>
+</html>

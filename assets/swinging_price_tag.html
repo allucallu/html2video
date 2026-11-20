@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Neo-Brutalism Single Sticker 03: Swinging Price Tag (Green Screen) - 6s Loop</title>
+  <style>
+    :root {
+      --bg-base: #00FF00;
+      --ink: #111111;
+      --acid-lime: #A3E635;
+      --neon-yellow: #FDE047;
+      --hot-pink: #FB7185;
+      --cyber-cyan: #38BDF8;
+      --electric-purple: #C084FC;
+      --white: #FFFFFF;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-base);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    .canvas {
+      width: 100vw;
+      max-width: 1920px;
+      aspect-ratio: 16 / 9;
+      background-color: var(--bg-base);
+      overflow: hidden;
+    }
+
+    /* =====================================================
+       MASTER SEAMLESS LOOP (6 DETIK)
+       Semua siklus sinkron: 6s, 3s
+    ===================================================== */
+
+    /* 1. Ayunan Bandul Price Tag dari Poros Lubang Cincin (Siklus 3s = 2x per loop) */
+    .tag-pendulum {
+      animation: swingPendulum 3s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+    }
+    @keyframes swingPendulum {
+      0%, 100% { transform: rotate(-11deg); }
+      50% { transform: rotate(11deg); }
+    }
+
+    /* 2. Lencana Bintang di Dalam Tag Membal Saat Ayunan Mencapai Puncak (Siklus 3s) */
+    .tag-badge-pop {
+      animation: popInnerBadge 3s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    @keyframes popInnerBadge {
+      0%, 50%, 100% { transform: scale(1.1); }
+      25%, 75% { transform: scale(0.95); }
+    }
+
+    /* 3. Garis Gerak Komik Kiri & Kanan Muncul Bergantian di Puncak Ayunan (Siklus 3s) */
+    .motion-arc-left {
+      animation: flashArcLeft 3s ease-in-out infinite;
+    }
+    @keyframes flashArcLeft {
+      0%, 100% { transform: translateX(0px) scale(1); opacity: 1; }
+      35%, 75% { transform: translateX(14px) scale(0.75); opacity: 0; }
+    }
+
+    .motion-arc-right {
+      animation: flashArcRight 3s ease-in-out infinite;
+    }
+    @keyframes flashArcRight {
+      0%, 25%, 85%, 100% { transform: translateX(-14px) scale(0.75); opacity: 0; }
+      50% { transform: translateX(0px) scale(1); opacity: 1; }
+    }
+
+    /* 4. Bintang Kilau Sudut Berkedip Kontra-Ritme (Siklus 3s) */
+    .sparkle-left {
+      animation: sparkleL 3s ease-in-out infinite;
+    }
+    .sparkle-right {
+      animation: sparkleR 3s ease-in-out infinite;
+    }
+    @keyframes sparkleL {
+      0%, 100% { transform: scale(1) rotate(0deg); }
+      50% { transform: scale(0.45) rotate(45deg); }
+    }
+    @keyframes sparkleR {
+      0%, 100% { transform: scale(0.45) rotate(-45deg); }
+      50% { transform: scale(1) rotate(0deg); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="canvas">
+    <svg viewBox="0 0 1920 1080" width="100%" height="100%">
+      <!-- Latar Green Screen Murni -->
+      <rect width="1920" height="1080" fill="var(--bg-base)"/>
+
+      <!-- =====================================================
+           SINGLE HERO STICKER: SWINGING PRICE TAG
+      ====================================================== -->
+      <!-- Garis Gerak Komik Kiri -->
+      <g transform="translate(690, 560)">
+        <g class="motion-arc-left" fill="none" stroke="var(--ink)" stroke-width="9" stroke-linecap="round">
+          <path d="M 0 -75 Q -28 0 0 75"/>
+          <path d="M -28 -48 Q -48 0 -28 48"/>
+        </g>
+      </g>
+
+      <!-- Garis Gerak Komik Kanan -->
+      <g transform="translate(1230, 560)">
+        <g class="motion-arc-right" fill="none" stroke="var(--ink)" stroke-width="9" stroke-linecap="round">
+          <path d="M 0 -75 Q 28 0 0 75"/>
+          <path d="M 28 -48 Q 48 0 28 48"/>
+        </g>
+      </g>
+
+      <!-- Bintang Kilau Kiri Bawah (Hot Pink) -->
+      <g transform="translate(675, 760)">
+        <g class="sparkle-left">
+          <path d="M0 -42 C4 -11 11 -4 42 0 C11 4 4 11 0 42 C-4 11 -11 4 -42 0 C-11 -4 -4 -11 0 -42 Z" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="7" stroke-linejoin="round"/>
+        </g>
+      </g>
+
+      <!-- Bintang Kilau Kanan Atas (Cyber Cyan) -->
+      <g transform="translate(1245, 340)">
+        <g class="sparkle-right">
+          <path d="M0 -44 C4 -12 12 -4 44 0 C12 4 4 12 0 44 C-4 12 -12 4 -44 0 C-12 -4 -4 -12 0 -44 Z" fill="var(--cyber-cyan)" stroke="var(--ink)" stroke-width="7" stroke-linejoin="round"/>
+        </g>
+      </g>
+
+      <!-- Grup Poros Ayunan Utama di (960, 290) -->
+      <g transform="translate(960, 290)">
+        <!-- Tali Pengait Atas (Statis ke Pin) -->
+        <line x1="0" y1="-95" x2="0" y2="0" stroke="var(--ink)" stroke-width="12" stroke-linecap="round"/>
+
+        <!-- Badan Label Harga Berayun dari Poros (0,0) -->
+        <g class="tag-pendulum">
+          <!-- Hard Offset Shadow Hitam -->
+          <polygon points="-72,-32 104,-32 194,64 194,492 -162,492 -162,64" fill="var(--ink)"/>
+
+          <!-- Bodi Utama Tag Hijau Limau -->
+          <polygon points="-88,-48 88,-48 178,48 178,476 -178,476 -178,48" fill="var(--acid-lime)" stroke="var(--ink)" stroke-width="11" stroke-linejoin="round"/>
+
+          <!-- Cincin Penguat Lubang Tag (Kuning Neon) -->
+          <circle cx="0" cy="14" r="34" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="8"/>
+          <!-- Lubang Tengah Tembus Green Screen -->
+          <circle cx="0" cy="14" r="15" fill="var(--bg-base)" stroke="var(--ink)" stroke-width="7"/>
+
+          <!-- Kotak Layar Putih di Bagian Tengah Tag -->
+          <rect x="-132" y="84" width="264" height="250" rx="22" fill="var(--white)" stroke="var(--ink)" stroke-width="8"/>
+
+          <!-- Lencana Bintang Kuning Neon di Dalam Layar -->
+          <g transform="translate(0, 174)">
+            <g class="tag-badge-pop">
+              <polygon points="0,-54 15,-18 54,-18 23,6 34,44 0,21 -34,44 -23,6 -54,-18 -15,-18" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="6.5" stroke-linejoin="round"/>
+            </g>
+          </g>
+
+          <!-- Dua Bar Harga Geometris di Bawah Bintang -->
+          <rect x="-92" y="246" width="184" height="22" rx="11" fill="var(--ink)"/>
+          <rect x="-62" y="282" width="124" height="16" rx="8" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="4.5"/>
+
+          <!-- Strip Barcode Minimalis di Bagian Bawah Tag -->
+          <g transform="translate(-118, 366)" fill="var(--ink)">
+            <rect x="0" y="0" width="14" height="66" rx="5"/>
+            <rect x="24" y="0" width="26" height="66" rx="5"/>
+            <rect x="60" y="0" width="12" height="66" rx="5"/>
+            <rect x="82" y="0" width="32" height="66" rx="5"/>
+            <rect x="124" y="0" width="16" height="66" rx="5"/>
+            <rect x="150" y="0" width="24" height="66" rx="5"/>
+            <rect x="184" y="0" width="14" height="66" rx="5"/>
+            <rect x="208" y="0" width="28" height="66" rx="5"/>
+          </g>
+        </g>
+
+        <!-- Pin Bulat Pengunci Tali di Atas -->
+        <circle cx="0" cy="-95" r="22" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="8"/>
+        <circle cx="-5" cy="-100" r="6" fill="var(--white)"/>
+      </g>
+
+    </svg>
+  </div>
+
+</body>
+</html>

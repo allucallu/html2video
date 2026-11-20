@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smart Agriculture & IoT Farming - 6s Seamless Loop</title>
+  <style>
+    :root {
+      /* Putih Solid (#FFFFFF) - Ubah ke #000000 atau #00FF00 sesuai kebutuhan */
+      --bg-solid: #FFFFFF;
+      --navy: #0F172A;
+      --navy-mid: #1E293B;
+      --emerald: #10B981;
+      --emerald-dark: #059669;
+      --emerald-soft: #ECFDF5;
+      --emerald-border: #A7F3D0;
+      --lime: #84CC16;
+      --blue: #2563EB;
+      --blue-bright: #3B82F6;
+      --blue-soft: #EFF6FF;
+      --blue-border: #BFDBFE;
+      --cyan: #0EA5E9;
+      --cyan-soft: #E0F2FE;
+      --amber: #F59E0B;
+      --amber-bright: #FBBF24;
+      --amber-soft: #FEF3C7;
+      --soil-dark: #334155;
+      --soil-mid: #475569;
+      --slate: #94A3B8;
+      --slate-light: #E2E8F0;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-solid);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    .canvas {
+      width: 100vw;
+      max-width: 1920px;
+      aspect-ratio: 16 / 9;
+      background-color: var(--bg-solid);
+      overflow: hidden;
+    }
+
+    /* =====================================================
+       MASTER SEAMLESS LOOP (6 DETIK)
+       Semua siklus sinkron: 6s, 3s, 2s
+    ===================================================== */
+
+    /* 1. Kartu Samping Melayang Halus (6s) */
+    .float-left { animation: bobA 6s ease-in-out infinite; }
+    .float-right { animation: bobB 6s ease-in-out infinite; }
+
+    @keyframes bobA {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-12px); }
+    }
+    @keyframes bobB {
+      0%, 100% { transform: translateY(-12px); }
+      50% { transform: translateY(0px); }
+    }
+
+    /* 2. Aliran Garis Telemetri IoT (2s) */
+    .iot-trace {
+      stroke-dasharray: 12 14;
+      animation: moveTrace 2s linear infinite;
+    }
+    @keyframes moveTrace {
+      from { stroke-dashoffset: 52; }
+      to { stroke-dashoffset: 0; }
+    }
+
+    /* 3. Gelombang Sinyal Sensor IoT Kiri (Siklus 3s) */
+    .sensor-wave-1 { animation: wavePing 3s ease-out infinite 0s; }
+    .sensor-wave-2 { animation: wavePing 3s ease-out infinite 0.25s; }
+    @keyframes wavePing {
+      0%, 10% { opacity: 0.2; }
+      35% { opacity: 1; }
+      70%, 100% { opacity: 0.2; }
+    }
+
+    /* 4. Paket Data Sensor Mengalir ke Katup Irigasi (Siklus 3s) */
+    .sensor-packet {
+      animation: sendTelemetry 3s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+    }
+    @keyframes sendTelemetry {
+      0% {
+        transform: translate(0px, 0px) scale(0.4);
+        opacity: 0;
+      }
+      18% {
+        transform: translate(65px, -55px) scale(1);
+        opacity: 1;
+      }
+      42% {
+        transform: translate(235px, -135px) scale(1);
+        opacity: 1;
+      }
+      50%, 100% {
+        transform: translate(265px, -135px) scale(0.2);
+        opacity: 0;
+      }
+    }
+
+    /* 5. Tiga Tetesan Air Irigasi Jatuh Berurutan (Siklus 3s) */
+    .drop-1 { animation: waterDrop 3s ease-in infinite 0.25s; }
+    .drop-2 { animation: waterDrop 3s ease-in infinite 0.45s; }
+    .drop-3 { animation: waterDrop 3s ease-in infinite 0.65s; }
+
+    @keyframes waterDrop {
+      0%, 10% {
+        transform: translateY(0px) scale(0.3);
+        opacity: 0;
+      }
+      22% {
+        transform: translateY(25px) scale(1);
+        opacity: 1;
+      }
+      52% {
+        transform: translateY(155px) scale(0.95);
+        opacity: 1;
+      }
+      62%, 100% {
+        transform: translateY(175px) scale(0.2);
+        opacity: 0;
+      }
+    }
+
+    /* 6. Tunas Tanaman Tumbuh & Mekar (Titik Poros Pangkal Tanah 0,0 - Siklus 3s) */
+    .plant-growth {
+      animation: growPlant 3s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    @keyframes growPlant {
+      0%, 20% {
+        transform: scale(0.45);
+      }
+      55%, 86% {
+        transform: scale(1.06);
+      }
+      96%, 100% {
+        transform: scale(0.45);
+      }
+    }
+
+    /* Kelopak Bunga / Pucuk Mekar di Puncak Pertumbuhan (Siklus 3s) */
+    .bloom-crown {
+      animation: popBloom 3s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    @keyframes popBloom {
+      0%, 42%, 94%, 100% { transform: scale(0); }
+      56%, 86% { transform: scale(1); }
+    }
+
+    /* 7. Indikator Kelembapan Tanah di Bedeng Tengah (Siklus 3s) */
+    .soil-moisture-bar {
+      transform-origin: 0px 0px;
+      animation: fillMoisture 3s ease-in-out infinite;
+    }
+    @keyframes fillMoisture {
+      0%, 22%, 96%, 100% { transform: scaleX(0.28); fill: var(--amber); }
+      52%, 88% { transform: scaleX(1); fill: var(--cyan); }
+    }
+
+    /* 8. Bar Analitik Lahan & Centang Optimal di Kartu Kanan (Siklus 3s) */
+    .farm-bar-1 { animation: growFarmBar 3s ease-in-out infinite 0.50s; }
+    .farm-bar-2 { animation: growFarmBar 3s ease-in-out infinite 0.60s; }
+    .farm-bar-3 { animation: growFarmBar 3s ease-in-out infinite 0.70s; }
+    .farm-bar-4 { animation: growFarmBar 3s ease-in-out infinite 0.80s; }
+
+    @keyframes growFarmBar {
+      0%, 45%, 96%, 100% { transform: scaleY(0.45); }
+      64%, 88% { transform: scaleY(1); }
+    }
+
+    .optimal-badge-pop {
+      animation: popOptimal 3s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    @keyframes popOptimal {
+      0%, 54%, 94%, 100% { transform: scale(0.75); opacity: 0.45; }
+      66%, 88% { transform: scale(1.12); opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="canvas">
+    <svg viewBox="0 0 1920 1080" width="100%" height="100%">
+      <!-- =====================================================
+           DEKORASI LATAR BELAKANG EDITORIAL
+      ====================================================== -->
+      <circle cx="960" cy="540" r="435" fill="var(--emerald-soft)" opacity="0.6"/>
+      <circle cx="960" cy="540" r="435" fill="none" stroke="var(--emerald-border)" stroke-width="2" stroke-dasharray="10 14"/>
+      <circle cx="960" cy="540" r="315" fill="none" stroke="#D1FAE5" stroke-width="2"/>
+
+      <!-- =====================================================
+           JALUR KONEKSI TELEMETRI IOT (KIRI -> ATAS TENGAH -> KANAN)
+      ====================================================== -->
+      <!-- Jalur Sensor Kiri ke Katup Irigasi Atas -->
+      <path d="M485 450 L565 450 L645 315 L765 315" fill="none" stroke="var(--blue-border)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path class="iot-trace" d="M485 450 L565 450 L645 315 L765 315" fill="none" stroke="var(--cyan)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+
+      <!-- Jalur Bedeng Tanam Tengah ke Kartu Analitik Kanan -->
+      <path d="M1195 660 L1295 660 L1355 585 L1435 585" fill="none" stroke="var(--emerald-border)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path class="iot-trace" d="M1195 660 L1295 660 L1355 585 L1435 585" fill="none" stroke="var(--emerald)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+
+      <!-- =====================================================
+           1. MODUL SENSOR CUACA & TANAH IOT (SISI KIRI)
+      ====================================================== -->
+      <g transform="translate(215, 345)">
+        <g class="float-left">
+          <rect x="10" y="12" width="270" height="230" rx="26" fill="#E0F2FE"/>
+          <rect x="0" y="0" width="270" height="230" rx="26" fill="#FFFFFF" stroke="var(--navy)" stroke-width="4.5"/>
+
+          <!-- Ikon Node Sensor & Sinyal Nirkabel -->
+          <rect x="28" y="28" width="80" height="80" rx="20" fill="var(--amber-soft)"/>
+          <!-- Matahari Mikro & Gelombang IoT -->
+          <circle cx="62" cy="74" r="16" fill="var(--amber-bright)" stroke="var(--navy)" stroke-width="3"/>
+          <g fill="none" stroke="var(--cyan)" stroke-width="3.5" stroke-linecap="round">
+            <path class="sensor-wave-1" d="M74 52 A16 16 0 0 1 90 68"/>
+            <path class="sensor-wave-2" d="M78 42 A26 26 0 0 1 100 64"/>
+          </g>
+
+          <!-- Bar Info Sensor -->
+          <rect x="124" y="40" width="114" height="14" rx="7" fill="var(--navy)"/>
+          <rect x="124" y="64" width="76" height="10" rx="5" fill="var(--slate)"/>
+          <rect x="124" y="86" width="58" height="18" rx="9" fill="var(--cyan-soft)"/>
+
+          <line x1="28" y1="132" x2="242" y2="132" stroke="var(--slate-light)" stroke-width="3"/>
+
+          <!-- Indikator Status Koneksi Aktif -->
+          <rect x="28" y="156" width="214" height="42" rx="14" fill="var(--blue-soft)"/>
+          <circle cx="52" cy="177" r="8" fill="var(--cyan)"/>
+          <rect x="72" y="171" width="110" height="12" rx="6" fill="var(--navy)"/>
+        </g>
+      </g>
+
+      <!-- Paket Telemetri Bergerak dari Sensor ke Katup Irigasi -->
+      <g transform="translate(495, 450)">
+        <g class="sensor-packet">
+          <circle cx="0" cy="0" r="14" fill="var(--cyan)" stroke="#FFFFFF" stroke-width="3.5"/>
+        </g>
+      </g>
+
+      <!-- =====================================================
+           2. SMART IRRIGATION & PLANT GROWTH CORE (PUSAT)
+      ====================================================== -->
+      <g>
+        <!-- A. PIPA & KATUP SPRINKLER OTOMATIS (ATAS TENGAH) -->
+        <g transform="translate(765, 285)">
+          <!-- Pipa Utama -->
+          <rect x="0" y="18" width="390" height="24" rx="12" fill="var(--navy)"/>
+          <rect x="16" y="24" width="358" height="6" rx="3" fill="var(--cyan)" opacity="0.7"/>
+
+          <!-- Katup Kontrol Pusat (Valve Hub) -->
+          <rect x="155" y="0" width="80" height="60" rx="16" fill="var(--blue)" stroke="var(--navy)" stroke-width="4.5"/>
+          <circle cx="195" cy="30" r="12" fill="#FFFFFF"/>
+          <circle cx="195" cy="30" r="5" fill="var(--emerald)"/>
+
+          <!-- 3 Nozzle Penyiram Bawah -->
+          <rect x="92" y="42" width="22" height="18" rx="6" fill="var(--navy)"/>
+          <rect x="184" y="60" width="22" height="14" rx="6" fill="var(--navy)"/>
+          <rect x="276" y="42" width="22" height="18" rx="6" fill="var(--navy)"/>
+        </g>
+
+        <!-- B. 3 TETESAN AIR IRIGASI JATUH KE TANAMAN -->
+        <!-- Tetesan Kiri -->
+        <g transform="translate(868, 360)">
+          <g class="drop-1">
+            <path d="M0 -14 C8 -2 12 4 12 10 A12 12 0 1 1 -12 10 C-12 4 -8 -2 0 -14 Z" fill="var(--cyan)" stroke="var(--navy)" stroke-width="3"/>
+          </g>
+        </g>
+
+        <!-- Tetesan Tengah -->
+        <g transform="translate(960, 375)">
+          <g class="drop-2">
+            <path d="M0 -14 C8 -2 12 4 12 10 A12 12 0 1 1 -12 10 C-12 4 -8 -2 0 -14 Z" fill="var(--blue-bright)" stroke="var(--navy)" stroke-width="3"/>
+          </g>
+        </g>
+
+        <!-- Tetesan Kanan -->
+        <g transform="translate(1052, 360)">
+          <g class="drop-3">
+            <path d="M0 -14 C8 -2 12 4 12 10 A12 12 0 1 1 -12 10 C-12 4 -8 -2 0 -14 Z" fill="var(--cyan)" stroke="var(--navy)" stroke-width="3"/>
+          </g>
+        </g>
+
+        <!-- C. TUNAS TANAMAN TUMBUH & MEKAR (Titik Poros Pangkal Tanah 960, 680) -->
+        <g transform="translate(960, 680)">
+          <g class="plant-growth">
+            <!-- Batang Utama -->
+            <rect x="-7" y="-145" width="14" height="145" rx="7" fill="var(--emerald-dark)" stroke="var(--navy)" stroke-width="4"/>
+
+            <!-- Daun Kiri -->
+            <path d="M-5 -65 C-68 -65 -98 -105 -98 -135 C-58 -135 -18 -105 -5 -65 Z" fill="var(--emerald)" stroke="var(--navy)" stroke-width="4" stroke-linejoin="round"/>
+            <path d="M-12 -74 L-66 -112" stroke="#A7F3D0" stroke-width="3.5" stroke-linecap="round"/>
+
+            <!-- Daun Kanan -->
+            <path d="M5 -95 C68 -95 98 -135 98 -165 C58 -165 18 -135 5 -95 Z" fill="var(--lime)" stroke="var(--navy)" stroke-width="4" stroke-linejoin="round"/>
+            <path d="M12 -104 L66 -142" stroke="#ECFCCB" stroke-width="3.5" stroke-linecap="round"/>
+
+            <!-- Pucuk Mekar di Puncak Batang -->
+            <g transform="translate(0, -155)">
+              <g class="bloom-crown">
+                <circle cx="-18" cy="4" r="16" fill="var(--amber-bright)" stroke="var(--navy)" stroke-width="3.5"/>
+                <circle cx="18" cy="4" r="16" fill="var(--amber-bright)" stroke="var(--navy)" stroke-width="3.5"/>
+                <circle cx="0" cy="-12" r="18" fill="var(--amber)" stroke="var(--navy)" stroke-width="3.5"/>
+                <circle cx="0" cy="4" r="10" fill="#FFFFFF"/>
+              </g>
+            </g>
+          </g>
+        </g>
+
+        <!-- D. BEDENG TANAH & SENSOR KELEMBAPAN (BAWAH TENGAH - DIRAPIKAN) -->
+        <g transform="translate(725, 680)">
+          <!-- Bayangan Bedeng -->
+          <rect x="14" y="14" width="470" height="135" rx="28" fill="#D1FAE5"/>
+          <!-- Bodi Utama Bedeng Tanam -->
+          <rect x="0" y="0" width="470" height="135" rx="28" fill="var(--soil-dark)" stroke="var(--navy)" stroke-width="6"/>
+          <!-- Lapisan Tanah Atas -->
+          <path d="M6 26 C6 14 14 6 26 6 H444 C456 6 464 14 464 26 V36 H6 Z" fill="var(--soil-mid)"/>
+
+          <!-- Indikator Kelembapan Tanah Terintegrasi -->
+          <g transform="translate(42, 62)">
+            <!-- Ikon Tetes Air Mini -->
+            <circle cx="20" cy="20" r="20" fill="#0F172A"/>
+            <path d="M20 8 C26 16 29 20 29 24 A9 9 0 1 1 11 24 C11 20 14 16 20 8 Z" fill="var(--cyan)"/>
+
+            <!-- Track Progres Kelembapan -->
+            <rect x="56" y="8" width="330" height="24" rx="12" fill="#0F172A"/>
+            <!-- Grup Posisi Baru agar scaleX Selalu Mulai dari Tepi Kiri Jalur -->
+            <g transform="translate(62, 13)">
+              <rect class="soil-moisture-bar" x="0" y="0" width="318" height="14" rx="7" fill="var(--amber)"/>
+            </g>
+          </g>
+        </g>
+      </g>
+
+      <!-- =====================================================
+           3. KARTU ANALITIK KELEMBAPAN & HASIL PANEN (SISI KANAN)
+      ====================================================== -->
+      <g transform="translate(1435, 395)">
+        <g class="float-right">
+          <rect x="12" y="14" width="275" height="320" rx="28" fill="#DCFCE7"/>
+          <rect x="0" y="0" width="275" height="320" rx="28" fill="#FFFFFF" stroke="var(--navy)" stroke-width="5"/>
+
+          <!-- Header Status Optimal -->
+          <g transform="translate(62, 62)">
+            <circle cx="0" cy="0" r="30" fill="var(--emerald-soft)"/>
+            <g class="optimal-badge-pop">
+              <circle cx="0" cy="0" r="22" fill="var(--emerald)"/>
+              <path d="M-9 1 L-3 7 L10 -6" fill="none" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </g>
+          </g>
+
+          <rect x="108" y="44" width="132" height="15" rx="7.5" fill="var(--navy)"/>
+          <rect x="108" y="68" width="84" height="11" rx="5.5" fill="var(--slate)"/>
+
+          <line x1="30" y1="116" x2="245" y2="116" stroke="var(--slate-light)" stroke-width="3"/>
+
+          <!-- Grafik Batang Pertumbuhan Tanaman (4 Bar) -->
+          <g transform="translate(48, 240)">
+            <rect class="farm-bar-1" x="0" y="-62" width="30" height="62" rx="8" fill="#BAE6FD"/>
+          </g>
+          <g transform="translate(94, 240)">
+            <rect class="farm-bar-2" x="0" y="-80" width="30" height="80" rx="8" fill="#38BDF8"/>
+          </g>
+          <g transform="translate(140, 240)">
+            <rect class="farm-bar-3" x="0" y="-96" width="30" height="96" rx="8" fill="var(--emerald)"/>
+          </g>
+          <g transform="translate(186, 240)">
+            <rect class="farm-bar-4" x="0" y="-114" width="30" height="114" rx="8" fill="var(--emerald-dark)"/>
+          </g>
+
+          <line x1="34" y1="242" x2="241" y2="242" stroke="var(--navy)" stroke-width="4" stroke-linecap="round"/>
+
+          <!-- Pill Status Bawah -->
+          <rect x="34" y="266" width="207" height="28" rx="14" fill="var(--emerald-soft)"/>
+          <circle cx="56" cy="280" r="7" fill="var(--emerald)"/>
+          <rect x="74" y="275" width="110" height="10" rx="5" fill="var(--emerald-dark)"/>
+        </g>
+      </g>
+
+      <!-- Aksen Partikel Geometris Minimalis -->
+      <circle cx="560" cy="275" r="10" fill="var(--amber-bright)"/>
+      <circle cx="1315" cy="310" r="12" fill="var(--emerald)"/>
+      <rect x="575" y="735" width="18" height="18" rx="5" transform="rotate(20 575 735)" fill="var(--cyan)"/>
+    </svg>
+  </div>
+
+</body>
+</html>

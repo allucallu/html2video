@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       asset:
-        description: 'Target: "all" (semua), "hud" (5 HUD Viewfinder), "cta" (15 Social CTA), "tech" (10 Math/Science/AI), atau nama file spesifik (misal: cinema_camera_raw_viewfinder_overlay.html atau cta_follow_for_more_kinetic_pill.html)'
+        description: 'Target: "all" (semua 27 aset), "neo" (Neo-brutalism stickers/cards), "tech" (AI, Cyber, Tech), "fintech" (Fintech & Ecommerce), atau nama file spesifik (misal: spinning_coin_25d.html)'
         required: false
         default: 'all'
       duration:
-        description: 'Durasi video dalam detik (mis. 4, 8, atau 10; kosongkan untuk menggunakan durasi bawaan aset)'
+        description: 'Durasi video dalam detik (kosongkan untuk default bawaan aset: 6s / 10s)'
         required: false
         default: ''
       bg:
@@ -52,15 +52,15 @@ jobs:
           if [ -z "$ASSET_INPUT" ] || [ "$ASSET_INPUT" = "all" ]; then
             # Ambil seluruh file .html di folder assets/
             FILES=$(find assets -maxdepth 1 -name "*.html" -type f | sort)
-          elif [ "$ASSET_INPUT" = "hud" ]; then
-            # Khusus HUD overlay viewfinder
-            FILES=$(find assets -maxdepth 1 \( -name "*hud*" -o -name "*overlay*" -o -name "*viewfinder*" \) -type f | sort)
-          elif [ "$ASSET_INPUT" = "cta" ]; then
-            # Khusus CTA Social Media
-            FILES=$(find assets -maxdepth 1 -name "cta_*.html" -type f | sort)
-          elif [ "$ASSET_INPUT" = "tech" ] || [ "$ASSET_INPUT" = "science" ]; then
-            # Khusus Science, AI, & Math
-            FILES=$(find assets -maxdepth 1 \( -name "*neuron*" -o -name "*network*" -o -name "*transformer*" -o -name "*cymatics*" -o -name "*wave*" -o -name "*lattice*" -o -name "*spirograph*" -o -name "*lissajous*" -o -name "*mandala*" -o -name "*washi*" \) -type f | sort)
+          elif [ "$ASSET_INPUT" = "neo" ] || [ "$ASSET_INPUT" = "stickers" ]; then
+            # Khusus kelompok Neo-Brutalism (stickers, cards, popups)
+            FILES=$(find assets -maxdepth 1 \( -name "*spinning*" -o -name "*starburst*" -o -name "*swinging*" -o -name "*audio*" -o -name "*security*" -o -name "*loading*" -o -name "*retro_os*" -o -name "*creator*" \) -type f | sort)
+          elif [ "$ASSET_INPUT" = "tech" ] || [ "$ASSET_INPUT" = "ai" ] || [ "$ASSET_INPUT" = "cyber" ]; then
+            # Khusus Tech, AI, Cybersecurity, dan IoT
+            FILES=$(find assets -maxdepth 1 \( -name "*ai_*" -o -name "*cyber_*" -o -name "*data_*" -o -name "*energy*" -o -name "*agri*" -o -name "*solar*" -o -name "*health*" -o -name "*liquid_silk*" -o -name "*explainer*" \) -type f | sort)
+          elif [ "$ASSET_INPUT" = "fintech" ] || [ "$ASSET_INPUT" = "ecommerce" ]; then
+            # Khusus Fintech dan E-Commerce
+            FILES=$(find assets -maxdepth 1 \( -name "*fintech_*" -o -name "*ecommerce_*" -o -name "*checkout*" -o -name "*route*" \) -type f | sort)
           else
             # Single asset atau pola kustom
             if [ -f "$ASSET_INPUT" ]; then
@@ -181,6 +181,9 @@ jobs:
         run: |
           if [ -f "metadata/adobe_stock_metadata.csv" ]; then
             cp metadata/adobe_stock_metadata.csv all-rendered-videos/
+          fi
+          if [ -f "metadata/adobe_stock_metadata_with_notes.csv" ]; then
+            cp metadata/adobe_stock_metadata_with_notes.csv all-rendered-videos/
           fi
           echo "Daftar file dalam paket all-rendered-videos:"
           ls -la all-rendered-videos/
