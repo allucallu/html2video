@@ -37,7 +37,7 @@ const assetsData = [
       'cloud hosting', 'devops workflow', 'cloud analytics', 'system integration', 'server room',
       'modern technology', 'cloud platform', 'motion graphic', 'vector animation', '4k animation',
       'seamless loop', 'graphic resources', 'corporate tech', 'it solutions', 'business presentation',
-      'white background', 'broadcast design', 'explainer asset', 'clean modern'
+      'digital network', 'broadcast design', 'explainer asset', 'clean modern'
     ]
   },
   {
@@ -52,8 +52,8 @@ const assetsData = [
       'data processing', 'digital communication', 'information network', 'server node', 'ai model',
       'science technology', 'virtual network', 'smart system', 'cyber connectivity', 'quantum computing',
       'network topology', 'graph database', 'high tech', 'data cluster', 'computational intelligence',
-      'seamless loop', '4k loop', 'motion graphic', 'vector design', 'black background',
-      'dark mode', 'graphic resources', 'tech video', 'video overlay', 'screen blend',
+      'seamless loop', '4k loop', 'motion graphic', 'vector design', 'neural compute',
+      'digital connectivity', 'graphic resources', 'tech video', 'video overlay', 'screen blend',
       'presentation visual', 'editorial asset', 'modern interface', 'cyber space'
     ]
   },
@@ -102,8 +102,8 @@ const assetsData = [
       'cloud defense', 'it security', 'hacker defense', 'safe connection', 'cyber privacy',
       'network monitor', 'firewall filter', 'server protection', 'data safety', 'enterprise defense',
       'infosec', 'privacy protection', 'malware barrier', 'secure gateway', 'high tech defense',
-      'motion graphic', 'vector animation', '4k loop', 'seamless loop', 'black background',
-      'dark mode', 'graphic resources', 'video overlay', 'screen blend', 'cyber visual',
+      'motion graphic', 'vector animation', '4k loop', 'seamless loop', 'security protocol',
+      'cyber defense system', 'graphic resources', 'video overlay', 'screen blend', 'cyber visual',
       'tech background', 'presentation graphic', 'corporate security', 'broadcasting graphic', 'system firewall',
       'security scanner', 'binary stream', 'secure protocol', 'access control'
     ]
@@ -120,7 +120,7 @@ const assetsData = [
       'defense matrix', 'cyber guard', 'server shield', 'information protection', 'safe network',
       'firewall monitor', 'cloud safety', 'it operations', 'devsecops', 'network authentication',
       'digital fortress', 'security token', 'system defense', 'protocol gateway', 'secure routing',
-      'motion graphics', 'vector animation', '4k loop', 'seamless loop', 'white background',
+      'motion graphics', 'vector animation', '4k loop', 'seamless loop', 'cyber shield',
       'clean corporate', 'graphic resources', 'corporate video', 'explainer visual', 'tech presentation',
       'software security', 'enterprise software', 'datacenter security', 'modern interface'
     ]
@@ -137,7 +137,7 @@ const assetsData = [
       'success metric', 'startup growth', 'data reporting', 'quarterly results', 'sales performance',
       'market expansion', 'roi indicator', 'infographic chart', 'saas analytics', 'digital dashboard',
       'management metrics', 'executive report', 'business presentation', 'corporate motion', 'vector graphic',
-      '4k animation', 'seamless loop', 'graphic resources', 'white background', 'clean presentation',
+      '4k animation', 'seamless loop', 'graphic resources', 'market intelligence', 'clean presentation',
       'explainer asset', 'finance video', 'modern ui', 'corporate branding', 'commercial analysis',
       'statistical chart', 'progress report', 'strategy visual', 'business intelligence report'
     ]
@@ -155,7 +155,7 @@ const assetsData = [
       'shopping cart animation', 'checkout button', 'web shopping', 'digital consumer', 'commercial retail',
       'marketplace seller', 'shopping badge', 'checkout flow', 'secure transaction', 'payment badge',
       'motion graphic', 'vector design', '4k loop', 'seamless loop', 'graphic resources',
-      'white background', 'clean corporate', 'explainer animation', 'retail promo', 'social commerce',
+      'online shopping app', 'clean corporate', 'explainer animation', 'retail promo', 'social commerce',
       'e-commerce marketing', 'sales promotion', 'shopping interface', 'modern checkout'
     ]
   },
@@ -172,7 +172,7 @@ const assetsData = [
       'bargain deal', 'sale campaign', 'trendy sticker', 'bold graphic', 'pop art design',
       'retail banner', 'social media ad', 'ecommerce marketing', 'shopping event', 'discount label',
       'motion design', '4k animation', 'seamless loop', 'graphic resources', 'video overlay',
-      'youtube promo', 'reels sticker', 'vibrant graphic', 'cream background', 'modern sticker',
+      'youtube promo', 'reels sticker', 'vibrant graphic', 'special sale offer', 'modern sticker',
       'sales banner', 'countdown promo', 'retail discount', 'ad campaign'
     ]
   },
@@ -206,7 +206,7 @@ const assetsData = [
       'automated transaction', 'monetary flow', 'digital commerce', 'banking interface', 'financial services',
       'money exchange', 'e-wallet transfer', 'transaction network', 'financial security', 'online banking',
       'motion graphics', 'vector animation', '4k loop', 'seamless loop', 'graphic resources',
-      'white background', 'clean corporate', 'explainer asset', 'business video', 'finance presentation',
+      'mobile banking flow', 'clean corporate', 'explainer asset', 'business video', 'finance presentation',
       'fintech solution', 'smart wallet', 'banking innovation', 'digital economy'
     ]
   },
@@ -222,7 +222,7 @@ const assetsData = [
       'fintech solutions', 'payment verified', 'in store checkout', 'tap and go', 'digital money',
       'cashless shopping', 'scan to pay', 'payment confirmation', 'electronic pos', 'mobile banking app',
       'retail technology', 'modern payment', 'fast transaction', 'secure scan', 'contactless checkout',
-      'motion graphics', 'vector design', '4k animation', 'seamless loop', 'white background',
+      'motion graphics', 'vector design', '4k animation', 'seamless loop', 'contactless pos system',
       'graphic resources', 'clean presentation', 'explainer graphic', 'commercial retail', 'payment system',
       'financial interface', 'smart checkout', 'digital economy', 'pos system'
     ]
@@ -239,8 +239,8 @@ const assetsData = [
       'digital transaction', 'card reader', 'fintech technology', 'wireless payment', 'nfc terminal',
       'store checkout', 'financial terminal', 'smart card', 'debit card tap', 'retail payment',
       'contactless wave', 'banking terminal', 'secure nfc', 'modern pos', 'futuristic fintech',
-      'motion graphic', 'vector animation', '4k loop', 'seamless loop', 'black background',
-      'dark mode', 'graphic resources', 'video overlay', 'screen blend', 'cyber financial',
+      'motion graphic', 'vector animation', '4k loop', 'seamless loop', 'card payment',
+      'pos transaction', 'graphic resources', 'video overlay', 'screen blend', 'cyber financial',
       'commercial video', 'presentation graphic', 'business tech', 'banking system'
     ]
   },
@@ -257,7 +257,7 @@ const assetsData = [
       'warehouse supply', 'intermodal shipping', 'international trade', 'cargo vessel', 'tracking system',
       'supply chain management', 'transport route', 'global map', 'network nodes', 'courier service',
       'motion graphics', 'vector animation', '4k loop', 'seamless loop', 'graphic resources',
-      'white background', 'clean corporate', 'explainer video', 'business logistics', 'enterprise freight',
+      'global transport network', 'clean corporate', 'explainer video', 'business logistics', 'enterprise freight',
       'corporate presentation', 'commercial transport', 'smart logistics', 'supply route'
     ]
   },
@@ -274,7 +274,7 @@ const assetsData = [
       'sustainable future', 'power accumulation', 'cleantech battery', 'clean energy meter', 'alternative energy',
       'solar storage', 'green generation', 'sustainable development', 'energy efficiency', 'smart grid',
       'motion graphics', 'vector animation', '4k loop', 'seamless loop', 'graphic resources',
-      'white background', 'clean corporate', 'explainer graphic', 'sustainability video', 'esg report',
+      'sustainable technology', 'clean corporate', 'explainer graphic', 'sustainability video', 'esg report',
       'corporate ecology', 'climate solution', 'green ecosystem', 'renewable power cell'
     ]
   },
@@ -291,7 +291,7 @@ const assetsData = [
       'pulse waveform', 'digital diagnostics', 'medical dashboard', 'biometric health', 'e-health solution',
       'preventive healthcare', 'cardiology tech', 'connected health', 'wellness monitoring', 'healthcare software',
       'motion graphics', 'vector animation', '4k loop', 'seamless loop', 'graphic resources',
-      'white background', 'clean clinical', 'explainer video', 'medical presentation', 'corporate healthcare',
+      'telehealth service', 'clean clinical', 'explainer video', 'medical presentation', 'corporate healthcare',
       'pharmaceutical tech', 'smart hospital', 'vital signs monitor', 'modern healthcare'
     ]
   },
@@ -302,14 +302,14 @@ const assetsData = [
     keywords: [
       'liquid silk', 'dither wave', '1 bit dither', 'fluid topography', 'retro halftone',
       'pixelated fluid', 'dithered silk', 'bitmap aesthetic', 'generative wave', 'topographic flow',
-      'monochrome liquid', 'flowing fabric', 'retro pixel art', 'organic ripple', 'vintage digital',
+      'kinetic fluid', 'flowing fabric', 'retro pixel art', 'organic ripple', 'vintage digital',
       'silk simulation', 'dither pattern', 'contour line', 'topography map', 'procedural fluid',
       'cyberpunk texture', 'lo-fi aesthetic', 'halftone gradient', 'wave simulation', 'mesh fabric',
       'fluid dynamics', 'kinetic wave', 'abstract background', 'motion art', 'generative art',
       'creative coding', 'computational art', 'math art', 'retro visual', 'experimental motion',
-      'seamless loop', '4k loop', 'black background', 'graphic resources', 'video overlay',
+      'seamless loop', '4k loop', 'fluid simulation', 'graphic resources', 'video overlay',
       'screen blend', 'vj loop', 'concert backdrop', 'music video visual', 'dark aesthetic',
-      'modern monochrome', 'digital fabric', 'canvas animation', 'fluid loop'
+      'digital wave', 'digital fabric', 'canvas animation', 'fluid loop'
     ]
   },
   {
@@ -319,12 +319,12 @@ const assetsData = [
     keywords: [
       'liquid silk', 'halftone dither', 'dither mesh', 'fabric ripple', 'fluid wave',
       '1 bit art', 'generative silk', 'flowing topography', 'retro dither', 'pixel texture',
-      'monochrome wave', 'silk drape', 'organic fluid', 'procedural wave', 'kinetic ripple',
+      'fabric simulation', 'silk drape', 'organic fluid', 'procedural wave', 'kinetic ripple',
       'halftone screen', 'vintage computer art', 'digital cloth', 'topographic mesh', 'abstract surface',
       'curved topography', 'contour ripple', 'wave pattern', 'generative pattern', 'lo-fi motion',
       'retro shader', 'bitmapped liquid', 'creative animation', 'computational graphics', 'particle mesh',
-      'ambient visual', 'kinetic fabric', 'visual loop', 'screen background', 'stylish monochrome',
-      'seamless loop', '4k loop', 'black background', 'graphic resources', 'video overlay',
+      'ambient visual', 'kinetic fabric', 'visual loop', 'screen background', 'topographic ripple',
+      'seamless loop', '4k loop', 'generative mesh', 'graphic resources', 'video overlay',
       'screen blend', 'vj backdrop', 'music visual', 'artistic background', 'canvas graphic',
       'experimental loop', 'fluid motion', 'retro modern', 'dither surface'
     ]
@@ -358,8 +358,8 @@ const assetsData = [
       'retail logistics', 'order processing', 'shipping fulfillment', 'mobile store', 'shopping convenience',
       'digital consumer', 'app order', 'touch checkout', 'm-commerce', 'ecommerce platform',
       'mobile payment flow', 'shopping interface', 'courier dispatch', 'smart shopping', 'express delivery',
-      'motion graphics', 'vector animation', '4k loop', 'seamless loop', 'black background',
-      'dark mode', 'graphic resources', 'video overlay', 'screen blend', 'cyber commerce',
+      'motion graphics', 'vector animation', '4k loop', 'seamless loop', 'mobile order',
+      'touch payment', 'graphic resources', 'video overlay', 'screen blend', 'cyber commerce',
       'presentation visual', 'commercial video', 'mobile app visual', 'digital retail'
     ]
   },
@@ -376,7 +376,7 @@ const assetsData = [
       'lo-fi tech', 'system message', 'warning dialog', 'retro graphic', 'operating system window',
       'retro web', 'creative sticker', 'content creator asset', 'social media card', 'retro interface',
       'motion graphics', 'vector animation', '4k loop', 'seamless loop', 'graphic resources',
-      'video overlay', 'youtube sticker', 'reels overlay', 'cream background', 'nostalgic design',
+      'video overlay', 'youtube sticker', 'reels overlay', 'retro desktop interface', 'nostalgic design',
       'classic computing', 'vintage prompt', 'quirky graphic', 'editorial asset'
     ]
   },
@@ -410,7 +410,7 @@ const assetsData = [
       'smart agritech', 'iot sensor node', 'farm management', 'agricultural science', 'climate farming',
       'precision agriculture', 'satellite farming', 'soil telemetry', 'smart irrigation', 'agribusiness tech',
       'motion graphics', 'vector animation', '4k loop', 'seamless loop', 'graphic resources',
-      'white background', 'clean corporate', 'explainer visual', 'sustainability video', 'esg report',
+      'agricultural technology', 'clean corporate', 'explainer visual', 'sustainability video', 'esg report',
       'corporate agribusiness', 'environmental technology', 'rural innovation', 'farm ecosystem'
     ]
   },
@@ -426,8 +426,8 @@ const assetsData = [
       'zero emission power', 'eco power grid', 'solar cells', 'battery cluster', 'renewable hub',
       'smart power distribution', 'energy transition', 'esg cleantech', 'solar network', 'power accumulator',
       'future energy', 'clean infrastructure', 'carbon neutral grid', 'solar farm hub', 'green microgrid',
-      'motion graphics', 'vector animation', '4k loop', 'seamless loop', 'black background',
-      'dark mode', 'graphic resources', 'video overlay', 'screen blend', 'cyber clean tech',
+      'motion graphics', 'vector animation', '4k loop', 'seamless loop', 'solar technology',
+      'clean power grid', 'graphic resources', 'video overlay', 'screen blend', 'cyber clean tech',
       'presentation visual', 'energy explainer', 'renewable visual', 'modern energy'
     ]
   },
