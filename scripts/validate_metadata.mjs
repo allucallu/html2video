@@ -11,6 +11,7 @@ const header = lines[0];
 const expectedHeader = 'Filename,Title,Keywords,Category,Releases';
 
 const FORBIDDEN_WORDS = ['alpha', 'transparent', 'green screen', 'greenscreen', 'chromakey', 'chroma key', 'apple', 'google', 'android', 'iphone', 'windows', 'samsung'];
+const BG_COLOR_WORDS = ['black background', 'white background', 'cream background', 'dark background', 'green background', 'dark mode', 'monochrome'];
 
 let reportLines = [];
 reportLines.push('# Adobe Stock Metadata Validation Report\n');
@@ -30,7 +31,6 @@ if (header !== expectedHeader) {
   reportLines.push(`✅ **Header Check**: PASSED (\`${header}\`)\n`);
 }
 
-// Parse CSV Rows manually preserving quoted fields
 function parseCsvRow(line) {
   const result = [];
   let current = '';
@@ -90,6 +90,11 @@ for (let i = 1; i < lines.length; i++) {
   if (title.includes(',')) {
     rowIssues.push(`Title contains forbidden comma`);
   }
+  for (const bgWord of BG_COLOR_WORDS) {
+    if (title.toLowerCase().includes(bgWord)) {
+      rowIssues.push(`Title contains background color term "${bgWord}"`);
+    }
+  }
   if (seenTitles.has(title)) {
     rowIssues.push(`Duplicate title across rows: "${title}"`);
   }
@@ -116,6 +121,11 @@ for (let i = 1; i < lines.length; i++) {
         rowIssues.push(`Forbidden word "${fw}" found in keyword "${kw}"`);
       }
     }
+    for (const bgWord of BG_COLOR_WORDS) {
+      if (lower.includes(bgWord)) {
+        rowIssues.push(`Background color term "${bgWord}" found in keyword "${kw}"`);
+      }
+    }
   }
 
   if (kwDuplicates.length > 0) {
@@ -137,7 +147,7 @@ for (let i = 1; i < lines.length; i++) {
     issues.push(...rowIssues.map(msg => `[${filename}] ${msg}`));
     tableRows.push(`| ${i} | \`${filename}\` | ❌ FAILED | ${rowIssues.join('; ')} |`);
   } else {
-    tableRows.push(`| ${i} | \`${filename}\` | ✅ PASSED (${title.length} chars, 49 kw) | None |`);
+    tableRows.push(`| ${i} | \`${filename}\` | ✅ PASSED (${title.length} chars, 49 kw) | Clean |`);
   }
 }
 
@@ -150,11 +160,12 @@ reportLines.push('\n');
 reportLines.push('## Summary & Compliance Status\n');
 if (passed && issues.length === 0) {
   reportLines.push('> [!NOTE]');
-  reportLines.push('> **ALL 27 ASSETS PASSED 100% OF VALIDATION CHECKS!**');
-  reportLines.push('>- **Total Assets**: 27/27 valid');
+  reportLines.push('> **ALL 20 ASSETS PASSED 100% OF VALIDATION CHECKS!**');
+  reportLines.push('>- **Total Assets**: 20/20 valid');
   reportLines.push('>- **Title Lengths**: All $\\le 70$ characters without commas');
   reportLines.push('>- **Keyword Counts**: Exactly 49 unique keywords per row (Adobe Stock ceiling)');
   reportLines.push('>- **Forbidden Words**: 0 occurrences of `alpha`, `transparent`, `green screen`, or trademarks');
+  reportLines.push('>- **Background Color References**: 0 occurrences in titles and keywords (completely neutral)');
   reportLines.push('>- **Category**: All set to `8` (Graphic Resources)');
   reportLines.push('>- **Filenames**: All $\\le 30$ characters matching `assets/*.html`');
   reportLines.push('>- **Releases**: All empty cells as required');

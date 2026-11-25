@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       asset:
-        description: 'Target: "all" (semua 27 aset), "neo" (Neo-brutalism stickers/cards), "tech" (AI, Cyber, Tech), "fintech" (Fintech & Ecommerce), atau nama file spesifik (misal: spinning_coin_25d.html)'
+        description: 'Target: "all" (semua 20 aset), "celebration" (Party, New Year, Disco, Firework), "aspirations" (Goal, Rocket, Growth, Trophy), "science" (Cartography, Celestial, Epicycle, Orrery, Earth), atau nama file spesifik (misal: bullseye_goal_hit.html)'
         required: false
         default: 'all'
       duration:
-        description: 'Durasi video dalam detik (kosongkan untuk default bawaan aset: 6s / 10s)'
+        description: 'Durasi video dalam detik (kosongkan untuk default bawaan aset: 6s, 14s, 16s, 20s, 24s, 32s)'
         required: false
         default: ''
       bg:
@@ -52,15 +52,15 @@ jobs:
           if [ -z "$ASSET_INPUT" ] || [ "$ASSET_INPUT" = "all" ]; then
             # Ambil seluruh file .html di folder assets/
             FILES=$(find assets -maxdepth 1 -name "*.html" -type f | sort)
-          elif [ "$ASSET_INPUT" = "neo" ] || [ "$ASSET_INPUT" = "stickers" ]; then
-            # Khusus kelompok Neo-Brutalism (stickers, cards, popups)
-            FILES=$(find assets -maxdepth 1 \( -name "*spinning*" -o -name "*starburst*" -o -name "*swinging*" -o -name "*audio*" -o -name "*security*" -o -name "*loading*" -o -name "*retro_os*" -o -name "*creator*" \) -type f | sort)
-          elif [ "$ASSET_INPUT" = "tech" ] || [ "$ASSET_INPUT" = "ai" ] || [ "$ASSET_INPUT" = "cyber" ]; then
-            # Khusus Tech, AI, Cybersecurity, dan IoT
-            FILES=$(find assets -maxdepth 1 \( -name "*ai_*" -o -name "*cyber_*" -o -name "*data_*" -o -name "*energy*" -o -name "*agri*" -o -name "*solar*" -o -name "*health*" -o -name "*liquid_silk*" -o -name "*explainer*" \) -type f | sort)
-          elif [ "$ASSET_INPUT" = "fintech" ] || [ "$ASSET_INPUT" = "ecommerce" ]; then
-            # Khusus Fintech dan E-Commerce
-            FILES=$(find assets -maxdepth 1 \( -name "*fintech_*" -o -name "*ecommerce_*" -o -name "*checkout*" -o -name "*route*" \) -type f | sort)
+          elif [ "$ASSET_INPUT" = "celebration" ] || [ "$ASSET_INPUT" = "party" ]; then
+            # Khusus New Year & Celebration
+            FILES=$(find assets -maxdepth 1 \( -name "*disco*" -o -name "*popper*" -o -name "*carnival*" -o -name "*countdown*" -o -name "*celebration*" -o -name "*festival*" -o -name "*party*" -o -name "*firework*" -o -name "*retro_os*" \) -type f | sort)
+          elif [ "$ASSET_INPUT" = "aspirations" ] || [ "$ASSET_INPUT" = "growth" ] || [ "$ASSET_INPUT" = "success" ]; then
+            # Khusus Ambition & Goal Achievements
+            FILES=$(find assets -maxdepth 1 \( -name "*bullseye*" -o -name "*growth*" -o -name "*rocket*" -o -name "*stairway*" -o -name "*summit*" -o -name "*compass*" \) -type f | sort)
+          elif [ "$ASSET_INPUT" = "science" ] || [ "$ASSET_INPUT" = "geo" ] || [ "$ASSET_INPUT" = "astronomy" ]; then
+            # Khusus Swiss Editorial Astronomy & Cartography
+            FILES=$(find assets -maxdepth 1 \( -name "*cartography*" -o -name "*meridian*" -o -name "*epicycle*" -o -name "*equirectangular*" -o -name "*circle_arcs*" \) -type f | sort)
           else
             # Single asset atau pola kustom
             if [ -f "$ASSET_INPUT" ]; then

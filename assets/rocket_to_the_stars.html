@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Neo-Brutalism Aspirations 01: Rocket to the Stars (Green Screen) - 6s Loop</title>
+  <style>
+    :root {
+      /* Gunakan #00FF00 untuk Chroma Key agar outline & shadow hitam #111111 tetap utuh */
+      --bg-base: #00FF00;
+      --ink: #111111;
+      --neon-yellow: #FDE047;
+      --hot-pink: #FB7185;
+      --cyber-cyan: #38BDF8;
+      --acid-lime: #A3E635;
+      --electric-purple: #C084FC;
+      --white: #FFFFFF;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-base);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    .canvas {
+      width: 100vw;
+      max-width: 1920px;
+      aspect-ratio: 16 / 9;
+      background-color: var(--bg-base);
+      overflow: hidden;
+    }
+
+    /* =====================================================
+       MASTER SEAMLESS LOOP (6 DETIK)
+       Semua siklus sinkron: 6s, 3s, 1.5s
+    ===================================================== */
+
+    /* 1. Roket Meluncur Maju-Mundur Dinamis Menuju Bintang (Siklus 3s = 2x per loop) */
+    .rocket-thrust-move {
+      animation: rocketSurge 3s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    @keyframes rocketSurge {
+      0%, 100% {
+        transform: translate(0px, 0px) scale(1, 1);
+      }
+      22% {
+        /* Tarik ancang-ancang ringan */
+        transform: translate(-18px, 18px) scale(0.95, 1.04);
+      }
+      50% {
+        /* Meluncur mendekati bintang impian */
+        transform: translate(26px, -26px) scale(1.04, 0.96);
+      }
+      78% {
+        transform: translate(8px, -8px) scale(1, 1);
+      }
+    }
+
+    /* 2. Semburan Api Roket Berdenyut Cepat (Siklus 0.75s = 8x per loop) */
+    .flame-outer-pulse {
+      animation: pulseFlameOuter 0.75s ease-in-out infinite;
+    }
+    .flame-inner-pulse {
+      animation: pulseFlameInner 0.75s ease-in-out infinite;
+    }
+    @keyframes pulseFlameOuter {
+      0%, 100% { transform: scaleY(1) scaleX(1); }
+      50% { transform: scaleY(1.24) scaleX(0.9); }
+    }
+    @keyframes pulseFlameInner {
+      0%, 100% { transform: scaleY(0.85) scaleX(1); }
+      50% { transform: scaleY(1.28) scaleX(0.88); }
+    }
+
+    /* 3. Garis Kecepatan Komik Melesat ke Belakang (Siklus 1.5s = 4x per loop) */
+    .speed-line-1 {
+      animation: dashLine 1.5s ease-out infinite 0s;
+    }
+    .speed-line-2 {
+      animation: dashLine 1.5s ease-out infinite 0.375s;
+    }
+    @keyframes dashLine {
+      0% { transform: translateY(-20px) scaleY(0.4); opacity: 0; }
+      35% { opacity: 1; }
+      100% { transform: translateY(55px) scaleY(1.15); opacity: 0; }
+    }
+
+    /* 4. Bintang Tujuan Utama Berputar Patah-Patah & Membal (6s & 3s) */
+    .goal-star-bounce {
+      animation: starGoalBeat 3s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    @keyframes starGoalBeat {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.16); }
+    }
+
+    .goal-star-spin {
+      animation: stepStarRotate 6s steps(10, end) infinite;
+    }
+    @keyframes stepStarRotate {
+      to { transform: rotate(360deg); }
+    }
+
+    /* 5. Bintang Kilau Pendamping di Sekitar Jalur Terbang (Siklus 3s) */
+    .twinkle-a {
+      animation: starTwinkleA 3s ease-in-out infinite;
+    }
+    .twinkle-b {
+      animation: starTwinkleB 3s ease-in-out infinite;
+    }
+    @keyframes starTwinkleA {
+      0%, 100% { transform: scale(1) rotate(0deg); }
+      50% { transform: scale(0.4) rotate(45deg); }
+    }
+    @keyframes starTwinkleB {
+      0%, 100% { transform: scale(0.4) rotate(-45deg); }
+      50% { transform: scale(1) rotate(0deg); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="canvas">
+    <svg viewBox="0 0 1920 1080" width="100%" height="100%">
+      <!-- Latar Green Screen Murni -->
+      <rect width="1920" height="1080" fill="var(--bg-base)"/>
+
+      <!-- =====================================================
+           SINGLE HERO ITEM: ROCKET TO THE STARS (PUSAT)
+      ====================================================== -->
+      <!-- Bintang Kilau Kiri Atas -->
+      <g transform="translate(650, 315)">
+        <g class="twinkle-a">
+          <path d="M0 -40 C4 -10 10 -4 40 0 C10 4 4 10 0 40 C-4 10 -10 4 -40 0 C-10 -4 -4 -10 0 -40 Z" fill="var(--white)" stroke="var(--ink)" stroke-width="7" stroke-linejoin="round"/>
+        </g>
+      </g>
+
+      <!-- Bintang Kilau Kanan Bawah -->
+      <g transform="translate(1240, 760)">
+        <g class="twinkle-b">
+          <path d="M0 -42 C4 -11 11 -4 42 0 C11 4 4 11 0 42 C-4 11 -11 4 -42 0 C-11 -4 -4 -11 0 -42 Z" fill="var(--cyber-cyan)" stroke="var(--ink)" stroke-width="7" stroke-linejoin="round"/>
+        </g>
+      </g>
+
+      <!-- LENCANA BINTANG IMPIAN TUJUAN (KANAN ATAS) -->
+      <g transform="translate(1210, 315)">
+        <g class="goal-star-bounce">
+          <g class="goal-star-spin">
+            <!-- Hard Offset Shadow Bintang -->
+            <g transform="translate(14, 16)">
+              <polygon points="0,-118 32,-38 118,-38 48,14 74,96 0,46 -74,96 -48,14 -118,-38 -32,-38" fill="var(--ink)"/>
+            </g>
+            <!-- Bintang Utama Kuning Neon -->
+            <polygon points="0,-118 32,-38 118,-38 48,14 74,96 0,46 -74,96 -48,14 -118,-38 -32,-38" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="10" stroke-linejoin="round"/>
+            <!-- Lingkaran Inti Hot Pink -->
+            <circle cx="0" cy="4" r="32" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="7"/>
+            <circle cx="-8" cy="-4" r="8" fill="var(--white)"/>
+          </g>
+        </g>
+      </g>
+
+      <!-- KELOMPOK ROKET NEO-BRUTALIST (PUSAT TERARAH 42° KE BINTANG) -->
+      <g transform="translate(885, 615)">
+        <g class="rocket-thrust-move">
+          <!-- Rotasi 42 derajat mengarah ke bintang kanan atas -->
+          <g transform="rotate(42)">
+
+            <!-- 1. GARIS KECEPATAN KOMIK DI BELAKANG ROKET -->
+            <g stroke="var(--ink)" stroke-width="8" stroke-linecap="round">
+              <line class="speed-line-1" x1="-115" y1="145" x2="-115" y2="235"/>
+              <line class="speed-line-2" x1="115" y1="145" x2="115" y2="235"/>
+              <line class="speed-line-2" x1="-68" y1="220" x2="-68" y2="295"/>
+              <line class="speed-line-1" x1="68" y1="220" x2="68" y2="295"/>
+            </g>
+
+            <!-- 2. SEMBURAN API PENDORONG (POROS ATAS y=165) -->
+            <g transform="translate(0, 165)">
+              <!-- Lidah Api Luar (Hot Pink / Electric Purple) -->
+              <g class="flame-outer-pulse">
+                <path d="M-46 0 C-56 58 -28 115 0 155 C28 115 56 58 46 0 Z" fill="var(--electric-purple)" stroke="var(--ink)" stroke-width="9" stroke-linejoin="round"/>
+              </g>
+              <!-- Lidah Api Dalam (Acid Lime) -->
+              <g class="flame-inner-pulse">
+                <path d="M-26 0 C-32 38 -16 76 0 104 C16 76 32 38 26 0 Z" fill="var(--acid-lime)" stroke="var(--ink)" stroke-width="7" stroke-linejoin="round"/>
+              </g>
+            </g>
+
+            <!-- 3. HARD OFFSET SHADOW SELURUH BODI ROKET -->
+            <g transform="translate(18, 16)">
+              <!-- Shadow Sirip Kiri & Kanan -->
+              <path d="M-74 45 L-145 135 L-132 175 L-66 135 Z" fill="var(--ink)"/>
+              <path d="M74 45 L145 135 L132 175 L66 135 Z" fill="var(--ink)"/>
+              <!-- Shadow Nozel -->
+              <rect x="-48" y="135" width="96" height="34" rx="10" fill="var(--ink)"/>
+              <!-- Shadow Badan Utama -->
+              <path d="M0 -235 C68 -145 84 -35 76 138 H-76 C-84 -35 -68 -145 0 -235 Z" fill="var(--ink)"/>
+            </g>
+
+            <!-- 4. SAYAP / SIRIP ROKET KIRI & KANAN (HOT PINK) -->
+            <path d="M-74 45 L-145 135 L-132 175 L-66 135 Z" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="10" stroke-linejoin="round"/>
+            <path d="M74 45 L145 135 L132 175 L66 135 Z" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="10" stroke-linejoin="round"/>
+
+            <!-- 5. NOZEL MESIN BAWAH -->
+            <rect x="-48" y="135" width="96" height="34" rx="10" fill="var(--cyber-cyan)" stroke="var(--ink)" stroke-width="9"/>
+
+            <!-- 6. BADAN UTAMA ROKET (KUNING NEON) -->
+            <path d="M0 -235 C68 -145 84 -35 76 138 H-76 C-84 -35 -68 -145 0 -235 Z" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="10" stroke-linejoin="round"/>
+
+            <!-- Ujung Kerucut Hidung Roket (Hot Pink) -->
+            <path d="M0 -235 C34 -190 54 -142 66 -95 H-66 C-54 -142 -34 -190 0 -235 Z" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="9" stroke-linejoin="round"/>
+
+            <!-- Sirip Tengah Vertikal -->
+            <rect x="-11" y="55" width="22" height="105" rx="11" fill="var(--acid-lime)" stroke="var(--ink)" stroke-width="8"/>
+
+            <!-- 7. JENDELA BULAT KOKPIT (CYBER CYAN) -->
+            <circle cx="0" cy="-12" r="46" fill="var(--white)" stroke="var(--ink)" stroke-width="9"/>
+            <circle cx="0" cy="-12" r="30" fill="var(--cyber-cyan)" stroke="var(--ink)" stroke-width="7"/>
+            <!-- Aksen Kilau Kaca -->
+            <path d="M-16 -22 A18 18 0 0 1 -2 -30" fill="none" stroke="var(--white)" stroke-width="6" stroke-linecap="round"/>
+
+          </g>
+        </g>
+      </g>
+
+    </svg>
+  </div>
+
+</body>
+</html>

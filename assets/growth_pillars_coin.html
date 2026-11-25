@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Isometric 2.5D 01: Growth Pillars & Gold Coin (Refined) - 6s Loop</title>
+  <style>
+    :root {
+      --bg-base: #00FF00;
+      /* Platform Shades */
+      --plat-top: #F8FAFC;
+      --plat-left: #CBD5E1;
+      --plat-right: #94A3B8;
+      --plat-rim: #E2E8F0;
+
+      /* Pillar 1: Indigo */
+      --p1-top: #818CF8;
+      --p1-left: #6366F1;
+      --p1-right: #4338CA;
+
+      /* Pillar 2: Royal Blue */
+      --p2-top: #60A5FA;
+      --p2-left: #3B82F6;
+      --p2-right: #1D4ED8;
+
+      /* Pillar 3: Cyan */
+      --p3-top: #38BDF8;
+      --p3-left: #0EA5E9;
+      --p3-right: #0369A1;
+
+      /* Pillar 4: Emerald Teal */
+      --p4-top: #34D399;
+      --p4-left: #10B981;
+      --p4-right: #047857;
+
+      /* Gold Coin & 3D Arrow */
+      --gold-light: #FEF08A;
+      --gold-mid: #FACC15;
+      --gold-dark: #D97706;
+      --gold-deep: #B45309;
+      --coral-top: #FB7185;
+      --coral-side-a: #E11D48;
+      --coral-side-b: #BE123C;
+      --white: #FFFFFF;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-base);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    .canvas {
+      width: 100vw;
+      max-width: 1920px;
+      aspect-ratio: 16 / 9;
+      background-color: var(--bg-base);
+      overflow: hidden;
+    }
+
+    /* =====================================================
+       MASTER SEAMLESS LOOP (6 DETIK)
+       Semua siklus sinkron: 6s, 3s
+    ===================================================== */
+
+    /* 1. Seluruh Pulau Isometrik Melayang Halus (6s) */
+    .iso-island-float {
+      animation: floatIsland 6s ease-in-out infinite;
+    }
+    @keyframes floatIsland {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-14px); }
+    }
+
+    /* 2. Empat Pilar Grafik Tumbuh Bergelombang Tanpa Terpotong (Siklus 3s = 2x per loop) */
+    .pillar-anim-1 {
+      animation: risePillar1 3s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    @keyframes risePillar1 {
+      0%, 100% { transform: translateY(0px); }
+      18% { transform: translateY(-32px); }
+      45%, 82% { transform: translateY(-20px); }
+    }
+
+    .pillar-anim-2 {
+      animation: risePillar2 3s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    @keyframes risePillar2 {
+      0%, 8%, 100% { transform: translateY(0px); }
+      26% { transform: translateY(-40px); }
+      52%, 82% { transform: translateY(-26px); }
+    }
+
+    .pillar-anim-3 {
+      animation: risePillar3 3s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    @keyframes risePillar3 {
+      0%, 16%, 100% { transform: translateY(0px); }
+      34% { transform: translateY(-48px); }
+      60%, 82% { transform: translateY(-32px); }
+    }
+
+    .pillar-anim-4 {
+      animation: risePillar4 3s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    @keyframes risePillar4 {
+      0%, 24%, 100% { transform: translateY(0px); }
+      42% { transform: translateY(-56px); }
+      68%, 82% { transform: translateY(-38px); }
+    }
+
+    /* 3. Koin Emas 3D Melayang & Berputar Halus di Atas Pilar Tertinggi (Siklus 3s) */
+    .coin-levitate {
+      animation: hoverCoin 3s ease-in-out infinite;
+    }
+    @keyframes hoverCoin {
+      0%, 100% { transform: translateY(0px); }
+      45% { transform: translateY(-24px); }
+    }
+
+    .coin-spin-3d {
+      animation: spinCoin3D 3s ease-in-out infinite;
+    }
+    @keyframes spinCoin3D {
+      0%, 100% { transform: scaleX(1); }
+      50% { transform: scaleX(0.74); }
+    }
+
+    /* 4. Panah Tren 3D Meluncur Sejajar Sudut Isometrik (Siklus 3s) */
+    .trend-arrow-bob {
+      animation: bobArrow 3s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    @keyframes bobArrow {
+      0%, 20%, 100% { transform: translate(0px, 0px); }
+      50% { transform: translate(16px, -8px); }
+      78% { transform: translate(10px, -5px); }
+    }
+
+    .sparkle-twinkle-a {
+      animation: twinkleIsoA 3s ease-in-out infinite;
+    }
+    .sparkle-twinkle-b {
+      animation: twinkleIsoB 3s ease-in-out infinite;
+    }
+    @keyframes twinkleIsoA {
+      0%, 100% { transform: scale(1) rotate(0deg); opacity: 1; }
+      50% { transform: scale(0.35) rotate(45deg); opacity: 0.4; }
+    }
+    @keyframes twinkleIsoB {
+      0%, 100% { transform: scale(0.35) rotate(-45deg); opacity: 0.4; }
+      50% { transform: scale(1) rotate(0deg); opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="canvas">
+    <svg viewBox="0 0 1920 1080" width="100%" height="100%">
+      <defs>
+        <!-- ClipPath Atas Terbuka Luas (y=-800) agar Puncak Pilar Keempat Tidak Pernah Terpotong,
+             Sementara Bagian Bawah Tetap Terpotong Rapi Mengikuti Kontur Dasar Tiap Pilar -->
+        <clipPath id="p1Clip">
+          <polygon points="-168,-800 -84,-800 -84,180 -120,198 -168,174"/>
+        </clipPath>
+        <clipPath id="p2Clip">
+          <polygon points="-84,-800 0,-800 0,140 -36,158 -84,134"/>
+        </clipPath>
+        <clipPath id="p3Clip">
+          <polygon points="0,-800 84,-800 84,100 48,118 0,94"/>
+        </clipPath>
+        <clipPath id="p4Clip">
+          <polygon points="84,-800 168,-800 168,60 132,78 84,54"/>
+        </clipPath>
+
+        <!-- Gradien Kilau Koin Emas -->
+        <linearGradient id="goldFaceGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#FEF08A"/>
+          <stop offset="50%" stop-color="#FACC15"/>
+          <stop offset="100%" stop-color="#EAB308"/>
+        </linearGradient>
+      </defs>
+
+      <!-- Latar Green Screen Murni -->
+      <rect width="1920" height="1080" fill="var(--bg-base)"/>
+
+      <!-- =====================================================
+           SINGLE HERO ITEM: ISOMETRIC GROWTH PILLARS & GOLD COIN
+      ====================================================== -->
+      <g transform="translate(960, 565)">
+        <g class="iso-island-float">
+
+          <!-- 1. PLATFORM ALAS ISOMETRIK (2:1 PROJECTION) -->
+          <!-- Sisi Kiri Bawah Platform -->
+          <polygon points="-280,120 0,260 0,292 -280,152" fill="var(--plat-left)"/>
+          <!-- Sisi Kanan Bawah Platform -->
+          <polygon points="0,260 280,120 280,152 0,292" fill="var(--plat-right)"/>
+          <!-- Permukaan Atas Platform -->
+          <polygon points="0,-20 280,120 0,260 -280,120" fill="var(--plat-top)"/>
+          <!-- Panel Dalam Platform -->
+          <polygon points="0,4 244,126 0,248 -244,126" fill="var(--plat-rim)"/>
+
+          <!-- Garis Grid Tipis di Permukaan Platform -->
+          <g stroke="#CBD5E1" stroke-width="2" opacity="0.7">
+            <line x1="-140" y1="50" x2="140" y2="190"/>
+            <line x1="-70" y1="15" x2="210" y2="155"/>
+            <line x1="-210" y1="85" x2="70" y2="225"/>
+            <line x1="140" y1="50" x2="-140" y2="190"/>
+            <line x1="70" y1="15" x2="-210" y2="155"/>
+            <line x1="210" y1="85" x2="-70" y2="225"/>
+          </g>
+
+          <!-- Bayangan Jatuh Keempat Pilar di Atas Platform -->
+          <g fill="#94A3B8" opacity="0.42">
+            <polygon points="-120,198 -84,180 -64,190 -100,208"/>
+            <polygon points="-36,158 0,140 20,150 -16,168"/>
+            <polygon points="48,118 84,100 104,110 68,128"/>
+            <polygon points="132,78 168,60 188,70 152,88"/>
+          </g>
+
+          <!-- 2. EMPAT PILAR BALOK ISOMETRIK SEJAJAR & PRESISI -->
+          <!-- PILAR 1 (KIRI DEPAN - INDIGO, PUSAT DASAR x=-126, y=180) -->
+          <g clip-path="url(#p1Clip)">
+            <g class="pillar-anim-1">
+              <!-- Sisi Kiri -->
+              <polygon points="-162,102 -126,120 -126,260 -162,242" fill="var(--p1-left)"/>
+              <!-- Sisi Kanan -->
+              <polygon points="-126,120 -90,102 -90,242 -126,260" fill="var(--p1-right)"/>
+              <!-- Tutup Atas -->
+              <polygon points="-126,84 -90,102 -126,120 -162,102" fill="var(--p1-top)"/>
+            </g>
+          </g>
+
+          <!-- PILAR 2 (KIRI TENGAH - ROYAL BLUE, PUSAT DASAR x=-42, y=140) -->
+          <g clip-path="url(#p2Clip)">
+            <g class="pillar-anim-2">
+              <!-- Sisi Kiri -->
+              <polygon points="-78,24 -42,42 -42,220 -78,202" fill="var(--p2-left)"/>
+              <!-- Sisi Kanan -->
+              <polygon points="-42,42 -6,24 -6,202 -42,220" fill="var(--p2-right)"/>
+              <!-- Tutup Atas -->
+              <polygon points="-42,6 -6,24 -42,42 -78,24" fill="var(--p2-top)"/>
+            </g>
+          </g>
+
+          <!-- PILAR 3 (KANAN TENGAH - CYAN, PUSAT DASAR x=42, y=100) -->
+          <g clip-path="url(#p3Clip)">
+            <g class="pillar-anim-3">
+              <!-- Sisi Kiri -->
+              <polygon points="6,-54 42,-36 42,180 6,162" fill="var(--p3-left)"/>
+              <!-- Sisi Kanan -->
+              <polygon points="42,-36 78,-54 78,162 42,180" fill="var(--p3-right)"/>
+              <!-- Tutup Atas -->
+              <polygon points="42,-72 78,-54 42,-36 6,-54" fill="var(--p3-top)"/>
+            </g>
+          </g>
+
+          <!-- PILAR 4 (KANAN TERTINGGI - EMERALD TEAL, PUSAT DASAR x=126, y=60) -->
+          <g clip-path="url(#p4Clip)">
+            <g class="pillar-anim-4">
+              <!-- Sisi Kiri -->
+              <polygon points="90,-132 126,-114 126,140 90,122" fill="var(--p4-left)"/>
+              <!-- Sisi Kanan -->
+              <polygon points="126,-114 162,-132 162,122 126,140" fill="var(--p4-right)"/>
+              <!-- Tutup Atas (Utuh Tanpa Terpotong) -->
+              <polygon points="126,-150 162,-132 126,-114 90,-132" fill="var(--p4-top)"/>
+            </g>
+          </g>
+
+          <!-- 3. KOIN EMAS 3D MELAYANG DI ATAS PILAR TERTINGGI (x=126, y=-270) -->
+          <g transform="translate(126, -270)">
+            <g class="coin-levitate">
+              <g class="coin-spin-3d">
+                <!-- Ketebalan Samping Koin 3D -->
+                <ellipse cx="7" cy="4" rx="42" ry="50" fill="var(--gold-dark)"/>
+                <rect x="0" y="-46" width="7" height="100" fill="var(--gold-dark)"/>
+
+                <!-- Lingkar Luar Koin Depan -->
+                <ellipse cx="0" cy="0" rx="42" ry="50" fill="var(--gold-mid)"/>
+                <!-- Cincin Dalam Koin -->
+                <ellipse cx="0" cy="0" rx="32" ry="39" fill="url(#goldFaceGrad)" stroke="var(--gold-deep)" stroke-width="3.5"/>
+
+                <!-- Simbol Bintang Geometris di Tengah Koin -->
+                <polygon points="0,-19 5.5,-5.5 19,-5.5 8.5,2.5 12.5,16 0,8.5 -12.5,16 -8.5,2.5 -19,-5.5 -5.5,-5.5" fill="var(--white)"/>
+              </g>
+            </g>
+          </g>
+
+          <!-- 4. PANAH TREN 3D ISOMETRIK PRESISI (TRUE EXTRUDED 2.5D VECTOR) -->
+          <g transform="translate(-85, -125)">
+            <g class="trend-arrow-bob">
+              <!-- Dinding Ekstrusi Bawah Batang Panah (dy = +14px) -->
+              <polygon points="-76,30 -64,42 12,4 12,18 -64,56 -76,44" fill="var(--coral-side-a)"/>
+              <!-- Dinding Ekstrusi Bawah Kepala Panah (dy = +14px) -->
+              <polygon points="12,4 24,16 38,-30 38,-16 24,30 12,18" fill="var(--coral-side-b)"/>
+              <!-- Permukaan Utama Panah (Sejajar Kemiringan Isometrik 2:1) -->
+              <polygon points="-76,30 -4,-6 -16,-18 38,-30 24,16 12,4 -64,42" fill="var(--coral-top)"/>
+            </g>
+          </g>
+
+          <!-- 5. KILAU BINTANG & KUBUS MINI MELAYANG (SAFE ZONE) -->
+          <g transform="translate(220, -240)">
+            <g class="sparkle-twinkle-a">
+              <path d="M0 -24 C3 -6 6 -3 24 0 C6 3 3 6 0 24 C-3 6 -6 3 -24 0 C-6 -3 -3 -6 0 -24 Z" fill="var(--white)"/>
+            </g>
+          </g>
+
+          <g transform="translate(26, -330)">
+            <g class="sparkle-twinkle-b">
+              <path d="M0 -20 C2 -5 5 -2 20 0 C5 2 2 5 0 20 C-2 5 -5 2 -20 0 C-5 -2 -2 -5 0 -20 Z" fill="var(--gold-light)"/>
+            </g>
+          </g>
+
+          <!-- Kubus Data Mini Isometrik Melayang di Kanan -->
+          <g transform="translate(225, -65)">
+            <g class="coin-levitate">
+              <polygon points="0,-16 18,-7 0,2 -18,-7" fill="var(--p3-top)"/>
+              <polygon points="-18,-7 0,2 0,22 -18,13" fill="var(--p3-left)"/>
+              <polygon points="0,2 18,-7 18,13 0,22" fill="var(--p3-right)"/>
+            </g>
+          </g>
+
+        </g>
+      </g>
+
+    </svg>
+  </div>
+
+</body>
+</html>

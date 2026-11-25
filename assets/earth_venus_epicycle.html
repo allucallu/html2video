@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>4K Orbital Resonance 8:13 — Refined Swiss Editorial Orrery</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background-color: #000000;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    canvas {
+      width: 100vw;
+      height: 100vh;
+      object-fit: contain;
+      background-color: #000000;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas" width="3840" height="2160"></canvas>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d', { alpha: false });
+
+    // =========================================================================
+    // 1. KONFIGURASI 4K & PARAMETER RESONANSI 8:13 (RITME LAMBAT & HALUS)
+    // =========================================================================
+    const WIDTH = 3840;
+    const HEIGHT = 2160;
+    const CX = WIDTH / 2;   // 1920
+    const CY = HEIGHT / 2;  // 1080
+
+    const FPS = 60;
+    const DURATION_SEC = 32; // 2x lebih lambat & tenang: 32 detik = 1920 frame (Seamless)
+    const TOTAL_FRAMES = FPS * DURATION_SEC;
+
+    const TWO_PI = Math.PI * 2;
+    const DEG2RAD = Math.PI / 180;
+
+    // Rasio Resonansi Bilangan Bulat (8 Tahun Bumi = 13 Tahun Venus)
+    const EARTH_ORBITS = 8;
+    const VENUS_ORBITS = 13;
+    const CONJUNCTIONS = VENUS_ORBITS - EARTH_ORBITS; // 5 titik konjungsi simetris
+
+    // Skala Radius Orbit (Proporsi Satuan Astronomi Asli)
+    const R_EARTH = 700;              // 1.000 AU
+    const R_VENUS = R_EARTH * 0.7233; // 0.7233 AU (~506.3px)
+    const R_BEZEL_IN = 815;           // Cincin Bezel Dalam
+    const R_BEZEL_OUT = 865;          // Cincin Bezel Luar
+
+    // Konfigurasi Jejak Resonansi
+    const TRAIL_COUNT = 340;          // Kepadatan garis aktif untuk efek caustic halus
+    const TRAIL_SPAN = 0.48;          // Panjang ekor resonansi (48% siklus)
+    const GHOST_SAMPLES = 420;        // Wireframe arsitektural permanen di latar
+
+    // =========================================================================
+    // 2. MATEMATIKA ORBITAL DETERMINISTIK
+    // =========================================================================
+    function getEarthAngle(p) {
+      return -Math.PI / 2 + p * EARTH_ORBITS * TWO_PI;
+    }
+
+    function getVenusAngle(p) {
+      return -Math.PI / 2 + p * VENUS_ORBITS * TWO_PI;
+    }
+
+    function getPos(radius, angle) {
+      return {
+        x: CX + Math.cos(angle) * radius,
+        y: CY + Math.sin(angle) * radius
+      };
+    }
+
+    function getSeparationAU(p) {
+      const aE = getEarthAngle(p);
+      const aV = getVenusAngle(p);
+      const r1 = 1.0;
+      const r2 = 0.7233;
+      return Math.sqrt(r1 * r1 + r2 * r2 - 2 * r1 * r2 * Math.cos(aE - aV));
+    }
+
+    function radToEclipticDeg(rad) {
+      let deg = ((rad + Math.PI / 2) / DEG2RAD) % 360;
+      if (deg < 0) deg += 360;
+      return deg;
+    }
+
+    // =========================================================================
+    // 3. LAPISAN VISUAL
+    // =========================================================================
+
+    // Lapisan 1: Bezel Astrolab Ganda, Grid Polar AU & Marka Registrasi
+    function drawAstrolabeFrame() {
+      ctx.save();
+
+      // Cincin Referensi Skala AU (0.25 AU & 0.50 AU)
+      [0.25, 0.50].forEach((au) => {
+        const r = R_EARTH * au;
+        ctx.save();
+        ctx.setLineDash([3, 10]);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.arc(CX, CY, r, 0, TWO_PI);
+        ctx.stroke();
+        ctx.restore();
+
+        // Label Mikro AU di sumbu vertikal bawah
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.28)';
+        ctx.font = '500 16px "SF Mono", "JetBrains Mono", "Consolas", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText(`${au.toFixed(2)} AU`, CX, CY + r + 8);
+      });
+
+      // Cincin Batas Envelope Dalam (R_EARTH - R_VENUS = 0.277 AU)
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(CX, CY, R_EARTH - R_VENUS, 0, TWO_PI);
+      ctx.stroke();
+
+      // Garis Sektor Radial 12 Bagian (Setiap 30° Ekliptika)
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.045)';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      for (let deg = 0; deg < 360; deg += 30) {
+        const rad = (deg - 90) * DEG2RAD;
+        ctx.moveTo(CX + Math.cos(rad) * 84, CY + Math.sin(rad) * 84);
+        ctx.lineTo(CX + Math.cos(rad) * R_BEZEL_IN, CY + Math.sin(rad) * R_BEZEL_IN);
+      }
+      ctx.stroke();
+
+      // 5 Sumbu Simetri Konjungsi (Putus-putus Halus + Simpul Tepi)
+      ctx.save();
+      ctx.setLineDash([6, 14]);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.13)';
+      ctx.lineWidth = 1.5;
+      for (let k = 0; k < CONJUNCTIONS; k++) {
+        const angle = -Math.PI / 2 + (k / CONJUNCTIONS) * TWO_PI;
+        ctx.beginPath();
+        ctx.moveTo(CX + Math.cos(angle) * (R_EARTH - R_VENUS), CY + Math.sin(angle) * (R_EARTH - R_VENUS));
+        ctx.lineTo(CX + Math.cos(angle) * R_BEZEL_IN, CY + Math.sin(angle) * R_BEZEL_IN);
+        ctx.stroke();
+
+        // Penanda Berlian (Diamond Marker) pada 5 Simpul Konjungsi
+        const dx = CX + Math.cos(angle) * (R_BEZEL_IN - 16);
+        const dy = CY + Math.sin(angle) * (R_BEZEL_IN - 16);
+        ctx.save();
+        ctx.translate(dx, dy);
+        ctx.rotate(angle + Math.PI / 4);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+        ctx.fillRect(-4, -4, 8, 8);
+        ctx.restore();
+      }
+      ctx.restore();
+
+      // Cincin Bezel Ganda Luar (Precision Vernier Ring)
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.24)';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.arc(CX, CY, R_BEZEL_IN, 0, TWO_PI);
+      ctx.stroke();
+
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.10)';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.arc(CX, CY, R_BEZEL_OUT, 0, TWO_PI);
+      ctx.stroke();
+
+      // Skala Vernier 360° (Setiap 1°, 5°, 15°, 30°)
+      for (let deg = 0; deg < 360; deg += 1) {
+        const rad = (deg - 90) * DEG2RAD;
+        const isMajor = deg % 30 === 0;
+        const isMid = deg % 15 === 0;
+        const isFive = deg % 5 === 0;
+
+        const r0 = R_BEZEL_IN;
+        const r1 = isMajor ? R_BEZEL_IN + 30 : isMid ? R_BEZEL_IN + 20 : isFive ? R_BEZEL_IN + 12 : R_BEZEL_IN + 6;
+
+        ctx.beginPath();
+        ctx.moveTo(CX + Math.cos(rad) * r0, CY + Math.sin(rad) * r0);
+        ctx.lineTo(CX + Math.cos(rad) * r1, CY + Math.sin(rad) * r1);
+        ctx.strokeStyle = isMajor
+          ? 'rgba(255, 255, 255, 0.85)'
+          : isMid
+            ? 'rgba(255, 255, 255, 0.42)'
+            : isFive
+              ? 'rgba(255, 255, 255, 0.22)'
+              : 'rgba(255, 255, 255, 0.10)';
+        ctx.lineWidth = isMajor ? 2.2 : isMid ? 1.6 : 1.2;
+        ctx.stroke();
+
+        // Label Derajat Ekliptika Kelipatan 30°
+        if (isMajor) {
+          const rLbl = R_BEZEL_OUT + 30;
+          const lx = CX + Math.cos(rad) * rLbl;
+          const ly = CY + Math.sin(rad) * rLbl;
+
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+          ctx.font = '500 20px "SF Mono", "JetBrains Mono", "Consolas", monospace';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(`${String(deg).padStart(3, '0')}°`, lx, ly);
+        }
+      }
+
+      // Garis Penuntun Horizontal Kiri & Kanan (Editorial Crossbar)
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(CX - R_BEZEL_OUT - 220, CY);
+      ctx.lineTo(CX - R_BEZEL_OUT - 75, CY);
+      ctx.moveTo(CX + R_BEZEL_OUT + 75, CY);
+      ctx.lineTo(CX + R_BEZEL_OUT + 220, CY);
+      ctx.stroke();
+
+      // Marka Registrasi 4 Sudut Bingkai
+      const padX = 140;
+      const padY = 120;
+      const mark = 28;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+      ctx.lineWidth = 2;
+      [
+        [padX, padY, 1, 1],
+        [WIDTH - padX, padY, -1, 1],
+        [padX, HEIGHT - padY, 1, -1],
+        [WIDTH - padX, HEIGHT - padY, -1, -1]
+      ].forEach(([x, y, dx, dy]) => {
+        ctx.beginPath();
+        ctx.moveTo(x, y + dy * mark);
+        ctx.lineTo(x, y);
+        ctx.lineTo(x + dx * mark, y);
+        ctx.stroke();
+      });
+
+      ctx.restore();
+    }
+
+    // Lapisan 2: Blueprint Pola 5-Kelopak Permanen & Lintasan Orbit
+    function drawOrbitTracksAndBlueprint() {
+      ctx.save();
+
+      // Wireframe Halus Pola 5-Kelopak Penuh (Struktur Arsitektural Latar)
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.038)';
+      ctx.lineWidth = 1.3;
+      ctx.beginPath();
+      for (let i = 0; i < GHOST_SAMPLES; i++) {
+        const p = i / GHOST_SAMPLES;
+        const pE = getPos(R_EARTH, getEarthAngle(p));
+        const pV = getPos(R_VENUS, getVenusAngle(p));
+        ctx.moveTo(pE.x, pE.y);
+        ctx.lineTo(pV.x, pV.y);
+      }
+      ctx.stroke();
+
+      // Kurva Putus-putus Lintasan Titik Tengah (Midpoint Epitrochoid Locus)
+      ctx.save();
+      ctx.setLineDash([3, 9]);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.11)';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      for (let i = 0; i <= 360; i++) {
+        const p = i / 360;
+        const pE = getPos(R_EARTH, getEarthAngle(p));
+        const pV = getPos(R_VENUS, getVenusAngle(p));
+        const mx = (pE.x + pV.x) / 2;
+        const my = (pE.y + pV.y) / 2;
+        if (i === 0) ctx.moveTo(mx, my);
+        else ctx.lineTo(mx, my);
+      }
+      ctx.closePath();
+      ctx.stroke();
+      ctx.restore();
+
+      // Lintasan Orbit Bumi (1.000 AU) + 12 Ticks Bulanan Halus
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.36)';
+      ctx.lineWidth = 2.0;
+      ctx.beginPath();
+      ctx.arc(CX, CY, R_EARTH, 0, TWO_PI);
+      ctx.stroke();
+
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      for (let m = 0; m < 12; m++) {
+        const a = (m * 30 - 90) * DEG2RAD;
+        ctx.moveTo(CX + Math.cos(a) * (R_EARTH - 7), CY + Math.sin(a) * (R_EARTH - 7));
+        ctx.lineTo(CX + Math.cos(a) * (R_EARTH + 7), CY + Math.sin(a) * (R_EARTH + 7));
+      }
+      ctx.stroke();
+
+      // Lintasan Orbit Venus (0.723 AU)
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.arc(CX, CY, R_VENUS, 0, TWO_PI);
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    // Lapisan 3: Gelombang Resonansi Aktif dengan Efek Optik Caustic (Additive)
+    function drawResonanceChords(progress) {
+      ctx.save();
+      // Mode 'lighter' membuat persimpangan garis membentuk pendaran optik alami
+      ctx.globalCompositeOperation = 'lighter';
+
+      // 1. Jejak Garis Penghubung Meluruh Halus
+      for (let i = TRAIL_COUNT; i >= 1; i--) {
+        const norm = 1 - i / TRAIL_COUNT; // 0 = ekor, 1 = kepala
+        const sampleP = progress - (i / TRAIL_COUNT) * TRAIL_SPAN;
+
+        const pE = getPos(R_EARTH, getEarthAngle(sampleP));
+        const pV = getPos(R_VENUS, getVenusAngle(sampleP));
+
+        // Kurva pudar lembut agar penumpukan di kelopak dalam tidak over-exposed
+        const alpha = Math.pow(norm, 2.35) * 0.24;
+        if (alpha < 0.004) continue;
+
+        ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+        ctx.lineWidth = 1.3 + norm * 0.85;
+        ctx.beginPath();
+        ctx.moveTo(pE.x, pE.y);
+        ctx.lineTo(pV.x, pV.y);
+        ctx.stroke();
+      }
+
+      // 2. Jejak Cahaya Titik Tengah (Midpoint Ribbon)
+      const midTrailSteps = 90;
+      for (let i = midTrailSteps; i >= 1; i--) {
+        const norm = 1 - i / midTrailSteps;
+        const p0 = progress - (i / midTrailSteps) * 0.14;
+        const p1 = progress - ((i - 1) / midTrailSteps) * 0.14;
+
+        const e0 = getPos(R_EARTH, getEarthAngle(p0));
+        const v0 = getPos(R_VENUS, getVenusAngle(p0));
+        const e1 = getPos(R_EARTH, getEarthAngle(p1));
+        const v1 = getPos(R_VENUS, getVenusAngle(p1));
+
+        ctx.strokeStyle = `rgba(255, 255, 255, ${Math.pow(norm, 2) * 0.55})`;
+        ctx.lineWidth = 2.4 * norm;
+        ctx.beginPath();
+        ctx.moveTo((e0.x + v0.x) / 2, (e0.y + v0.y) / 2);
+        ctx.lineTo((e1.x + v1.x) / 2, (e1.y + v1.y) / 2);
+        ctx.stroke();
+      }
+
+      // 3. Ekor Orbit Planet (Orbital Comet Arcs)
+      drawOrbitalTail(R_EARTH, getEarthAngle(progress), 0.72, 3.6);
+      drawOrbitalTail(R_VENUS, getVenusAngle(progress), 0.95, 3.0);
+
+      // 4. Garis Penghubung Aktif Utama (Frame Saat Ini)
+      const curE = getPos(R_EARTH, getEarthAngle(progress));
+      const curV = getPos(R_VENUS, getVenusAngle(progress));
+
+      // Outer Bloom Tipis
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+      ctx.lineWidth = 11;
+      ctx.beginPath();
+      ctx.moveTo(curE.x, curE.y);
+      ctx.lineTo(curV.x, curV.y);
+      ctx.stroke();
+
+      // Inti Garis Aktif Tajam
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = 2.6;
+      ctx.beginPath();
+      ctx.moveTo(curE.x, curE.y);
+      ctx.lineTo(curV.x, curV.y);
+      ctx.stroke();
+
+      ctx.restore();
+
+      // Node Titik Tengah (Normal Composite agar pusatnya hitam pekat & bersih)
+      const midX = (curE.x + curV.x) / 2;
+      const midY = (curE.y + curV.y) / 2;
+      ctx.save();
+      ctx.fillStyle = '#000000';
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      ctx.arc(midX, midY, 6, 0, TWO_PI);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Utilitas Ekor Orbit Melengkung
+    function drawOrbitalTail(radius, headAngle, arcSpanRad, maxLineWidth) {
+      const segs = 36;
+      for (let i = 0; i < segs; i++) {
+        const t0 = i / segs;
+        const t1 = (i + 1) / segs;
+        const a0 = headAngle - arcSpanRad * (1 - t0);
+        const a1 = headAngle - arcSpanRad * (1 - t1);
+
+        const alpha = Math.pow(t1, 2.2) * 0.65;
+        ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+        ctx.lineWidth = maxLineWidth * (0.3 + 0.7 * t1);
+        ctx.beginPath();
+        ctx.arc(CX, CY, radius, a0, a1);
+        ctx.stroke();
+      }
+    }
+
+    // Lapisan 4: Efek Ping Presisi pada 5 Titik Konjungsi Inferior
+    function drawConjunctionPing(progress) {
+      const scaled = progress * CONJUNCTIONS;
+      const conjIndex = Math.floor(scaled) % CONJUNCTIONS;
+      const conjPhase = scaled - Math.floor(scaled);
+
+      if (conjPhase > 0.30) return;
+
+      const t = conjPhase / 0.30;
+      const fade = Math.pow(1 - t, 1.9);
+
+      const conjP = conjIndex / CONJUNCTIONS;
+      const angle = getEarthAngle(conjP);
+      const pE = getPos(R_EARTH, angle);
+      const pV = getPos(R_VENUS, angle);
+
+      ctx.save();
+
+      // Garis Penjajaran Konjungsi (Syzygy Vector)
+      ctx.strokeStyle = `rgba(255, 255, 255, ${0.48 * fade})`;
+      ctx.lineWidth = 2.0;
+      ctx.beginPath();
+      ctx.moveTo(CX, CY);
+      ctx.lineTo(CX + Math.cos(angle) * R_BEZEL_IN, CY + Math.sin(angle) * R_BEZEL_IN);
+      ctx.stroke();
+
+      // Cincin Ping Ganda di Posisi Konjungsi Venus & Bumi
+      [pV, pE].forEach((pt) => {
+        ctx.strokeStyle = `rgba(255, 255, 255, ${0.80 * fade})`;
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, 18 + t * 62, 0, TWO_PI);
+        ctx.stroke();
+
+        ctx.strokeStyle = `rgba(255, 255, 255, ${0.35 * fade})`;
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, 12 + t * 94, 0, TWO_PI);
+        ctx.stroke();
+      });
+
+      ctx.restore();
+    }
+
+    // Lapisan 5: Matahari Pusat (Sol) & Node Planet dengan Callout Presisi
+    function drawCelestialBodies(progress) {
+      const aE = getEarthAngle(progress);
+      const aV = getVenusAngle(progress);
+      const pE = getPos(R_EARTH, aE);
+      const pV = getPos(R_VENUS, aV);
+
+      ctx.save();
+
+      // --- A. MATAHARI PUSAT (SOL) ---
+      const sunGlow = ctx.createRadialGradient(CX, CY, 4, CX, CY, 110);
+      sunGlow.addColorStop(0, 'rgba(255, 255, 255, 0.36)');
+      sunGlow.addColorStop(0.35, 'rgba(255, 255, 255, 0.10)');
+      sunGlow.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      ctx.fillStyle = sunGlow;
+      ctx.beginPath();
+      ctx.arc(CX, CY, 110, 0, TWO_PI);
+      ctx.fill();
+
+      // Cincin Presisi Matahari
+      ctx.fillStyle = '#000000';
+      ctx.beginPath();
+      ctx.arc(CX, CY, 22, 0, TWO_PI);
+      ctx.fill();
+
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(CX, CY, 42, 0, TWO_PI);
+      ctx.stroke();
+
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.arc(CX, CY, 22, 0, TWO_PI);
+      ctx.stroke();
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.arc(CX, CY, 8.5, 0, TWO_PI);
+      ctx.fill();
+
+      // 16 Ticks Korona Bergantian (Panjang/Pendek)
+      ctx.beginPath();
+      for (let i = 0; i < 16; i++) {
+        const a = (i * Math.PI) / 8;
+        const isLong = i % 2 === 0;
+        const rStart = 28;
+        const rEnd = isLong ? 54 : 38;
+        ctx.moveTo(CX + Math.cos(a) * rStart, CY + Math.sin(a) * rStart);
+        ctx.lineTo(CX + Math.cos(a) * rEnd, CY + Math.sin(a) * rEnd);
+      }
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.65)';
+      ctx.lineWidth = 1.6;
+      ctx.stroke();
+
+      // --- B. GARIS VEKTOR RADIUS HELIOSENTRIS TIPIS ---
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.13)';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(CX, CY);
+      ctx.lineTo(pE.x, pE.y);
+      ctx.moveTo(CX, CY);
+      ctx.lineTo(pV.x, pV.y);
+      ctx.stroke();
+
+      // --- C. PLANET BUMI (EARTH - 1.000 AU) ---
+      drawPlanetNode(pE, aE, 18, 7.5, 'EARTH', '1.000 AU', 56);
+
+      // --- D. PLANET VENUS (0.723 AU) ---
+      drawPlanetNode(pV, aV, 14, 5.5, 'VENUS', '0.723 AU', 44);
+
+      ctx.restore();
+    }
+
+    // Utilitas Node Planet + Garis Callout Bersih
+    function drawPlanetNode(pt, angle, outerR, innerR, name, sub, calloutDist) {
+      // Halo Cahaya Lembut
+      const glow = ctx.createRadialGradient(pt.x, pt.y, innerR, pt.x, pt.y, outerR * 2.4);
+      glow.addColorStop(0, 'rgba(255, 255, 255, 0.45)');
+      glow.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, outerR * 2.4, 0, TWO_PI);
+      ctx.fill();
+
+      // Cincin Target Hitam-Putih
+      ctx.fillStyle = '#000000';
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, outerR, 0, TWO_PI);
+      ctx.fill();
+      ctx.stroke();
+
+      // Inti Planet Solid
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, innerR, 0, TWO_PI);
+      ctx.fill();
+
+      // Garis Penunjuk (Leader Line) & Label Tipografi Mikro
+      const isRight = Math.cos(angle) >= 0;
+      const ex = pt.x + Math.cos(angle) * calloutDist;
+      const ey = pt.y + Math.sin(angle) * calloutDist;
+      const endX = ex + (isRight ? 26 : -26);
+
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.50)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(pt.x + Math.cos(angle) * (outerR + 4), pt.y + Math.sin(angle) * (outerR + 4));
+      ctx.lineTo(ex, ey);
+      ctx.lineTo(endX, ey);
+      ctx.stroke();
+
+      ctx.textAlign = isRight ? 'left' : 'right';
+      ctx.textBaseline = 'middle';
+      const textX = endX + (isRight ? 10 : -10);
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '700 19px "SF Mono", "JetBrains Mono", "Consolas", monospace';
+      ctx.fillText(name, textX, ey - 9);
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+      ctx.font = '500 15px "SF Mono", "JetBrains Mono", "Consolas", monospace';
+      ctx.fillText(sub, textX, ey + 11);
+    }
+
+    // Lapisan 6: Telemetri 4 Sudut Swiss Editorial + Grafik Gelombang Jarak Mini
+    function drawTelemetryHUD(progress) {
+      const marginX = 185;
+      const topY = 175;
+      const bottomY = HEIGHT - 155;
+
+      const aE = getEarthAngle(progress);
+      const aV = getVenusAngle(progress);
+      const degE = radToEclipticDeg(aE).toFixed(1).padStart(5, '0');
+      const degV = radToEclipticDeg(aV).toFixed(1).padStart(5, '0');
+      const distAU = getSeparationAU(progress);
+
+      ctx.save();
+
+      // --- KIRI ATAS: Judul & Subjudul ---
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '700 36px "Helvetica Neue", "Inter", Arial, sans-serif';
+      ctx.fillText('ORBITAL RESONANCE // 8:13', marginX, topY);
+
+      ctx.fillStyle = '#777777';
+      ctx.font = '500 22px "SF Mono", "JetBrains Mono", "Consolas", monospace';
+      ctx.fillText('EARTH–VENUS SYNODIC EPICYCLE  •  J2000 ECLIPTIC', marginX, topY + 38);
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(marginX, topY + 56, 84, 3);
+
+      // --- KANAN ATAS: Telemetri Jarak & Grafik Osiloskop Mini (5 Siklus) ---
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#777777';
+      ctx.font = '500 20px "SF Mono", "JetBrains Mono", "Consolas", monospace';
+      ctx.fillText('INTERPLANETARY SEPARATION', WIDTH - marginX, topY - 8);
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '700 36px "SF Mono", "JetBrains Mono", "Consolas", monospace';
+      ctx.fillText(`${distAU.toFixed(3)} AU`, WIDTH - marginX, topY + 34);
+
+      ctx.fillStyle = '#888888';
+      ctx.font = '500 19px "SF Mono", "JetBrains Mono", "Consolas", monospace';
+      ctx.fillText(`EARTH λ ${degE}°   |   VENUS λ ${degV}°`, WIDTH - marginX, topY + 68);
+
+      // Grafik Osiloskop Jarak Mini (Lebar 380px x Tinggi 68px)
+      const gW = 380;
+      const gH = 68;
+      const gX = WIDTH - marginX - gW;
+      const gY = topY + 94;
+
+      // Bingkai & Garis Dasar Grafik
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
+      ctx.lineWidth = 1.4;
+      ctx.strokeRect(gX, gY, gW, gH);
+
+      // Garis Tengah 1.0 AU
+      const midY = gY + gH * 0.5;
+      ctx.save();
+      ctx.setLineDash([4, 6]);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
+      ctx.beginPath();
+      ctx.moveTo(gX, midY);
+      ctx.lineTo(gX + gW, midY);
+      ctx.stroke();
+      ctx.restore();
+
+      // Plot Kurva Jarak (0.277 AU -> 1.723 AU)
+      const minAU = 0.20;
+      const maxAU = 1.80;
+      ctx.beginPath();
+      for (let i = 0; i <= 180; i++) {
+        const sp = i / 180;
+        const d = getSeparationAU(sp);
+        const px = gX + sp * gW;
+        const py = gY + gH - ((d - minAU) / (maxAU - minAU)) * gH;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.50)';
+      ctx.lineWidth = 1.8;
+      ctx.stroke();
+
+      // Playhead Vertikal & Titik Aktif pada Grafik
+      const curGX = gX + progress * gW;
+      const curGY = gY + gH - ((distAU - minAU) / (maxAU - minAU)) * gH;
+
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(curGX, gY);
+      ctx.lineTo(curGX, gY + gH);
+      ctx.stroke();
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.arc(curGX, curGY, 4.5, 0, TWO_PI);
+      ctx.fill();
+
+      // --- KIRI BAWAH: Parameter Mekanika Langit ---
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '600 22px "SF Mono", "JetBrains Mono", "Consolas", monospace';
+      ctx.fillText('HARMONIC RATIO: 8 EARTH / 13 VENUS ORBITS', marginX, bottomY - 28);
+
+      ctx.fillStyle = '#777777';
+      ctx.font = '500 20px "SF Mono", "JetBrains Mono", "Consolas", monospace';
+      ctx.fillText('SYMMETRY: 5-FOLD CONJUNCTION PENTAGRAM  •  CYCLE: 2,922 DAYS', marginX, bottomY + 8);
+
+      // --- KANAN BAWAH: Fase Siklus & Progress Bar ---
+      const synodicYear = (progress * EARTH_ORBITS).toFixed(2);
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '600 26px "SF Mono", "JetBrains Mono", "Consolas", monospace';
+      ctx.fillText(`EPOCH +${synodicYear} YR / 8.00 YR`, WIDTH - marginX, bottomY - 22);
+
+      const barW = 420;
+      const barH = 6;
+      const barX = WIDTH - marginX - barW;
+      const barY = bottomY - 2;
+
+      ctx.fillStyle = '#222222';
+      ctx.fillRect(barX, barY, barW, barH);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(barX, barY, barW * progress, barH);
+
+      ctx.restore();
+    }
+
+    // =========================================================================
+    // 4. FUNGSI RENDER DETERMINISTIK & LOOP
+    // =========================================================================
+    function render(progress) {
+      // Latar Belakang Hitam Murni (#000000 - Luma Safe)
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+      drawAstrolabeFrame();
+      drawOrbitTracksAndBlueprint();
+      drawResonanceChords(progress);
+      drawConjunctionPing(progress);
+      drawCelestialBodies(progress);
+      drawTelemetryHUD(progress);
+    }
+
+    window.assetReady = true;
+
+    // Hook Global untuk Render Frame-by-Frame (Playwright / FFmpeg / Remotion)
+    window.renderFrame = function (frameIndex, totalFrames = TOTAL_FRAMES) {
+      const progress = (frameIndex % totalFrames) / totalFrames;
+      render(progress);
+    };
+
+    // Preview Real-Time 60 FPS di Browser
+    let startTime = null;
+    function animate(timestamp) {
+      if (!startTime) startTime = timestamp;
+      const elapsedSec = (timestamp - startTime) / 1000;
+      const progress = (elapsedSec % DURATION_SEC) / DURATION_SEC;
+
+      render(progress);
+      requestAnimationFrame(animate);
+    }
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>

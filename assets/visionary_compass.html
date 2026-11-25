@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Visionary Compass (Green Screen) - 6s Loop</title>
+  <style>
+    :root {
+      --bg-base: #00FF00;
+      --ink: #111111;
+      --electric-purple: #C084FC;
+      --neon-yellow: #FDE047;
+      --hot-pink: #FB7185;
+      --cyber-cyan: #38BDF8;
+      --acid-lime: #A3E635;
+      --white: #FFFFFF;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-base);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    .canvas {
+      width: 100vw;
+      max-width: 1920px;
+      aspect-ratio: 16 / 9;
+      background-color: var(--bg-base);
+      overflow: hidden;
+    }
+
+    /* =====================================================
+       MASTER SEAMLESS LOOP (6 DETIK)
+       Semua siklus sinkron: 6s, 3s
+    ===================================================== */
+
+    /* 1. Bodi Kompas Melayang & Membal Halus Saat Arah Terkunci (Siklus 3s = 2x per loop) */
+    .compass-body-float {
+      animation: compassFloat 3s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    @keyframes compassFloat {
+      0%, 100% { transform: translateY(0px) rotate(-2deg) scale(1); }
+      38% { transform: translateY(-10px) rotate(0deg) scale(1); }
+      44% { transform: translateY(-18px) rotate(1.5deg) scale(1.04); }
+      54%, 84% { transform: translateY(-12px) rotate(0deg) scale(1); }
+    }
+
+    /* 2. Jarum Kompas Berayun Mencari Arah Lalu Mengunci ke Bintang Tujuan (Siklus 3s) */
+    .needle-seek-lock {
+      animation: seekAndLock 3s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    @keyframes seekAndLock {
+      0%, 100% { transform: rotate(-42deg); }
+      14% { transform: rotate(46deg); }
+      26% { transform: rotate(-20deg); }
+      36% { transform: rotate(8deg); }
+      43%, 84% { transform: rotate(0deg); }
+    }
+
+    /* 3. Bintang Penunjuk Utara di Puncak Dial Membal Saat Terkunci (Siklus 3s) */
+    .north-star-pop {
+      animation: popNorthStar 3s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    @keyframes popNorthStar {
+      0%, 38%, 90%, 100% { transform: scale(1) rotate(0deg); }
+      45%, 82% { transform: scale(1.32) rotate(18deg); }
+    }
+
+    /* 4. Percikan Garis Komik di Puncak Kompas Saat Arah Terkunci (Siklus 3s) */
+    .lock-burst-lines {
+      animation: burstCompassTop 3s ease-out infinite;
+    }
+    @keyframes burstCompassTop {
+      0%, 39% { transform: scale(0.3); opacity: 0; }
+      47% { transform: scale(1.05); opacity: 1; }
+      74%, 100% { transform: scale(1.38); opacity: 0; }
+    }
+
+    /* 5. Cincin Gelombang Sinyal Mengembang Saat Terkunci (Siklus 3s) */
+    .signal-ring-pulse {
+      animation: expandSignal 3s ease-out infinite;
+    }
+    @keyframes expandSignal {
+      0%, 40% { transform: scale(0.95); opacity: 0; }
+      46% { opacity: 0.9; }
+      82%, 100% { transform: scale(1.24); opacity: 0; }
+    }
+
+    /* 6. Bintang Kilau Sudut Berkedip Kontra-Ritme (Siklus 3s) */
+    .sparkle-bl {
+      animation: twinkleA 3s ease-in-out infinite;
+    }
+    .sparkle-tr {
+      animation: twinkleB 3s ease-in-out infinite;
+    }
+    @keyframes twinkleA {
+      0%, 100% { transform: scale(1) rotate(0deg); }
+      50% { transform: scale(0.45) rotate(45deg); }
+    }
+    @keyframes twinkleB {
+      0%, 100% { transform: scale(0.45) rotate(-45deg); }
+      50% { transform: scale(1) rotate(0deg); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="canvas">
+    <svg viewBox="0 0 1920 1080" width="100%" height="100%">
+      <!-- Latar Green Screen Murni -->
+      <rect width="1920" height="1080" fill="var(--bg-base)"/>
+
+      <!-- =====================================================
+           SINGLE HERO ITEM: VISIONARY COMPASS (PUSAT)
+      ====================================================== -->
+      <!-- Bintang Kilau Sudut Kiri Bawah -->
+      <g transform="translate(635, 770)">
+        <g class="sparkle-bl">
+          <path d="M0 -42 C4 -11 11 -4 42 0 C11 4 4 11 0 42 C-4 11 -11 4 -42 0 C-11 -4 -4 -11 0 -42 Z" fill="var(--white)" stroke="var(--ink)" stroke-width="7" stroke-linejoin="round"/>
+        </g>
+      </g>
+
+      <!-- Bintang Kilau Sudut Kanan Atas -->
+      <g transform="translate(1285, 295)">
+        <g class="sparkle-tr">
+          <path d="M0 -44 C4 -12 12 -4 44 0 C12 4 4 12 0 44 C-4 12 -12 4 -44 0 C-12 -4 -4 -12 0 -44 Z" fill="var(--acid-lime)" stroke="var(--ink)" stroke-width="7" stroke-linejoin="round"/>
+        </g>
+      </g>
+
+      <!-- PUSAT KOMPAS NEO-BRUTALIST -->
+      <g transform="translate(960, 565)">
+
+        <!-- Cincin Gelombang Sinyal Mengembang di Belakang Kompas -->
+        <circle class="signal-ring-pulse" cx="0" cy="0" r="245" fill="none" stroke="var(--white)" stroke-width="9"/>
+
+        <!-- Bodi Kompas Melayang -->
+        <g class="compass-body-float">
+          <!-- Percikan Garis Komik di Sekitar Puncak Kompas -->
+          <g transform="translate(0, -255)">
+            <g class="lock-burst-lines" stroke="var(--ink)" stroke-width="8" stroke-linecap="round">
+              <line x1="-85" y1="-25" x2="-125" y2="-55"/>
+              <line x1="85" y1="-25" x2="125" y2="-55"/>
+              <line x1="-115" y1="35" x2="-160" y2="20"/>
+              <line x1="115" y1="35" x2="160" y2="20"/>
+            </g>
+          </g>
+
+          <!-- Cincin Gantungan Atas Kompas (Kuning Neon) -->
+          <g transform="translate(0, -258)">
+            <circle cx="8" cy="10" r="34" fill="none" stroke="var(--ink)" stroke-width="22"/>
+            <circle cx="0" cy="0" r="34" fill="none" stroke="var(--ink)" stroke-width="24"/>
+            <circle cx="0" cy="0" r="34" fill="none" stroke="var(--neon-yellow)" stroke-width="10"/>
+            <!-- Pangkal Pengait -->
+            <rect x="-22" y="14" width="44" height="28" rx="8" fill="var(--acid-lime)" stroke="var(--ink)" stroke-width="8"/>
+          </g>
+
+          <!-- Hard Offset Shadow Bodi Utama Kompas -->
+          <circle cx="18" cy="20" r="235" fill="var(--ink)"/>
+
+          <!-- Bingkai Luar Kompas (Electric Purple) -->
+          <circle cx="0" cy="0" r="235" fill="var(--electric-purple)" stroke="var(--ink)" stroke-width="11"/>
+
+          <!-- Muka Dial Kompas (Putih Bersih) -->
+          <circle cx="0" cy="0" r="186" fill="var(--white)" stroke="var(--ink)" stroke-width="9"/>
+
+          <!-- Cincin Panduan Tipis di Dalam Dial -->
+          <circle cx="0" cy="0" r="142" fill="none" stroke="var(--ink)" stroke-width="4" stroke-dasharray="10 12" opacity="0.28"/>
+
+          <!-- Penanda Mata Angin Geometris (Tanpa Huruf) -->
+          <!-- Timur (Kanan) -->
+          <rect x="134" y="-9" width="32" height="18" rx="9" fill="var(--ink)"/>
+          <!-- Selatan (Bawah) -->
+          <rect x="-9" y="134" width="18" height="32" rx="9" fill="var(--ink)"/>
+          <!-- Barat (Kiri) -->
+          <rect x="-166" y="-9" width="32" height="18" rx="9" fill="var(--ink)"/>
+
+          <!-- Empat Titik Sudut Diagonal -->
+          <g fill="var(--ink)" opacity="0.45">
+            <circle cx="102" cy="-102" r="8"/>
+            <circle cx="102" cy="102" r="8"/>
+            <circle cx="-102" cy="102" r="8"/>
+            <circle cx="-102" cy="-102" r="8"/>
+          </g>
+
+          <!-- Lencana Bintang Tujuan Utama di Puncak Utara (0, -142) -->
+          <g transform="translate(0, -142)">
+            <g class="north-star-pop">
+              <polygon points="0,-32 9,-10 32,-10 13,4 20,26 0,12 -20,26 -13,4 -32,-10 -9,-10" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="5.5" stroke-linejoin="round"/>
+            </g>
+          </g>
+
+          <!-- JARUM KOMPAS DUA WARNA (MENCARI & MENGUNCI ARAH) -->
+          <g class="needle-seek-lock">
+            <!-- Hard Shadow Jarum -->
+            <g transform="translate(8, 10)">
+              <polygon points="0,-138 26,0 0,138 -26,0" fill="var(--ink)"/>
+            </g>
+
+            <!-- Ujung Jarum Utara (Hot Pink) -->
+            <polygon points="0,-138 26,0 -26,0" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="8" stroke-linejoin="round"/>
+
+            <!-- Ujung Jarum Selatan (Cyber Cyan) -->
+            <polygon points="0,138 26,0 -26,0" fill="var(--cyber-cyan)" stroke="var(--ink)" stroke-width="8" stroke-linejoin="round"/>
+
+            <!-- Poros Tengah Jarum (Kuning Neon & Putih) -->
+            <circle cx="0" cy="0" r="26" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="8"/>
+            <circle cx="0" cy="0" r="10" fill="var(--white)" stroke="var(--ink)" stroke-width="5"/>
+          </g>
+        </g>
+      </g>
+
+    </svg>
+  </div>
+
+</body>
+</html>

@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Neo-Brutalism Full Scene V2: Disco & Party Toast - 6s Seamless Loop</title>
+  <style>
+    :root {
+      --bg-lavender: #EFE6FF;
+      --ink: #111111;
+      --stage-dark: #18122B;
+      --neon-yellow: #FDE047;
+      --hot-pink: #FB7185;
+      --cyber-cyan: #38BDF8;
+      --acid-lime: #A3E635;
+      --electric-purple: #C084FC;
+      --white: #FFFFFF;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--ink);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    .canvas {
+      width: 100vw;
+      max-width: 1920px;
+      aspect-ratio: 16 / 9;
+      background-color: var(--bg-lavender);
+      overflow: hidden;
+    }
+
+    /* =====================================================
+       MASTER SEAMLESS LOOP (6 DETIK)
+       Semua durasi sinkron: 6s, 3s, 1.5s
+    ===================================================== */
+
+    /* 1. Checkerboard Border Berjalan Kontinu (3s) */
+    .checker-slide-right { animation: moveCheckerR 3s linear infinite; }
+    .checker-slide-left { animation: moveCheckerL 3s linear infinite; }
+    @keyframes moveCheckerR {
+      from { transform: translateX(-112px); }
+      to { transform: translateX(0px); }
+    }
+    @keyframes moveCheckerL {
+      from { transform: translateX(0px); }
+      to { transform: translateX(-112px); }
+    }
+
+    /* 2. Jendela Utama Mengambang Halus (6s) */
+    .stage-win-bob {
+      animation: stageFloat 6s ease-in-out infinite;
+    }
+    @keyframes stageFloat {
+      0%, 100% { transform: translate(0px, 0px); }
+      50% { transform: translate(0px, -8px); }
+    }
+
+    /* 3. Bola Disko Berayun & Berkilau (6s & 1.5s) */
+    .disco-sway {
+      animation: swayDisco 6s ease-in-out infinite;
+    }
+    @keyframes swayDisco {
+      0%, 100% { transform: rotate(-4deg); }
+      50% { transform: rotate(4deg); }
+    }
+
+    .disco-beam-left {
+      animation: beamSweepL 3s ease-in-out infinite;
+    }
+    .disco-beam-right {
+      animation: beamSweepR 3s ease-in-out infinite;
+    }
+    @keyframes beamSweepL {
+      0%, 100% { transform: rotate(-12deg); opacity: 0.25; }
+      50% { transform: rotate(10deg); opacity: 0.45; }
+    }
+    @keyframes beamSweepR {
+      0%, 100% { transform: rotate(12deg); opacity: 0.45; }
+      50% { transform: rotate(-10deg); opacity: 0.25; }
+    }
+
+    .glint-pulse-1 { animation: glintBeat 1.5s ease-in-out infinite 0s; }
+    .glint-pulse-2 { animation: glintBeat 1.5s ease-in-out infinite 0.5s; }
+    .glint-pulse-3 { animation: glintBeat 1.5s ease-in-out infinite 1s; }
+    @keyframes glintBeat {
+      0%, 100% { transform: scale(0.5) rotate(0deg); opacity: 0.4; }
+      50% { transform: scale(1.2) rotate(45deg); opacity: 1; }
+    }
+
+    /* 4. Kartu Toast Gelas Bersulang di Kiri Atas (Siklus 3s) */
+    .glass-left-clink {
+      animation: clinkL 3s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    @keyframes clinkL {
+      0%, 100% { transform: translate(0px, 0px) rotate(-8deg); }
+      22% { transform: translate(-12px, 4px) rotate(-18deg); }
+      36% { transform: translate(14px, -6px) rotate(12deg); }
+      48%, 85% { transform: translate(4px, -2px) rotate(4deg); }
+    }
+
+    .glass-right-clink {
+      animation: clinkR 3s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    @keyframes clinkR {
+      0%, 100% { transform: translate(0px, 0px) rotate(8deg); }
+      22% { transform: translate(12px, 4px) rotate(18deg); }
+      36% { transform: translate(-14px, -6px) rotate(-12deg); }
+      48%, 85% { transform: translate(-4px, -2px) rotate(-4deg); }
+    }
+
+    .clink-sparks {
+      animation: popClinkSpark 3s ease-out infinite;
+    }
+    @keyframes popClinkSpark {
+      0%, 32% { transform: scale(0.2); opacity: 0; }
+      39% { transform: scale(1.1); opacity: 1; }
+      62%, 100% { transform: scale(1.4); opacity: 0; }
+    }
+
+    /* 5. Tiket VIP Golden Pass Kiri Bawah Mengayun (6s) */
+    .ticket-wobble {
+      animation: wobbleTicket 6s ease-in-out infinite;
+    }
+    @keyframes wobbleTicket {
+      0%, 100% { transform: rotate(-6deg) translateY(0px); }
+      50% { transform: rotate(-2deg) translateY(-12px); }
+    }
+
+    /* 6. Modul Booster & Roket Kanan Atas (Siklus 3s) */
+    .booster-fill {
+      transform-origin: 0px 0px;
+      animation: fillBoost 3s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+    }
+    @keyframes fillBoost {
+      0%, 10% { transform: scaleX(0.15); fill: var(--cyber-cyan); }
+      38%, 85% { transform: scaleX(1); fill: var(--acid-lime); }
+      95%, 100% { transform: scaleX(0.15); fill: var(--cyber-cyan); }
+    }
+
+    .mini-rocket-launch {
+      animation: launchRocket 3s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    @keyframes launchRocket {
+      0%, 34% { transform: translateY(0px) scale(1); }
+      44% { transform: translateY(6px) scale(1.06, 0.92); }
+      58%, 82% { transform: translateY(-22px) scale(0.96, 1.06); }
+      94%, 100% { transform: translateY(0px) scale(1); }
+    }
+
+    /* 7. Piringan Hitam DJ Turntable Kanan Bawah Berputar (6s & 1.5s) */
+    .vinyl-spin {
+      animation: spinVinyl 6s linear infinite;
+    }
+    @keyframes spinVinyl {
+      to { transform: rotate(360deg); }
+    }
+
+    .tonearm-bounce {
+      animation: bounceArm 1.5s ease-in-out infinite;
+    }
+    @keyframes bounceArm {
+      0%, 100% { transform: rotate(0deg); }
+      50% { transform: rotate(4deg); }
+    }
+
+    /* 8. Partikel Konfeti Latar Melayang (6s) */
+    .float-shape-a { animation: floatA 6s ease-in-out infinite; }
+    .float-shape-b { animation: floatB 6s ease-in-out infinite; }
+    @keyframes floatA {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      50% { transform: translateY(-16px) rotate(20deg); }
+    }
+    @keyframes floatB {
+      0%, 100% { transform: translateY(-14px) rotate(-15deg); }
+      50% { transform: translateY(4px) rotate(15deg); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="canvas">
+    <svg viewBox="0 0 1920 1080" width="100%" height="100%">
+      <defs>
+        <!-- Pola Grid Latar Belakang -->
+        <pattern id="v2Grid" width="60" height="60" patternUnits="userSpaceOnUse">
+          <path d="M 60 0 L 0 0 0 60" fill="none" stroke="#111111" stroke-width="1.5" opacity="0.13"/>
+        </pattern>
+
+        <!-- Pola Papan Catur (Checkerboard) 56x56px -->
+        <pattern id="checkerTop" width="112" height="56" patternUnits="userSpaceOnUse">
+          <rect x="0" y="0" width="56" height="28" fill="#111111"/>
+          <rect x="56" y="0" width="56" height="28" fill="#FDE047"/>
+          <rect x="0" y="28" width="56" height="28" fill="#FDE047"/>
+          <rect x="56" y="28" width="56" height="28" fill="#111111"/>
+        </pattern>
+
+        <pattern id="checkerBot" width="112" height="56" patternUnits="userSpaceOnUse">
+          <rect x="0" y="0" width="56" height="28" fill="#111111"/>
+          <rect x="56" y="0" width="56" height="28" fill="#38BDF8"/>
+          <rect x="0" y="28" width="56" height="28" fill="#38BDF8"/>
+          <rect x="56" y="28" width="56" height="28" fill="#111111"/>
+        </pattern>
+
+        <clipPath id="topBorderClip">
+          <rect x="0" y="0" width="1920" height="56"/>
+        </clipPath>
+        <clipPath id="botBorderClip">
+          <rect x="0" y="1024" width="1920" height="56"/>
+        </clipPath>
+
+        <!-- ClipPath Layar Panggung Disco Ball -->
+        <clipPath id="discoStageClip">
+          <rect x="44" y="104" width="712" height="392" rx="20"/>
+        </clipPath>
+      </defs>
+
+      <!-- =====================================================
+           1. LATAR BELAKANG GRID & KONFETI GEOMETRIS
+      ====================================================== -->
+      <rect width="1920" height="1080" fill="url(#v2Grid)"/>
+
+      <!-- Aksen Geometris Tersebar -->
+      <g transform="translate(505, 130)">
+        <g class="float-shape-a">
+          <polygon points="0,-22 20,16 -20,16" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="5" stroke-linejoin="round"/>
+        </g>
+      </g>
+      <g transform="translate(1395, 135)">
+        <g class="float-shape-b">
+          <circle cx="0" cy="0" r="16" fill="var(--acid-lime)" stroke="var(--ink)" stroke-width="5"/>
+        </g>
+      </g>
+      <g transform="translate(135, 560)">
+        <g class="float-shape-b">
+          <rect x="-14" y="-14" width="28" height="28" rx="6" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="5"/>
+        </g>
+      </g>
+      <g transform="translate(1805, 535)">
+        <g class="float-shape-a">
+          <polygon points="0,-24 7,-7 24,-7 10,4 15,21 0,10 -15,21 -10,4 -24,-7 -7,-7" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="5" stroke-linejoin="round"/>
+        </g>
+      </g>
+      <g transform="translate(565, 935)">
+        <g class="float-shape-a">
+          <circle cx="0" cy="0" r="15" fill="var(--cyber-cyan)" stroke="var(--ink)" stroke-width="5"/>
+        </g>
+      </g>
+      <g transform="translate(1345, 935)">
+        <g class="float-shape-b">
+          <polygon points="0,-20 18,16 -18,16" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="5" stroke-linejoin="round"/>
+        </g>
+      </g>
+
+      <!-- =====================================================
+           2. BINGKAI PAPAN CATUR KINETIK ATAS & BAWAH
+      ====================================================== -->
+      <g clip-path="url(#topBorderClip)">
+        <rect class="checker-slide-right" x="0" y="0" width="2144" height="56" fill="url(#checkerTop)"/>
+      </g>
+      <line x1="0" y1="56" x2="1920" y2="56" stroke="var(--ink)" stroke-width="6"/>
+
+      <g clip-path="url(#botBorderClip)">
+        <rect class="checker-slide-left" x="0" y="1024" width="2144" height="56" fill="url(#checkerBot)"/>
+      </g>
+      <line x1="0" y1="1024" x2="1920" y2="1024" stroke="var(--ink)" stroke-width="6"/>
+
+      <!-- =====================================================
+           3. JENDELA UTAMA: PANGGUNG BOLA DISKO 2.5D (PUSAT)
+      ====================================================== -->
+      <g transform="translate(560, 215)">
+        <g class="stage-win-bob">
+          <!-- Hard Offset Shadow -->
+          <rect x="18" y="18" width="800" height="630" rx="24" fill="var(--ink)"/>
+
+          <!-- Bodi Utama Jendela -->
+          <rect x="0" y="0" width="800" height="630" rx="24" fill="var(--white)" stroke="var(--ink)" stroke-width="8"/>
+
+          <!-- Title Bar Hot Pink -->
+          <path d="M4 24 C4 13 13 4 24 4 H776 C787 4 796 13 796 24 V72 H4 Z" fill="var(--hot-pink)"/>
+          <line x1="0" y1="72" x2="800" y2="72" stroke="var(--ink)" stroke-width="8"/>
+
+          <!-- Kontrol Jendela & Pill Indikator -->
+          <rect x="30" y="24" width="130" height="22" rx="11" fill="var(--ink)"/>
+          <circle cx="695" cy="36" r="11" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="4"/>
+          <circle cx="732" cy="36" r="11" fill="var(--cyber-cyan)" stroke="var(--ink)" stroke-width="4"/>
+          <circle cx="769" cy="36" r="11" fill="var(--acid-lime)" stroke="var(--ink)" stroke-width="4"/>
+
+          <!-- Layar Panggung Malam Gelap -->
+          <rect x="40" y="100" width="720" height="400" rx="22" fill="var(--stage-dark)" stroke="var(--ink)" stroke-width="7"/>
+
+          <!-- Konten Dalam Layar Panggung -->
+          <g clip-path="url(#discoStageClip)">
+            <!-- Sorotan Lampu Panggung (Spotlight Beams) -->
+            <g transform="translate(400, 245)">
+              <g class="disco-beam-left">
+                <polygon points="0,0 -240,290 -70,290" fill="var(--cyber-cyan)"/>
+              </g>
+              <g class="disco-beam-right">
+                <polygon points="0,0 70,290 240,290" fill="var(--hot-pink)"/>
+              </g>
+            </g>
+
+            <!-- Lantai Panggung Geometris di Bagian Bawah -->
+            <rect x="40" y="446" width="720" height="56" fill="#2D244D" stroke="var(--ink)" stroke-width="5"/>
+            <g fill="var(--neon-yellow)">
+              <circle cx="130" cy="474" r="8"/>
+              <circle cx="265" cy="474" r="8"/>
+              <circle cx="400" cy="474" r="8"/>
+              <circle cx="535" cy="474" r="8"/>
+              <circle cx="670" cy="474" r="8"/>
+            </g>
+
+            <!-- BOLA DISKO BERAYUN DI TENGAH PANGGUNG -->
+            <g transform="translate(400, 100)">
+              <g class="disco-sway">
+                <!-- Tiang Gantung Bola Disko -->
+                <rect x="-6" y="0" width="12" height="72" fill="var(--white)" stroke="var(--ink)" stroke-width="5"/>
+
+                <!-- Bola Disko Utama (r=102) -->
+                <g transform="translate(0, 168)">
+                  <circle cx="8" cy="10" r="102" fill="var(--ink)"/>
+                  <circle cx="0" cy="0" r="102" fill="var(--cyber-cyan)" stroke="var(--ink)" stroke-width="8"/>
+
+                  <!-- Garis Grid Faset Cermin Bola Disko -->
+                  <g fill="none" stroke="var(--ink)" stroke-width="5">
+                    <ellipse cx="0" cy="0" rx="44" ry="102"/>
+                    <ellipse cx="0" cy="0" rx="80" ry="102"/>
+                    <line x1="-102" y1="0" x2="102" y2="0"/>
+                    <path d="M -88 -50 Q 0 -32 88 -50"/>
+                    <path d="M -88 50 Q 0 32 88 50"/>
+                  </g>
+
+                  <!-- Ubin Cermin Berwarna Neon pada Bola Disko -->
+                  <rect x="-34" y="-38" width="28" height="32" rx="4" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="4"/>
+                  <rect x="6" y="-38" width="28" height="32" rx="4" fill="var(--white)" stroke="var(--ink)" stroke-width="4"/>
+                  <rect x="-34" y="6" width="28" height="32" rx="4" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="4"/>
+                  <rect x="6" y="6" width="28" height="32" rx="4" fill="var(--acid-lime)" stroke="var(--ink)" stroke-width="4"/>
+                </g>
+              </g>
+            </g>
+
+            <!-- Tiga Bintang Kilau Pantulan di Sekitar Bola Disko -->
+            <g transform="translate(215, 210)">
+              <g class="glint-pulse-1">
+                <path d="M0 -30 C3 -8 8 -3 30 0 C8 3 3 8 0 30 C-3 8 -8 3 -30 0 C-8 -3 -3 -8 0 -30 Z" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="4.5" stroke-linejoin="round"/>
+              </g>
+            </g>
+            <g transform="translate(585, 225)">
+              <g class="glint-pulse-2">
+                <path d="M0 -32 C3 -9 9 -3 32 0 C9 3 3 9 0 32 C-3 9 -9 3 -32 0 C-9 -3 -3 -9 0 -32 Z" fill="var(--white)" stroke="var(--ink)" stroke-width="4.5" stroke-linejoin="round"/>
+              </g>
+            </g>
+            <g transform="translate(265, 360)">
+              <g class="glint-pulse-3">
+                <path d="M0 -24 C2 -6 6 -2 24 0 C6 2 2 6 0 24 C-2 6 -6 2 -24 0 C-6 -2 -2 -6 0 -24 Z" fill="var(--acid-lime)" stroke="var(--ink)" stroke-width="4.5" stroke-linejoin="round"/>
+              </g>
+            </g>
+          </g>
+
+          <!-- Bar Kontrol Pesta Bawah Jendela Utama -->
+          <rect x="40" y="526" width="720" height="72" rx="18" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="6"/>
+          <polygon points="86,544 92,557 106,557 95,565 99,578 86,570 73,578 77,565 66,557 80,557" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="3.5" stroke-linejoin="round"/>
+          <rect x="128" y="553" width="220" height="18" rx="9" fill="var(--ink)"/>
+          <rect x="580" y="544" width="150" height="36" rx="12" fill="var(--cyber-cyan)" stroke="var(--ink)" stroke-width="4.5"/>
+        </g>
+      </g>
+
+      <!-- =====================================================
+           4. KARTU TOAST GELAS BERSULANG (KIRI ATAS)
+      ====================================================== -->
+      <g transform="translate(205, 195)">
+        <rect x="14" y="14" width="310" height="290" rx="22" fill="var(--ink)"/>
+        <rect x="0" y="0" width="310" height="290" rx="22" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="7"/>
+
+        <!-- Header Kartu -->
+        <path d="M4 22 C4 12 12 4 22 4 H288 C298 4 306 12 306 22 V52 H4 Z" fill="var(--white)"/>
+        <line x1="0" y1="52" x2="310" y2="52" stroke="var(--ink)" stroke-width="7"/>
+        <circle cx="28" cy="28" r="8" fill="var(--hot-pink)"/>
+        <circle cx="52" cy="28" r="8" fill="var(--acid-lime)"/>
+
+        <!-- Layar Dalam Putih -->
+        <rect x="26" y="76" width="258" height="186" rx="16" fill="var(--white)" stroke="var(--ink)" stroke-width="6"/>
+
+        <!-- Percikan Komik Saat Gelas Bersulang -->
+        <g transform="translate(155, 118)">
+          <g class="clink-sparks" stroke="var(--ink)" stroke-width="5" stroke-linecap="round">
+            <line x1="0" y1="-16" x2="0" y2="-32"/>
+            <line x1="-18" y1="-10" x2="-30" y2="-22"/>
+            <line x1="18" y1="-10" x2="30" y2="-22"/>
+          </g>
+        </g>
+
+        <!-- Gelas Kiri -->
+        <g transform="translate(115, 178)">
+          <g class="glass-left-clink">
+            <!-- Piala Gelas -->
+            <path d="M-28 -44 H28 L22 4 C20 18 -20 18 -22 4 Z" fill="var(--cyber-cyan)" stroke="var(--ink)" stroke-width="5.5" stroke-linejoin="round"/>
+            <!-- Cairan Kuning Emas -->
+            <path d="M-24 -22 H24 L20 2 C18 14 -18 14 -20 2 Z" fill="var(--neon-yellow)"/>
+            <!-- Tangkai & Alas Gelas -->
+            <line x1="0" y1="15" x2="0" y2="52" stroke="var(--ink)" stroke-width="6"/>
+            <line x1="-22" y1="52" x2="22" y2="52" stroke="var(--ink)" stroke-width="7" stroke-linecap="round"/>
+          </g>
+        </g>
+
+        <!-- Gelas Kanan -->
+        <g transform="translate(195, 178)">
+          <g class="glass-right-clink">
+            <path d="M-28 -44 H28 L22 4 C20 18 -20 18 -22 4 Z" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="5.5" stroke-linejoin="round"/>
+            <path d="M-24 -22 H24 L20 2 C18 14 -18 14 -20 2 Z" fill="var(--neon-yellow)"/>
+            <line x1="0" y1="15" x2="0" y2="52" stroke="var(--ink)" stroke-width="6"/>
+            <line x1="-22" y1="52" x2="22" y2="52" stroke="var(--ink)" stroke-width="7" stroke-linecap="round"/>
+          </g>
+        </g>
+      </g>
+
+      <!-- =====================================================
+           5. TIKET VIP GOLDEN PASS (KIRI BAWAH)
+      ====================================================== -->
+      <g transform="translate(360, 795)">
+        <g class="ticket-wobble">
+          <!-- Hard Offset Shadow -->
+          <rect x="-152" y="-76" width="320" height="170" rx="22" fill="var(--ink)"/>
+          <!-- Bodi Tiket Hijau Limau -->
+          <rect x="-160" y="-84" width="320" height="170" rx="22" fill="var(--acid-lime)" stroke="var(--ink)" stroke-width="7"/>
+
+          <!-- Takik Sobekan Kupon Kiri & Kanan -->
+          <circle cx="-160" cy="1" r="20" fill="var(--bg-lavender)" stroke="var(--ink)" stroke-width="6"/>
+          <circle cx="160" cy="1" r="20" fill="var(--bg-lavender)" stroke="var(--ink)" stroke-width="6"/>
+
+          <!-- Garis Potong Putus-Putus -->
+          <line x1="56" y1="-68" x2="56" y2="70" stroke="var(--ink)" stroke-width="4.5" stroke-dasharray="9 9"/>
+
+          <!-- Lencana Bintang di Sisi Kiri Tiket -->
+          <circle cx="-64" cy="1" r="46" fill="var(--white)" stroke="var(--ink)" stroke-width="6"/>
+          <polygon points="-64,-29 -55,-8 -32,-8 -50,5 -43,26 -64,13 -85,26 -78,5 -96,-8 -73,-8" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="4.5" stroke-linejoin="round"/>
+
+          <!-- Barcode Vertikal di Sisi Kanan Tiket -->
+          <g transform="translate(82, -46)" fill="var(--ink)">
+            <rect x="0" y="0" width="10" height="94" rx="4"/>
+            <rect x="18" y="0" width="18" height="94" rx="4"/>
+            <rect x="44" y="0" width="12" height="94" rx="4"/>
+          </g>
+        </g>
+      </g>
+
+      <!-- =====================================================
+           6. MODUL PELUNCUR ROKET & BOOSTER (KANAN ATAS)
+      ====================================================== -->
+      <g transform="translate(1415, 200)">
+        <rect x="14" y="14" width="305" height="275" rx="22" fill="var(--ink)"/>
+        <rect x="0" y="0" width="305" height="275" rx="22" fill="var(--cyber-cyan)" stroke="var(--ink)" stroke-width="7"/>
+
+        <!-- Layar Atas: Ikon Roket Meluncur -->
+        <rect x="26" y="26" width="253" height="154" rx="16" fill="var(--white)" stroke="var(--ink)" stroke-width="6"/>
+
+        <g transform="translate(152, 112)">
+          <g class="mini-rocket-launch">
+            <!-- Sayap Kiri & Kanan Roket -->
+            <polygon points="-24,12 -44,34 -18,34" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="5" stroke-linejoin="round"/>
+            <polygon points="24,12 44,34 18,34" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="5" stroke-linejoin="round"/>
+            <!-- Bodi Utama Roket -->
+            <path d="M0 -52 C24 -26 24 14 20 34 H-20 C-24 14 -24 -26 0 -52 Z" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="5.5" stroke-linejoin="round"/>
+            <!-- Jendela Bulat Roket -->
+            <circle cx="0" cy="-8" r="11" fill="var(--cyber-cyan)" stroke="var(--ink)" stroke-width="4.5"/>
+          </g>
+        </g>
+
+        <!-- Bar Pengisian Daya Booster Bawah -->
+        <rect x="26" y="204" width="253" height="44" rx="14" fill="var(--white)" stroke="var(--ink)" stroke-width="6"/>
+        <g transform="translate(34, 212)">
+          <rect class="booster-fill" x="0" y="0" width="237" height="28" rx="8" fill="var(--cyber-cyan)"/>
+        </g>
+      </g>
+
+      <!-- =====================================================
+           7. PEMUTAR PIRINGAN HITAM / DJ TURNTABLE (KANAN BAWAH)
+      ====================================================== -->
+      <g transform="translate(1415, 620)">
+        <rect x="14" y="14" width="305" height="285" rx="22" fill="var(--ink)"/>
+        <rect x="0" y="0" width="305" height="285" rx="22" fill="var(--electric-purple)" stroke="var(--ink)" stroke-width="7"/>
+
+        <!-- Piringan Hitam (Vinyl Disc) Berputar -->
+        <g transform="translate(135, 142)">
+          <g class="vinyl-spin">
+            <circle cx="0" cy="0" r="98" fill="var(--ink)"/>
+            <!-- Alur Piringan Hitam -->
+            <circle cx="0" cy="0" r="76" fill="none" stroke="#334155" stroke-width="3"/>
+            <circle cx="0" cy="0" r="56" fill="none" stroke="#334155" stroke-width="3"/>
+            <!-- Label Tengah Kuning Neon -->
+            <circle cx="0" cy="0" r="34" fill="var(--neon-yellow)" stroke="var(--white)" stroke-width="4"/>
+            <circle cx="0" cy="0" r="9" fill="var(--ink)"/>
+            <!-- Penanda Putaran Putih -->
+            <rect x="-4" y="-88" width="8" height="18" rx="4" fill="var(--white)"/>
+          </g>
+        </g>
+
+        <!-- Lengan Jarum Turntable (Tonearm) Membal -->
+        <g transform="translate(256, 56)">
+          <circle cx="0" cy="0" r="18" fill="var(--white)" stroke="var(--ink)" stroke-width="5"/>
+          <g class="tonearm-bounce">
+            <polyline points="0,0 -12,115 -42,148" fill="none" stroke="var(--white)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+            <polyline points="0,0 -12,115 -42,148" fill="none" stroke="var(--ink)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+            <rect x="-54" y="140" width="22" height="16" rx="4" transform="rotate(42 -42 148)" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="4"/>
+          </g>
+        </g>
+
+        <!-- Tombol Kontrol & Slider Bawah -->
+        <circle cx="46" cy="248" r="12" fill="var(--acid-lime)" stroke="var(--ink)" stroke-width="4"/>
+        <circle cx="80" cy="248" r="12" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="4"/>
+        <rect x="216" y="236" width="62" height="22" rx="11" fill="var(--white)" stroke="var(--ink)" stroke-width="4.5"/>
+      </g>
+
+    </svg>
+  </div>
+
+</body>
+</html>

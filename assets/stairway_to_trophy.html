@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Neo-Brutalism Aspirations 04: Stairway to the Trophy (Green Screen) - 6s Loop</title>
+  <style>
+    :root {
+      --bg-base: #00FF00;
+      --ink: #111111;
+      --neon-yellow: #FDE047;
+      --hot-pink: #FB7185;
+      --cyber-cyan: #38BDF8;
+      --acid-lime: #A3E635;
+      --electric-purple: #C084FC;
+      --white: #FFFFFF;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-base);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    .canvas {
+      width: 100vw;
+      max-width: 1920px;
+      aspect-ratio: 16 / 9;
+      background-color: var(--bg-base);
+      overflow: hidden;
+    }
+
+    /* =====================================================
+       MASTER SEAMLESS LOOP (6 DETIK)
+       Semua siklus sinkron: 6s, 3s
+    ===================================================== */
+
+    /* 1. Tiga Anak Tangga Membal Naik Berurutan (Siklus 3s = 2x per loop) */
+    .step-rise-1 {
+      animation: bounceStep1 3s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    @keyframes bounceStep1 {
+      0%, 100% { transform: translateY(0px); }
+      14% { transform: translateY(-20px); }
+      28%, 88% { transform: translateY(-6px); }
+    }
+
+    .step-rise-2 {
+      animation: bounceStep2 3s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    @keyframes bounceStep2 {
+      0%, 12%, 100% { transform: translateY(0px); }
+      26% { transform: translateY(-22px); }
+      40%, 88% { transform: translateY(-8px); }
+    }
+
+    .step-rise-3 {
+      animation: bounceStep3 3s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    @keyframes bounceStep3 {
+      0%, 24%, 100% { transform: translateY(0px); }
+      38% { transform: translateY(-24px); }
+      52%, 88% { transform: translateY(-10px); }
+    }
+
+    /* 2. Piala Emas di Puncak Melompat & Berkilau Saat Tercapai (Siklus 3s) */
+    .trophy-celebrate {
+      animation: jumpTrophy 3s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    @keyframes jumpTrophy {
+      0%, 30%, 92%, 100% {
+        transform: translateY(0px) scale(1, 1) rotate(0deg);
+      }
+      36% {
+        transform: translateY(-6px) scale(1.06, 0.93) rotate(-3deg);
+      }
+      46% {
+        transform: translateY(-42px) scale(0.96, 1.06) rotate(4deg);
+      }
+      58%, 84% {
+        transform: translateY(-14px) scale(1.02, 0.98) rotate(0deg);
+      }
+    }
+
+    /* 3. Percikan Garis Komik di Sekitar Piala (Siklus 3s) */
+    .trophy-burst-rays {
+      animation: popTrophyRays 3s ease-out infinite;
+    }
+    @keyframes popTrophyRays {
+      0%, 38% { transform: scale(0.3); opacity: 0; }
+      48% { transform: scale(1.05); opacity: 1; }
+      76%, 100% { transform: scale(1.36); opacity: 0; }
+    }
+
+    /* 4. Bintang Kilau Sudut Berkedip Kontra-Ritme (Siklus 3s) */
+    .sparkle-tl {
+      animation: twinkleA 3s ease-in-out infinite;
+    }
+    .sparkle-br {
+      animation: twinkleB 3s ease-in-out infinite;
+    }
+    @keyframes twinkleA {
+      0%, 100% { transform: scale(1) rotate(0deg); }
+      50% { transform: scale(0.45) rotate(45deg); }
+    }
+    @keyframes twinkleB {
+      0%, 100% { transform: scale(0.45) rotate(-45deg); }
+      50% { transform: scale(1) rotate(0deg); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="canvas">
+    <svg viewBox="0 0 1920 1080" width="100%" height="100%">
+      <!-- Latar Green Screen Murni -->
+      <rect width="1920" height="1080" fill="var(--bg-base)"/>
+
+      <!-- =====================================================
+           SINGLE HERO ITEM: STAIRWAY TO THE TROPHY (PUSAT)
+      ====================================================== -->
+      <!-- Bintang Kilau Sudut Kiri Atas -->
+      <g transform="translate(650, 340)">
+        <g class="sparkle-tl">
+          <path d="M0 -42 C4 -11 11 -4 42 0 C11 4 4 11 0 42 C-4 11 -11 4 -42 0 C-11 -4 -4 -11 0 -42 Z" fill="var(--white)" stroke="var(--ink)" stroke-width="7" stroke-linejoin="round"/>
+        </g>
+      </g>
+
+      <!-- Bintang Kilau Sudut Kanan Bawah -->
+      <g transform="translate(1310, 745)">
+        <g class="sparkle-br">
+          <path d="M0 -44 C4 -12 12 -4 44 0 C12 4 4 12 0 44 C-4 12 -12 4 -44 0 C-12 -4 -4 -12 0 -44 Z" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="7" stroke-linejoin="round"/>
+        </g>
+      </g>
+
+      <!-- PUSAT TANGGA & PIALA JUARA -->
+      <g transform="translate(960, 585)">
+
+        <!-- 1. ANAK TANGGA 1 (KIRI BAWAH - CYBER CYAN) -->
+        <g class="step-rise-1">
+          <rect x="-254" y="106" width="166" height="130" rx="20" fill="var(--ink)"/>
+          <rect x="-270" y="90" width="166" height="130" rx="20" fill="var(--cyber-cyan)" stroke="var(--ink)" stroke-width="10"/>
+          <!-- Strip Aksen Putih -->
+          <rect x="-242" y="116" width="64" height="14" rx="7" fill="var(--white)"/>
+        </g>
+
+        <!-- 2. ANAK TANGGA 2 (TENGAH - ELECTRIC PURPLE) -->
+        <g class="step-rise-2">
+          <rect x="-69" y="26" width="166" height="210" rx="20" fill="var(--ink)"/>
+          <rect x="-85" y="10" width="166" height="210" rx="20" fill="var(--electric-purple)" stroke="var(--ink)" stroke-width="10"/>
+          <!-- Strip Aksen Putih -->
+          <rect x="-57" y="36" width="64" height="14" rx="7" fill="var(--white)"/>
+        </g>
+
+        <!-- 3. ANAK TANGGA 3 (KANAN TERTINGGI - ACID LIME) + PIALA EMAS -->
+        <g class="step-rise-3">
+          <rect x="116" y="-54" width="166" height="290" rx="20" fill="var(--ink)"/>
+          <rect x="100" y="-70" width="166" height="290" rx="20" fill="var(--acid-lime)" stroke="var(--ink)" stroke-width="10"/>
+          <!-- Strip Aksen Putih -->
+          <rect x="128" y="-44" width="64" height="14" rx="7" fill="var(--white)"/>
+
+          <!-- PIALA JUARA DI ATAS TANGGA TERTINGGI (PUSAT x=183, DASAR y=-70) -->
+          <g transform="translate(183, -70)">
+            <!-- Percikan Garis Komik Kemenangan -->
+            <g transform="translate(0, -145)">
+              <g class="trophy-burst-rays" stroke="var(--ink)" stroke-width="8" stroke-linecap="round">
+                <line x1="0" y1="-98" x2="0" y2="-138"/>
+                <line x1="-88" y1="-64" x2="-122" y2="-92"/>
+                <line x1="88" y1="-64" x2="122" y2="-92"/>
+                <line x1="-112" y1="8" x2="-152" y2="8"/>
+                <line x1="112" y1="8" x2="152" y2="8"/>
+              </g>
+            </g>
+
+            <!-- Bodi Piala Juara Melompat -->
+            <g class="trophy-celebrate">
+              <!-- Hard Offset Shadow Piala -->
+              <g transform="translate(14, 14)">
+                <!-- Shadow Pegangan Kiri & Kanan -->
+                <path d="M-66 -192 H-102 C-116 -192 -124 -180 -120 -164 L-106 -118 C-100 -100 -84 -92 -62 -92" fill="none" stroke="var(--ink)" stroke-width="22" stroke-linecap="round"/>
+                <path d="M66 -192 H102 C116 -192 124 -180 120 -164 L106 -118 C100 -100 84 -92 62 -92" fill="none" stroke="var(--ink)" stroke-width="22" stroke-linecap="round"/>
+                <!-- Shadow Mangkuk Piala -->
+                <path d="M-72 -214 H72 L58 -102 C54 -72 28 -56 0 -56 C-28 -56 -54 -72 -58 -102 Z" fill="var(--ink)"/>
+                <!-- Shadow Tangkai & Alas -->
+                <rect x="-16" y="-60" width="32" height="36" fill="var(--ink)"/>
+                <rect x="-56" y="-30" width="112" height="30" rx="10" fill="var(--ink)"/>
+              </g>
+
+              <!-- Pegangan Piala Kiri & Kanan (Kuning Neon) -->
+              <path d="M-66 -192 H-102 C-116 -192 -124 -180 -120 -164 L-106 -118 C-100 -100 -84 -92 -62 -92" fill="none" stroke="var(--ink)" stroke-width="24" stroke-linecap="round"/>
+              <path d="M-66 -192 H-102 C-116 -192 -124 -180 -120 -164 L-106 -118 C-100 -100 -84 -92 -62 -92" fill="none" stroke="var(--neon-yellow)" stroke-width="10" stroke-linecap="round"/>
+
+              <path d="M66 -192 H102 C116 -192 124 -180 120 -164 L106 -118 C100 -100 84 -92 62 -92" fill="none" stroke="var(--ink)" stroke-width="24" stroke-linecap="round"/>
+              <path d="M66 -192 H102 C116 -192 124 -180 120 -164 L106 -118 C100 -100 84 -92 62 -92" fill="none" stroke="var(--neon-yellow)" stroke-width="10" stroke-linecap="round"/>
+
+              <!-- Tangkai Piala -->
+              <rect x="-16" y="-60" width="32" height="36" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="8"/>
+
+              <!-- Alas Pedestal Piala (Hot Pink) -->
+              <rect x="-56" y="-30" width="112" height="30" rx="10" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="9"/>
+              <rect x="-32" y="-20" width="64" height="10" rx="5" fill="var(--white)"/>
+
+              <!-- Mangkuk Utama Piala (Kuning Neon) -->
+              <path d="M-72 -214 H72 L58 -102 C54 -72 28 -56 0 -56 C-28 -56 -54 -72 -58 -102 Z" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="10" stroke-linejoin="round"/>
+
+              <!-- Bibir Atas Piala -->
+              <rect x="-80" y="-224" width="160" height="20" rx="10" fill="var(--white)" stroke="var(--ink)" stroke-width="8"/>
+
+              <!-- Lencana Bintang Putih di Tengah Mangkuk Piala -->
+              <polygon points="0,-174 10,-148 38,-148 16,-132 24,-106 0,-122 -24,-106 -16,-132 -38,-148 -10,-148" fill="var(--white)" stroke="var(--ink)" stroke-width="6.5" stroke-linejoin="round"/>
+            </g>
+          </g>
+        </g>
+
+      </g>
+
+    </svg>
+  </div>
+
+</body>
+</html>

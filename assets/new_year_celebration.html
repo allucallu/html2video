@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Neo-Brutalism Full Scene: New Year Celebration - 6s Seamless Loop</title>
+  <style>
+    :root {
+      --bg-cream: #F6F2E9;
+      --ink: #111111;
+      --midnight: #1E1B4B;
+      --neon-yellow: #FDE047;
+      --hot-pink: #FB7185;
+      --cyber-cyan: #38BDF8;
+      --acid-lime: #A3E635;
+      --electric-purple: #C084FC;
+      --white: #FFFFFF;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--ink);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    .canvas {
+      width: 100vw;
+      max-width: 1920px;
+      aspect-ratio: 16 / 9;
+      background-color: var(--bg-cream);
+      overflow: hidden;
+    }
+
+    /* =====================================================
+       MASTER SEAMLESS LOOP (6 DETIK)
+       Semua siklus sinkron: 6s, 3s, 1.5s
+    ===================================================== */
+
+    /* 1. Pita Ticker Atas & Bawah Berjalan Kontinu (3s) */
+    .ticker-right { animation: slideRight 3s linear infinite; }
+    .ticker-left { animation: slideLeft 3s linear infinite; }
+    @keyframes slideRight {
+      from { transform: translateX(-160px); }
+      to { transform: translateX(0px); }
+    }
+    @keyframes slideLeft {
+      from { transform: translateX(0px); }
+      to { transform: translateX(-160px); }
+    }
+
+    /* 2. Jendela Utama Bernapas Halus (6s) */
+    .main-win-float {
+      animation: winFloat 6s ease-in-out infinite;
+    }
+    @keyframes winFloat {
+      0%, 100% { transform: translate(0px, 0px); }
+      50% { transform: translate(-4px, -7px); }
+    }
+
+    /* 3. Tiga Kembang Api Mekar Bergantian di Layar Malam (Siklus 3s) */
+    .fw-burst-1 {
+      animation: burstFW1 3s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    @keyframes burstFW1 {
+      0%, 6% { transform: scale(0.15) rotate(0deg); opacity: 0; }
+      18% { transform: scale(1.12) rotate(12deg); opacity: 1; }
+      42% { transform: scale(1) rotate(20deg); opacity: 1; }
+      55%, 100% { transform: scale(1.25) rotate(30deg); opacity: 0; }
+    }
+
+    .fw-burst-2 {
+      animation: burstFW2 3s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    @keyframes burstFW2 {
+      0%, 28% { transform: scale(0.15) rotate(0deg); opacity: 0; }
+      40% { transform: scale(1.12) rotate(-12deg); opacity: 1; }
+      65% { transform: scale(1) rotate(-20deg); opacity: 1; }
+      78%, 100% { transform: scale(1.25) rotate(-30deg); opacity: 0; }
+    }
+
+    .fw-burst-3 {
+      animation: burstFW3 3s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    @keyframes burstFW3 {
+      0%, 48% { transform: scale(0.15) rotate(0deg); opacity: 0; }
+      60% { transform: scale(1.14) rotate(10deg); opacity: 1; }
+      84% { transform: scale(1) rotate(18deg); opacity: 1; }
+      96%, 100% { transform: scale(1.25) rotate(25deg); opacity: 0; }
+    }
+
+    /* 4. Jam Tengah Malam Berdering di Kiri Atas (Siklus 3s) */
+    .clock-shake {
+      animation: ringClock 3s ease-in-out infinite;
+    }
+    @keyframes ringClock {
+      0%, 10%, 44%, 100% { transform: rotate(-6deg) scale(1); }
+      15% { transform: rotate(-13deg) scale(1.06); }
+      20% { transform: rotate(2deg) scale(1.06); }
+      25% { transform: rotate(-12deg) scale(1.05); }
+      30% { transform: rotate(1deg) scale(1.05); }
+      36% { transform: rotate(-8deg) scale(1.02); }
+    }
+
+    /* 5. Party Popper Recoil & Tembakan Konfeti Kiri Bawah (Siklus 3s) */
+    .popper-kick {
+      animation: kickPopper 3s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    @keyframes kickPopper {
+      0%, 100% { transform: translate(0px, 0px) scale(1, 1); }
+      14% { transform: translate(-14px, 14px) scale(0.92, 1.06); }
+      24% { transform: translate(12px, -12px) scale(1.06, 0.94); }
+      38%, 92% { transform: translate(0px, 0px) scale(1, 1); }
+    }
+
+    .popper-conf-1 {
+      animation: shootA 3s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+    }
+    @keyframes shootA {
+      0%, 18% { transform: translate(0px, 0px) scale(0) rotate(0deg); opacity: 0; }
+      24% { opacity: 1; }
+      52% { transform: translate(115px, -175px) scale(1.05) rotate(150deg); opacity: 1; }
+      84% { transform: translate(135px, -135px) scale(1) rotate(230deg); opacity: 1; }
+      96%, 100% { transform: translate(145px, -110px) scale(0) rotate(270deg); opacity: 0; }
+    }
+
+    .popper-conf-2 {
+      animation: shootB 3s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+    }
+    @keyframes shootB {
+      0%, 20% { transform: translate(0px, 0px) scale(0) rotate(0deg); opacity: 0; }
+      26% { opacity: 1; }
+      54% { transform: translate(185px, -95px) scale(1.05) rotate(-140deg); opacity: 1; }
+      85% { transform: translate(205px, -55px) scale(1) rotate(-210deg); opacity: 1; }
+      96%, 100% { transform: translate(215px, -30px) scale(0) rotate(-250deg); opacity: 0; }
+    }
+
+    /* 6. Kartu Musik Pesta Kanan Atas & Equalizer (6s & 1.5s) */
+    .music-card-bob {
+      animation: bobRightCard 6s ease-in-out infinite;
+    }
+    @keyframes bobRightCard {
+      0%, 100% { transform: translateY(0px) rotate(3deg); }
+      50% { transform: translateY(-14px) rotate(1deg); }
+    }
+
+    .eq-1 { animation: eqA 1.5s ease-in-out infinite; }
+    .eq-2 { animation: eqB 1.5s ease-in-out infinite; }
+    .eq-3 { animation: eqC 1.5s ease-in-out infinite; }
+    .eq-4 { animation: eqD 1.5s ease-in-out infinite; }
+
+    @keyframes eqA { 0%, 100% { transform: scaleY(0.4); } 50% { transform: scaleY(1); } }
+    @keyframes eqB { 0%, 100% { transform: scaleY(0.95); } 50% { transform: scaleY(0.35); } }
+    @keyframes eqC { 0%, 100% { transform: scaleY(0.5); } 40% { transform: scaleY(1); } }
+    @keyframes eqD { 0%, 100% { transform: scaleY(0.85); } 60% { transform: scaleY(0.4); } }
+
+    /* 7. Stiker Bintang Bergerigi Kanan Bawah Berputar (6s) */
+    .starburst-spin {
+      animation: spinStep 6s steps(12, end) infinite;
+    }
+    @keyframes spinStep {
+      to { transform: rotate(360deg); }
+    }
+
+    /* 8. Konfeti Latar Melayang Halus (6s) */
+    .ambient-float-1 { animation: ambFloat1 6s ease-in-out infinite; }
+    .ambient-float-2 { animation: ambFloat2 6s ease-in-out infinite; }
+    @keyframes ambFloat1 {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      50% { transform: translateY(-18px) rotate(24deg); }
+    }
+    @keyframes ambFloat2 {
+      0%, 100% { transform: translateY(-16px) rotate(-18deg); }
+      50% { transform: translateY(4px) rotate(12deg); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="canvas">
+    <svg viewBox="0 0 1920 1080" width="100%" height="100%">
+      <defs>
+        <!-- Pola Grid Latar Belakang Neo-Brutalist -->
+        <pattern id="sceneGrid" width="60" height="60" patternUnits="userSpaceOnUse">
+          <path d="M 60 0 L 0 0 0 60" fill="none" stroke="#111111" stroke-width="1.5" opacity="0.14"/>
+        </pattern>
+
+        <!-- ClipPath Ticker Atas & Bawah -->
+        <clipPath id="topStripClip">
+          <rect x="0" y="0" width="1920" height="56"/>
+        </clipPath>
+        <clipPath id="botStripClip">
+          <rect x="0" y="1024" width="1920" height="56"/>
+        </clipPath>
+
+        <!-- ClipPath Layar Langit Malam di Jendela Utama -->
+        <clipPath id="nightSkyClip">
+          <rect x="44" y="108" width="752" height="365" rx="18"/>
+        </clipPath>
+
+        <!-- ClipPath Strip Kerucut Party Popper -->
+        <clipPath id="popperConeClip">
+          <polygon points="-95,105 -25,-90 95,30"/>
+        </clipPath>
+      </defs>
+
+      <!-- =====================================================
+           1. LATAR BELAKANG GRID & DEKORASI KONFETI AMBIENT
+      ====================================================== -->
+      <rect width="1920" height="1080" fill="url(#sceneGrid)"/>
+
+      <!-- Konfeti Geometris Tersebar di Ruang Kosong -->
+      <g transform="translate(155, 455)">
+        <g class="ambient-float-1">
+          <polygon points="0,-24 22,18 -22,18" fill="var(--cyber-cyan)" stroke="var(--ink)" stroke-width="5" stroke-linejoin="round"/>
+        </g>
+      </g>
+      <g transform="translate(475, 145)">
+        <g class="ambient-float-2">
+          <circle cx="0" cy="0" r="16" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="5"/>
+        </g>
+      </g>
+      <g transform="translate(1365, 155)">
+        <g class="ambient-float-1">
+          <rect x="-15" y="-15" width="30" height="30" rx="6" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="5"/>
+        </g>
+      </g>
+      <g transform="translate(1785, 560)">
+        <g class="ambient-float-2">
+          <polygon points="0,-24 7,-7 24,-7 10,4 15,21 0,10 -15,21 -10,4 -24,-7 -7,-7" fill="var(--acid-lime)" stroke="var(--ink)" stroke-width="5" stroke-linejoin="round"/>
+        </g>
+      </g>
+      <g transform="translate(525, 925)">
+        <g class="ambient-float-1">
+          <rect x="-14" y="-14" width="28" height="28" rx="6" fill="var(--electric-purple)" stroke="var(--ink)" stroke-width="5"/>
+        </g>
+      </g>
+      <g transform="translate(1345, 920)">
+        <g class="ambient-float-2">
+          <circle cx="0" cy="0" r="15" fill="var(--cyber-cyan)" stroke="var(--ink)" stroke-width="5"/>
+        </g>
+      </g>
+
+      <!-- =====================================================
+           2. PITA TICKER KINETIK ATAS & BAWAH (TANPA TEKS)
+      ====================================================== -->
+      <!-- Pita Kuning Neon Atas -->
+      <rect x="0" y="0" width="1920" height="56" fill="var(--neon-yellow)"/>
+      <line x1="0" y1="56" x2="1920" y2="56" stroke="var(--ink)" stroke-width="6"/>
+      <g clip-path="url(#topStripClip)">
+        <g class="ticker-right" fill="var(--ink)">
+          <polygon points="40,14 60,28 40,42 40,34 49,28 40,22"/>
+          <polygon points="64,14 84,28 64,42 64,34 73,28 64,22"/>
+          <circle cx="132" cy="28" r="9"/>
+
+          <polygon points="200,14 220,28 200,42 200,34 209,28 200,22"/>
+          <polygon points="224,14 244,28 224,42 224,34 233,28 224,22"/>
+          <circle cx="292" cy="28" r="9"/>
+
+          <polygon points="360,14 380,28 360,42 360,34 369,28 360,22"/>
+          <polygon points="384,14 404,28 384,42 384,34 393,28 384,22"/>
+          <circle cx="452" cy="28" r="9"/>
+
+          <polygon points="520,14 540,28 520,42 520,34 529,28 520,22"/>
+          <polygon points="544,14 564,28 544,42 544,34 553,28 544,22"/>
+          <circle cx="612" cy="28" r="9"/>
+
+          <polygon points="680,14 700,28 680,42 680,34 689,28 680,22"/>
+          <polygon points="704,14 724,28 704,42 704,34 713,28 704,22"/>
+          <circle cx="772" cy="28" r="9"/>
+
+          <polygon points="840,14 860,28 840,42 840,34 849,28 840,22"/>
+          <polygon points="864,14 884,28 864,42 864,34 873,28 864,22"/>
+          <circle cx="932" cy="28" r="9"/>
+
+          <polygon points="1000,14 1020,28 1000,42 1000,34 1009,28 1000,22"/>
+          <polygon points="1024,14 1044,28 1024,42 1024,34 1033,28 1024,22"/>
+          <circle cx="1092" cy="28" r="9"/>
+
+          <polygon points="1160,14 1180,28 1160,42 1160,34 1169,28 1160,22"/>
+          <polygon points="1184,14 1204,28 1184,42 1184,34 1193,28 1184,22"/>
+          <circle cx="1252" cy="28" r="9"/>
+
+          <polygon points="1320,14 1340,28 1320,42 1320,34 1329,28 1320,22"/>
+          <polygon points="1344,14 1364,28 1344,42 1344,34 1353,28 1344,22"/>
+          <circle cx="1412" cy="28" r="9"/>
+
+          <polygon points="1480,14 1500,28 1480,42 1480,34 1489,28 1480,22"/>
+          <polygon points="1504,14 1524,28 1504,42 1504,34 1513,28 1504,22"/>
+          <circle cx="1572" cy="28" r="9"/>
+
+          <polygon points="1640,14 1660,28 1640,42 1640,34 1649,28 1640,22"/>
+          <polygon points="1664,14 1684,28 1664,42 1664,34 1673,28 1664,22"/>
+          <circle cx="1732" cy="28" r="9"/>
+
+          <polygon points="1800,14 1820,28 1800,42 1800,34 1809,28 1800,22"/>
+          <polygon points="1824,14 1844,28 1824,42 1824,34 1833,28 1824,22"/>
+          <circle cx="1892" cy="28" r="9"/>
+
+          <polygon points="1960,14 1980,28 1960,42 1960,34 1969,28 1960,22"/>
+          <polygon points="1984,14 2004,28 1984,42 1984,34 1993,28 1984,22"/>
+          <circle cx="2052" cy="28" r="9"/>
+        </g>
+      </g>
+
+      <!-- Pita Hijau Limau Bawah -->
+      <rect x="0" y="1024" width="1920" height="56" fill="var(--acid-lime)"/>
+      <line x1="0" y1="1024" x2="1920" y2="1024" stroke="var(--ink)" stroke-width="6"/>
+      <g clip-path="url(#botStripClip)">
+        <g class="ticker-left" fill="var(--ink)">
+          <rect x="40" y="1045" width="54" height="14" rx="7"/>
+          <polygon points="132,1039 145,1052 132,1065 119,1052"/>
+
+          <rect x="200" y="1045" width="54" height="14" rx="7"/>
+          <polygon points="292,1039 305,1052 292,1065 279,1052"/>
+
+          <rect x="360" y="1045" width="54" height="14" rx="7"/>
+          <polygon points="452,1039 465,1052 452,1065 439,1052"/>
+
+          <rect x="520" y="1045" width="54" height="14" rx="7"/>
+          <polygon points="612,1039 625,1052 612,1065 599,1052"/>
+
+          <rect x="680" y="1045" width="54" height="14" rx="7"/>
+          <polygon points="772,1039 785,1052 772,1065 759,1052"/>
+
+          <rect x="840" y="1045" width="54" height="14" rx="7"/>
+          <polygon points="932,1039 945,1052 932,1065 919,1052"/>
+
+          <rect x="1000" y="1045" width="54" height="14" rx="7"/>
+          <polygon points="1092,1039 1105,1052 1092,1065 1079,1052"/>
+
+          <rect x="1160" y="1045" width="54" height="14" rx="7"/>
+          <polygon points="1252,1039 1265,1052 1252,1065 1239,1052"/>
+
+          <rect x="1320" y="1045" width="54" height="14" rx="7"/>
+          <polygon points="1412,1039 1425,1052 1412,1065 1399,1052"/>
+
+          <rect x="1480" y="1045" width="54" height="14" rx="7"/>
+          <polygon points="1572,1039 1585,1052 1572,1065 1559,1052"/>
+
+          <rect x="1640" y="1045" width="54" height="14" rx="7"/>
+          <polygon points="1732,1039 1745,1052 1732,1065 1719,1052"/>
+
+          <rect x="1800" y="1045" width="54" height="14" rx="7"/>
+          <polygon points="1892,1039 1905,1052 1892,1065 1879,1052"/>
+
+          <rect x="1960" y="1045" width="54" height="14" rx="7"/>
+          <polygon points="2052,1039 2065,1052 2052,1065 2039,1052"/>
+        </g>
+      </g>
+
+      <!-- =====================================================
+           3. JENDELA RETRO OS UTAMA: LANGIT MALAM & KEMBANG API
+      ====================================================== -->
+      <g transform="translate(540, 225)">
+        <g class="main-win-float">
+          <!-- Bayangan Keras (Hard Offset Shadow) -->
+          <rect x="18" y="18" width="840" height="610" rx="22" fill="var(--ink)"/>
+
+          <!-- Bodi Utama Jendela -->
+          <rect x="0" y="0" width="840" height="610" rx="22" fill="var(--white)" stroke="var(--ink)" stroke-width="8"/>
+
+          <!-- Title Bar Ungu Elektrik -->
+          <path d="M4 22 C4 12 12 4 22 4 H818 C828 4 836 12 836 22 V72 H4 Z" fill="var(--electric-purple)"/>
+          <line x1="0" y1="72" x2="840" y2="72" stroke="var(--ink)" stroke-width="8"/>
+
+          <!-- Kontrol Jendela Kanan -->
+          <circle cx="718" cy="38" r="11" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="4"/>
+          <circle cx="754" cy="38" r="11" fill="var(--acid-lime)" stroke="var(--ink)" stroke-width="4"/>
+          <circle cx="790" cy="38" r="11" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="4"/>
+
+          <!-- Layar Viewport Langit Malam Gelap (#1E1B4B) -->
+          <rect x="40" y="104" width="760" height="372" rx="20" fill="var(--midnight)" stroke="var(--ink)" stroke-width="7"/>
+
+          <!-- Konten Langit Malam & Tiga Kembang Api -->
+          <g clip-path="url(#nightSkyClip)">
+            <!-- Bintang-Bintang Latar Belakang -->
+            <g fill="var(--white)" opacity="0.7">
+              <circle cx="115" cy="155" r="4"/>
+              <circle cx="290" cy="145" r="5"/>
+              <circle cx="485" cy="160" r="4"/>
+              <circle cx="695" cy="150" r="5"/>
+              <circle cx="145" cy="310" r="4"/>
+              <circle cx="670" cy="335" r="4"/>
+            </g>
+
+            <!-- Siluet Gedung Kota Minimalis di Bagian Bawah Layar Malam -->
+            <g fill="#0F172A" stroke="var(--ink)" stroke-width="4">
+              <rect x="44" y="405" width="90" height="75"/>
+              <rect x="128" y="375" width="110" height="105"/>
+              <rect x="232" y="415" width="85" height="65"/>
+              <rect x="312" y="365" width="120" height="115"/>
+              <rect x="426" y="395" width="95" height="85"/>
+              <rect x="515" y="370" width="115" height="110"/>
+              <rect x="624" y="400" width="90" height="80"/>
+              <rect x="708" y="380" width="90" height="100"/>
+            </g>
+            <!-- Jendela Kuning Menyala di Gedung -->
+            <g fill="var(--neon-yellow)">
+              <rect x="152" y="398" width="16" height="16" rx="3"/>
+              <rect x="184" y="398" width="16" height="16" rx="3"/>
+              <rect x="342" y="390" width="18" height="18" rx="3"/>
+              <rect x="378" y="390" width="18" height="18" rx="3"/>
+              <rect x="342" y="422" width="18" height="18" rx="3"/>
+              <rect x="545" y="395" width="16" height="16" rx="3"/>
+              <rect x="578" y="395" width="16" height="16" rx="3"/>
+            </g>
+
+            <!-- KEMBANG API 1 (KIRI - HOT PINK & YELLOW) -->
+            <g transform="translate(225, 240)">
+              <g class="fw-burst-1">
+                <g stroke="var(--hot-pink)" stroke-width="8" stroke-linecap="round">
+                  <line x1="0" y1="-35" x2="0" y2="-85"/>
+                  <line x1="25" y1="-25" x2="60" y2="-60"/>
+                  <line x1="35" y1="0" x2="85" y2="0"/>
+                  <line x1="25" y1="25" x2="60" y2="60"/>
+                  <line x1="0" y1="35" x2="0" y2="85"/>
+                  <line x1="-25" y1="25" x2="-60" y2="60"/>
+                  <line x1="-35" y1="0" x2="-85" y2="0"/>
+                  <line x1="-25" y1="-25" x2="-60" y2="-60"/>
+                </g>
+                <circle cx="0" cy="0" r="18" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="5"/>
+              </g>
+            </g>
+
+            <!-- KEMBANG API 2 (TENGAH ATAS - CYBER CYAN & LIME) -->
+            <g transform="translate(430, 215)">
+              <g class="fw-burst-2">
+                <g stroke="var(--cyber-cyan)" stroke-width="9" stroke-linecap="round">
+                  <line x1="0" y1="-40" x2="0" y2="-98"/>
+                  <line x1="28" y1="-28" x2="70" y2="-70"/>
+                  <line x1="40" y1="0" x2="98" y2="0"/>
+                  <line x1="28" y1="28" x2="70" y2="70"/>
+                  <line x1="0" y1="40" x2="0" y2="98"/>
+                  <line x1="-28" y1="28" x2="-70" y2="70"/>
+                  <line x1="-40" y1="0" x2="-98" y2="0"/>
+                  <line x1="-28" y1="-28" x2="-70" y2="-70"/>
+                </g>
+                <polygon points="0,-28 8,-8 28,-8 12,5 18,25 0,13 -18,25 -12,5 -28,-8 -8,-8" fill="var(--acid-lime)" stroke="var(--ink)" stroke-width="5" stroke-linejoin="round"/>
+              </g>
+            </g>
+
+            <!-- KEMBANG API 3 (KANAN - NEON YELLOW & PURPLE) -->
+            <g transform="translate(625, 245)">
+              <g class="fw-burst-3">
+                <g stroke="var(--neon-yellow)" stroke-width="8" stroke-linecap="round">
+                  <line x1="0" y1="-35" x2="0" y2="-85"/>
+                  <line x1="25" y1="-25" x2="60" y2="-60"/>
+                  <line x1="35" y1="0" x2="85" y2="0"/>
+                  <line x1="25" y1="25" x2="60" y2="60"/>
+                  <line x1="0" y1="35" x2="0" y2="85"/>
+                  <line x1="-25" y1="25" x2="-60" y2="60"/>
+                  <line x1="-35" y1="0" x2="-85" y2="0"/>
+                  <line x1="-25" y1="-25" x2="-60" y2="-60"/>
+                </g>
+                <circle cx="0" cy="0" r="18" fill="var(--electric-purple)" stroke="var(--ink)" stroke-width="5"/>
+              </g>
+            </g>
+          </g>
+
+          <!-- Bar Kontrol Pesta di Bawah Layar -->
+          <rect x="40" y="504" width="760" height="72" rx="18" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="6"/>
+          <circle cx="84" cy="540" r="18" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="4.5"/>
+          <rect x="122" y="531" width="240" height="18" rx="9" fill="var(--ink)"/>
+          <rect x="615" y="522" width="155" height="36" rx="12" fill="var(--acid-lime)" stroke="var(--ink)" stroke-width="4.5"/>
+        </g>
+      </g>
+
+      <!-- =====================================================
+           4. JAM TENGAH MALAM BERDERING (OVERLAP KIRI ATAS)
+      ====================================================== -->
+      <g transform="translate(495, 255)">
+        <g class="clock-shake">
+          <!-- Lonceng Kiri & Kanan -->
+          <path d="M-98 -68 C-98 -104 -42 -104 -42 -68 Z" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="7" transform="rotate(-32 -70 -68)"/>
+          <path d="M42 -68 C42 -104 98 -104 98 -68 Z" fill="var(--acid-lime)" stroke="var(--ink)" stroke-width="7" transform="rotate(32 70 -68)"/>
+
+          <!-- Hard Offset Shadow Jam -->
+          <circle cx="12" cy="14" r="102" fill="var(--ink)"/>
+          <!-- Bingkai Jam Cyber Cyan -->
+          <circle cx="0" cy="0" r="102" fill="var(--cyber-cyan)" stroke="var(--ink)" stroke-width="8"/>
+          <!-- Muka Jam Putih -->
+          <circle cx="0" cy="0" r="78" fill="var(--white)" stroke="var(--ink)" stroke-width="6"/>
+
+          <!-- Bintang Puncak Pukul 12 -->
+          <polygon points="0,-64 5,-52 18,-52 8,-44 12,-32 0,-39 -12,-32 -8,-44 -18,-52 -5,-52" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="3.5" stroke-linejoin="round"/>
+
+          <!-- Kedua Jarum Menunjuk Tepat ke Pukul 12 -->
+          <rect x="-5" y="-44" width="10" height="44" rx="5" fill="var(--ink)"/>
+          <circle cx="0" cy="0" r="11" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="4.5"/>
+        </g>
+      </g>
+
+      <!-- =====================================================
+           5. PARTY POPPER & KONFETI (KIRI BAWAH)
+      ====================================================== -->
+      <g transform="translate(265, 765)">
+        <!-- Konfeti Tembakan dari Mulut Popper -->
+        <g transform="translate(35, -30)">
+          <g class="popper-conf-1">
+            <polygon points="0,-24 7,-7 24,-7 10,4 15,21 0,10 -15,21 -10,4 -24,-7 -7,-7" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="5" stroke-linejoin="round"/>
+          </g>
+          <g class="popper-conf-2">
+            <polygon points="0,-22 20,16 -20,16" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="5" stroke-linejoin="round"/>
+          </g>
+        </g>
+
+        <!-- Kerucut Terompet Pesta -->
+        <g class="popper-kick">
+          <g transform="translate(12, 14)">
+            <polygon points="-95,105 -25,-90 95,30" fill="var(--ink)" stroke="var(--ink)" stroke-width="8" stroke-linejoin="round"/>
+          </g>
+          <polygon points="-95,105 -25,-90 95,30" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="8" stroke-linejoin="round"/>
+
+          <g clip-path="url(#popperConeClip)">
+            <line x1="-90" y1="25" x2="20" y2="135" stroke="var(--hot-pink)" stroke-width="20"/>
+            <line x1="-90" y1="25" x2="20" y2="135" stroke="var(--ink)" stroke-width="6"/>
+            <line x1="-55" y1="-20" x2="65" y2="100" stroke="var(--cyber-cyan)" stroke-width="20"/>
+            <line x1="-55" y1="-20" x2="65" y2="100" stroke="var(--ink)" stroke-width="6"/>
+          </g>
+          <polygon points="-95,105 -25,-90 95,30" fill="none" stroke="var(--ink)" stroke-width="8" stroke-linejoin="round"/>
+
+          <!-- Mulut Oval -->
+          <g transform="translate(35, -30) rotate(45)">
+            <ellipse cx="0" cy="0" rx="85" ry="22" fill="var(--ink)"/>
+            <ellipse cx="0" cy="3" rx="72" ry="13" fill="var(--electric-purple)"/>
+          </g>
+        </g>
+      </g>
+
+      <!-- =====================================================
+           6. KARTU MUSIK & RITME PESTA (KANAN ATAS)
+      ====================================================== -->
+      <g transform="translate(1450, 250)">
+        <g class="music-card-bob">
+          <rect x="14" y="14" width="290" height="270" rx="20" fill="var(--ink)"/>
+          <rect x="0" y="0" width="290" height="270" rx="20" fill="var(--cyber-cyan)" stroke="var(--ink)" stroke-width="7"/>
+
+          <!-- Header Kartu -->
+          <path d="M4 20 C4 11 11 4 20 4 H270 C279 4 286 11 286 20 V52 H4 Z" fill="var(--white)"/>
+          <line x1="0" y1="52" x2="290" y2="52" stroke="var(--ink)" stroke-width="7"/>
+          <rect x="24" y="20" width="84" height="14" rx="7" fill="var(--ink)"/>
+
+          <!-- Layar Equalizer Pesta -->
+          <rect x="28" y="78" width="234" height="162" rx="16" fill="var(--white)" stroke="var(--ink)" stroke-width="6"/>
+          <g transform="translate(64, 214)">
+            <rect class="eq-1" x="0" y="-105" width="28" height="105" rx="7" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="4.5"/>
+          </g>
+          <g transform="translate(108, 214)">
+            <rect class="eq-2" x="0" y="-112" width="28" height="112" rx="7" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="4.5"/>
+          </g>
+          <g transform="translate(152, 214)">
+            <rect class="eq-3" x="0" y="-115" width="28" height="115" rx="7" fill="var(--acid-lime)" stroke="var(--ink)" stroke-width="4.5"/>
+          </g>
+          <g transform="translate(196, 214)">
+            <rect class="eq-4" x="0" y="-100" width="28" height="100" rx="7" fill="var(--electric-purple)" stroke="var(--ink)" stroke-width="4.5"/>
+          </g>
+        </g>
+      </g>
+
+      <!-- =====================================================
+           7. STIKER BINTANG BERGERIGI PERAYAAN (KANAN BAWAH)
+      ====================================================== -->
+      <g transform="translate(1565, 760)">
+        <g class="starburst-spin">
+          <g transform="translate(12, 14)">
+            <polygon points="0,-125 26,-88 72,-102 70,-54 116,-40 88,0 116,40 70,54 72,102 26,88 0,125 -26,88 -72,102 -70,54 -116,40 -88,0 -116,-40 -70,-54 -72,-102 -26,-88" fill="var(--ink)"/>
+          </g>
+          <polygon points="0,-125 26,-88 72,-102 70,-54 116,-40 88,0 116,40 70,54 72,102 26,88 0,125 -26,88 -72,102 -70,54 -116,40 -88,0 -116,-40 -70,-54 -72,-102 -26,-88" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="8" stroke-linejoin="round"/>
+        </g>
+        <!-- Lingkaran & Bintang Inti -->
+        <circle cx="0" cy="0" r="58" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="7"/>
+        <polygon points="0,-34 10,-10 34,-10 14,5 22,28 0,14 -22,28 -14,5 -34,-10 -10,-10" fill="var(--white)" stroke="var(--ink)" stroke-width="5.5" stroke-linejoin="round"/>
+      </g>
+
+    </svg>
+  </div>
+
+</body>
+</html>

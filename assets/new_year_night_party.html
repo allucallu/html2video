@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Neo-Brutalism Full Scene: New Year Night Party - 6s Seamless Loop</title>
+  <style>
+    :root {
+      --sky-night: #141026;
+      --sky-mid: #1E173B;
+      --building-dark: #251E47;
+      --building-deep: #1B1536;
+      --ink: #0B0914;
+      --neon-yellow: #FDE047;
+      --hot-pink: #FB7185;
+      --cyber-cyan: #38BDF8;
+      --acid-lime: #A3E635;
+      --electric-purple: #C084FC;
+      --white: #FFFFFF;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--ink);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    .canvas {
+      width: 100vw;
+      max-width: 1920px;
+      aspect-ratio: 16 / 9;
+      background-color: var(--sky-night);
+      overflow: hidden;
+    }
+
+    /* =====================================================
+       MASTER SEAMLESS LOOP (6 DETIK)
+       Semua siklus sinkron: 6s, 3s, 1.5s
+    ===================================================== */
+
+    /* 1. Sorotan Lampu Panggung Menyapu Langit (6s) */
+    .spotlight-left {
+      animation: sweepLeft 6s ease-in-out infinite;
+    }
+    .spotlight-right {
+      animation: sweepRight 6s ease-in-out infinite;
+    }
+    @keyframes sweepLeft {
+      0%, 100% { transform: rotate(-16deg); }
+      50% { transform: rotate(14deg); }
+    }
+    @keyframes sweepRight {
+      0%, 100% { transform: rotate(16deg); }
+      50% { transform: rotate(-14deg); }
+    }
+
+    /* 2. untaian Bendera Pesta & Awan Bergoyang Halus (6s) */
+    .bunting-sway-l { animation: swayFlagL 6s ease-in-out infinite; }
+    .bunting-sway-r { animation: swayFlagR 6s ease-in-out infinite; }
+    @keyframes swayFlagL {
+      0%, 100% { transform: rotate(0deg); }
+      50% { transform: rotate(2.5deg); }
+    }
+    @keyframes swayFlagR {
+      0%, 100% { transform: rotate(0deg); }
+      50% { transform: rotate(-2.5deg); }
+    }
+
+    .cloud-drift-1 { animation: driftA 6s ease-in-out infinite; }
+    .cloud-drift-2 { animation: driftB 6s ease-in-out infinite; }
+    @keyframes driftA {
+      0%, 100% { transform: translateX(0px); }
+      50% { transform: translateX(22px); }
+    }
+    @keyframes driftB {
+      0%, 100% { transform: translateX(0px); }
+      50% { transform: translateX(-22px); }
+    }
+
+    /* 3. Tiga Kembang Api Mekar Bergantian di Langit (Siklus 3s) */
+    .fw-sky-1 {
+      animation: burstSky1 3s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    @keyframes burstSky1 {
+      0%, 4% { transform: scale(0.1) rotate(0deg); opacity: 0; }
+      18% { transform: scale(1.1) rotate(10deg); opacity: 1; }
+      45% { transform: scale(1) rotate(18deg); opacity: 1; }
+      60%, 100% { transform: scale(1.22) rotate(25deg); opacity: 0; }
+    }
+
+    .fw-sky-2 {
+      animation: burstSky2 3s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    @keyframes burstSky2 {
+      0%, 26% { transform: scale(0.1) rotate(0deg); opacity: 0; }
+      40% { transform: scale(1.12) rotate(-10deg); opacity: 1; }
+      68% { transform: scale(1) rotate(-18deg); opacity: 1; }
+      82%, 100% { transform: scale(1.22) rotate(-25deg); opacity: 0; }
+    }
+
+    .fw-sky-3 {
+      animation: burstSky3 3s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    @keyframes burstSky3 {
+      0%, 48% { transform: scale(0.1) rotate(0deg); opacity: 0; }
+      62% { transform: scale(1.1) rotate(8deg); opacity: 1; }
+      86% { transform: scale(1) rotate(15deg); opacity: 1; }
+      97%, 100% { transform: scale(1.22) rotate(22deg); opacity: 0; }
+    }
+
+    /* 4. Botol Perayaan Meletupkan Gabus & Busa (Siklus 3s) */
+    .bottle-pop-bounce {
+      animation: bottleKick 3s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    @keyframes bottleKick {
+      0%, 100% { transform: translateY(0px) rotate(-14deg) scale(1, 1); }
+      14% { transform: translateY(10px) rotate(-18deg) scale(1.06, 0.92); }
+      24% { transform: translateY(-16px) rotate(-10deg) scale(0.95, 1.07); }
+      38%, 90% { transform: translateY(0px) rotate(-14deg) scale(1, 1); }
+    }
+
+    .cork-fly {
+      animation: flyCork 3s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+    }
+    @keyframes flyCork {
+      0%, 18% { transform: translate(0px, 0px) rotate(0deg) scale(1); opacity: 1; }
+      24% { transform: translate(45px, -110px) rotate(95deg) scale(1.1); opacity: 1; }
+      55% { transform: translate(115px, -210px) rotate(240deg) scale(1); opacity: 1; }
+      82% { transform: translate(145px, -155px) rotate(330deg) scale(0.9); opacity: 1; }
+      95%, 100% { transform: translate(160px, -110px) rotate(380deg) scale(0); opacity: 0; }
+    }
+
+    .foam-burst {
+      animation: burstFoam 3s ease-out infinite;
+    }
+    @keyframes burstFoam {
+      0%, 18% { transform: scale(0.1); opacity: 0; }
+      26% { transform: scale(1.08); opacity: 1; }
+      52% { transform: scale(1.25); opacity: 0.9; }
+      72%, 100% { transform: scale(1.4); opacity: 0; }
+    }
+
+    /* 5. Gelas Pesta Bersulang di Kanan Panggung (Siklus 3s) */
+    .toast-l {
+      animation: clinkLeft 3s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    .toast-r {
+      animation: clinkRight 3s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    @keyframes clinkLeft {
+      0%, 100% { transform: rotate(-8deg); }
+      24% { transform: rotate(-20deg) translateX(-8px); }
+      36% { transform: rotate(12deg) translateX(10px); }
+      50%, 86% { transform: rotate(4deg) translateX(4px); }
+    }
+    @keyframes clinkRight {
+      0%, 100% { transform: rotate(8deg); }
+      24% { transform: rotate(20deg) translateX(8px); }
+      36% { transform: rotate(-12deg) translateX(-10px); }
+      50%, 86% { transform: rotate(-4deg) translateX(-4px); }
+    }
+
+    /* 6. Speaker Panggung Berdenyut Mengikuti Ketukan (1.5s = 4x per loop) */
+    .speaker-woofer {
+      animation: bassBump 1.5s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    @keyframes bassBump {
+      0%, 100% { transform: scale(1); }
+      25% { transform: scale(1.16); }
+      50% { transform: scale(0.95); }
+      75% { transform: scale(1.12); }
+    }
+
+    /* 7. Jendela Gedung Kota Berkedip Bergantian (3s) */
+    .win-blink-1 { animation: blinkWin 3s steps(2, end) infinite 0s; }
+    .win-blink-2 { animation: blinkWin 3s steps(2, end) infinite 1.5s; }
+    @keyframes blinkWin {
+      0%, 49% { opacity: 1; }
+      50%, 100% { opacity: 0.25; }
+    }
+
+    /* 8. Hujan Konfeti Terus-Menerus di Seluruh Layar (6s seamless) */
+    .confetti-fall-1 { animation: fallLoop1 6s linear infinite; }
+    .confetti-fall-2 { animation: fallLoop2 6s linear infinite; }
+    @keyframes fallLoop1 {
+      0% { transform: translateY(-120px) rotate(0deg); }
+      100% { transform: translateY(1120px) rotate(360deg); }
+    }
+    @keyframes fallLoop2 {
+      0% { transform: translateY(-240px) rotate(180deg); }
+      100% { transform: translateY(1000px) rotate(-180deg); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="canvas">
+    <svg viewBox="0 0 1920 1080" width="100%" height="100%">
+      <defs>
+        <!-- Pola Titik Halftone Halus untuk Langit Malam -->
+        <pattern id="nightHalftone" width="36" height="36" patternUnits="userSpaceOnUse">
+          <circle cx="18" cy="18" r="2.2" fill="#FFFFFF" opacity="0.07"/>
+        </pattern>
+
+        <!-- Gradien Sorotan Lampu Panggung -->
+        <linearGradient id="beamCyan" x1="0%" y1="100%" x2="0%" y2="0%">
+          <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.32"/>
+          <stop offset="100%" stop-color="#38BDF8" stop-opacity="0"/>
+        </linearGradient>
+        <linearGradient id="beamPink" x1="0%" y1="100%" x2="0%" y2="0%">
+          <stop offset="0%" stop-color="#FB7185" stop-opacity="0.32"/>
+          <stop offset="100%" stop-color="#FB7185" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+
+      <!-- =====================================================
+           1. LANGIT MALAM & SOROTAN LAMPU PANGGUNG
+      ====================================================== -->
+      <rect width="1920" height="1080" fill="var(--sky-night)"/>
+      <rect width="1920" height="1080" fill="url(#nightHalftone)"/>
+
+      <!-- Sorotan Lampu Panggung dari Belakang Gedung -->
+      <g transform="translate(560, 780)">
+        <g class="spotlight-left">
+          <polygon points="0,0 -240,-860 120,-860" fill="url(#beamCyan)"/>
+        </g>
+      </g>
+      <g transform="translate(1360, 780)">
+        <g class="spotlight-right">
+          <polygon points="0,0 -120,-860 240,-860" fill="url(#beamPink)"/>
+        </g>
+      </g>
+
+      <!-- Bintang-Bintang & Kilau Malam -->
+      <g fill="var(--neon-yellow)">
+        <circle cx="220" cy="240" r="6"/>
+        <circle cx="480" cy="145" r="5"/>
+        <circle cx="840" cy="115" r="7"/>
+        <circle cx="1160" cy="135" r="5"/>
+        <circle cx="1480" cy="195" r="6"/>
+        <circle cx="1740" cy="265" r="5"/>
+      </g>
+
+      <!-- Bulan Sabit Kuning Neon & Awan Neo-Brutalist (Kiri Atas) -->
+      <g transform="translate(310, 215)">
+        <!-- Hard Offset Shadow Bulan -->
+        <path d="M-20 -72 A76 76 0 1 0 68 36 A60 60 0 1 1 -20 -72 Z" fill="var(--ink)" transform="translate(12, 12)"/>
+        <!-- Bulan Sabit -->
+        <path d="M-20 -72 A76 76 0 1 0 68 36 A60 60 0 1 1 -20 -72 Z" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="7" stroke-linejoin="round"/>
+
+        <!-- Awan Geometris Ungu Elektrik Melayang -->
+        <g transform="translate(55, 48)">
+          <g class="cloud-drift-1">
+            <path d="M-65 26 H75 A24 24 0 0 0 75 -22 A34 34 0 0 0 12 -38 A28 28 0 0 0 -38 -18 A22 22 0 0 0 -65 26 Z" fill="var(--ink)" transform="translate(10, 10)"/>
+            <path d="M-65 26 H75 A24 24 0 0 0 75 -22 A34 34 0 0 0 12 -38 A28 28 0 0 0 -38 -18 A22 22 0 0 0 -65 26 Z" fill="var(--electric-purple)" stroke="var(--ink)" stroke-width="6.5" stroke-linejoin="round"/>
+          </g>
+        </g>
+      </g>
+
+      <!-- Awan Geometris Cyber Cyan (Kanan Atas) -->
+      <g transform="translate(1590, 240)">
+        <g class="cloud-drift-2">
+          <path d="M-75 28 H82 A26 26 0 0 0 82 -24 A36 36 0 0 0 14 -42 A30 30 0 0 0 -42 -20 A24 24 0 0 0 -75 28 Z" fill="var(--ink)" transform="translate(10, 10)"/>
+          <path d="M-75 28 H82 A26 26 0 0 0 82 -24 A36 36 0 0 0 14 -42 A30 30 0 0 0 -42 -20 A24 24 0 0 0 -75 28 Z" fill="var(--cyber-cyan)" stroke="var(--ink)" stroke-width="6.5" stroke-linejoin="round"/>
+        </g>
+      </g>
+
+      <!-- =====================================================
+           2. TIGA KEMBANG API BESAR MEKAR DI LANGIT MALAM
+      ====================================================== -->
+      <!-- Kembang Api 1 (Kiri Tengah - Hot Pink & Neon Yellow) -->
+      <g transform="translate(565, 345)">
+        <g class="fw-sky-1">
+          <g stroke="var(--hot-pink)" stroke-width="11" stroke-linecap="round">
+            <line x1="0" y1="-55" x2="0" y2="-145"/>
+            <line x1="39" y1="-39" x2="102" y2="-102"/>
+            <line x1="55" y1="0" x2="145" y2="0"/>
+            <line x1="39" y1="39" x2="102" y2="102"/>
+            <line x1="0" y1="55" x2="0" y2="145"/>
+            <line x1="-39" y1="39" x2="-102" y2="102"/>
+            <line x1="-55" y1="0" x2="-145" y2="0"/>
+            <line x1="-39" y1="-39" x2="-102" y2="-102"/>
+          </g>
+          <!-- Partikel Ujung Sinar -->
+          <circle cx="0" cy="-165" r="12" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="4.5"/>
+          <circle cx="116" cy="-116" r="12" fill="var(--cyber-cyan)" stroke="var(--ink)" stroke-width="4.5"/>
+          <circle cx="165" cy="0" r="12" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="4.5"/>
+          <circle cx="116" cy="116" r="12" fill="var(--acid-lime)" stroke="var(--ink)" stroke-width="4.5"/>
+          <circle cx="0" cy="165" r="12" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="4.5"/>
+          <circle cx="-116" cy="116" r="12" fill="var(--cyber-cyan)" stroke="var(--ink)" stroke-width="4.5"/>
+          <circle cx="-165" cy="0" r="12" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="4.5"/>
+          <circle cx="-116" cy="-116" r="12" fill="var(--acid-lime)" stroke="var(--ink)" stroke-width="4.5"/>
+          <!-- Inti Starburst -->
+          <polygon points="0,-42 12,-12 42,-12 18,6 27,36 0,18 -27,36 -18,6 -42,-12 -12,-12" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="6" stroke-linejoin="round"/>
+        </g>
+      </g>
+
+      <!-- Kembang Api 2 (Tengah Atas - Cyber Cyan & Acid Lime) -->
+      <g transform="translate(960, 265)">
+        <g class="fw-sky-2">
+          <g stroke="var(--cyber-cyan)" stroke-width="12" stroke-linecap="round">
+            <line x1="0" y1="-62" x2="0" y2="-165"/>
+            <line x1="44" y1="-44" x2="116" y2="-116"/>
+            <line x1="62" y1="0" x2="165" y2="0"/>
+            <line x1="44" y1="44" x2="116" y2="116"/>
+            <line x1="0" y1="62" x2="0" y2="165"/>
+            <line x1="-44" y1="44" x2="-116" y2="116"/>
+            <line x1="-62" y1="0" x2="-165" y2="0"/>
+            <line x1="-44" y1="-44" x2="-116" y2="-116"/>
+          </g>
+          <circle cx="0" cy="-188" r="14" fill="var(--acid-lime)" stroke="var(--ink)" stroke-width="5"/>
+          <circle cx="132" cy="-132" r="14" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="5"/>
+          <circle cx="188" cy="0" r="14" fill="var(--acid-lime)" stroke="var(--ink)" stroke-width="5"/>
+          <circle cx="132" cy="132" r="14" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="5"/>
+          <circle cx="0" cy="188" r="14" fill="var(--acid-lime)" stroke="var(--ink)" stroke-width="5"/>
+          <circle cx="-132" cy="132" r="14" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="5"/>
+          <circle cx="-188" cy="0" r="14" fill="var(--acid-lime)" stroke="var(--ink)" stroke-width="5"/>
+          <circle cx="-132" cy="-132" r="14" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="5"/>
+          <polygon points="0,-48 14,-14 48,-14 21,7 31,42 0,21 -31,42 -21,7 -48,-14 -14,-14" fill="var(--acid-lime)" stroke="var(--ink)" stroke-width="6.5" stroke-linejoin="round"/>
+        </g>
+      </g>
+
+      <!-- Kembang Api 3 (Kanan Tengah - Neon Yellow & Electric Purple) -->
+      <g transform="translate(1355, 355)">
+        <g class="fw-sky-3">
+          <g stroke="var(--neon-yellow)" stroke-width="11" stroke-linecap="round">
+            <line x1="0" y1="-55" x2="0" y2="-145"/>
+            <line x1="39" y1="-39" x2="102" y2="-102"/>
+            <line x1="55" y1="0" x2="145" y2="0"/>
+            <line x1="39" y1="39" x2="102" y2="102"/>
+            <line x1="0" y1="55" x2="0" y2="145"/>
+            <line x1="-39" y1="39" x2="-102" y2="102"/>
+            <line x1="-55" y1="0" x2="-145" y2="0"/>
+            <line x1="-39" y1="-39" x2="-102" y2="-102"/>
+          </g>
+          <circle cx="0" cy="-165" r="12" fill="var(--electric-purple)" stroke="var(--ink)" stroke-width="4.5"/>
+          <circle cx="116" cy="-116" r="12" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="4.5"/>
+          <circle cx="165" cy="0" r="12" fill="var(--electric-purple)" stroke="var(--ink)" stroke-width="4.5"/>
+          <circle cx="116" cy="116" r="12" fill="var(--cyber-cyan)" stroke="var(--ink)" stroke-width="4.5"/>
+          <circle cx="0" cy="165" r="12" fill="var(--electric-purple)" stroke="var(--ink)" stroke-width="4.5"/>
+          <circle cx="-116" cy="116" r="12" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="4.5"/>
+          <circle cx="-165" cy="0" r="12" fill="var(--electric-purple)" stroke="var(--ink)" stroke-width="4.5"/>
+          <circle cx="-116" cy="-116" r="12" fill="var(--cyber-cyan)" stroke="var(--ink)" stroke-width="4.5"/>
+          <polygon points="0,-42 12,-12 42,-12 18,6 27,36 0,18 -27,36 -18,6 -42,-12 -12,-12" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="6" stroke-linejoin="round"/>
+        </g>
+      </g>
+
+      <!-- =====================================================
+           3. UNTAIAN BENDERA PESTA (BUNTING FLAGS) SUDUT ATAS
+      ====================================================== -->
+      <!-- Untaian Kiri Atas -->
+      <g transform="translate(-20, 0)">
+        <g class="bunting-sway-l">
+          <path d="M 0 35 Q 260 155 560 15" fill="none" stroke="var(--ink)" stroke-width="8"/>
+          <polygon points="45,52 95,68 58,108" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="5.5" stroke-linejoin="round"/>
+          <polygon points="120,74 172,82 140,126" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="5.5" stroke-linejoin="round"/>
+          <polygon points="200,85 252,85 226,132" fill="var(--cyber-cyan)" stroke="var(--ink)" stroke-width="5.5" stroke-linejoin="round"/>
+          <polygon points="280,83 332,75 312,124" fill="var(--acid-lime)" stroke="var(--ink)" stroke-width="5.5" stroke-linejoin="round"/>
+          <polygon points="360,70 410,55 398,106" fill="var(--electric-purple)" stroke="var(--ink)" stroke-width="5.5" stroke-linejoin="round"/>
+          <polygon points="438,48 486,28 480,80" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="5.5" stroke-linejoin="round"/>
+        </g>
+      </g>
+
+      <!-- Untaian Kanan Atas -->
+      <g transform="translate(1940, 0)">
+        <g class="bunting-sway-r">
+          <path d="M 0 35 Q -260 155 -560 15" fill="none" stroke="var(--ink)" stroke-width="8"/>
+          <polygon points="-45,52 -95,68 -58,108" fill="var(--cyber-cyan)" stroke="var(--ink)" stroke-width="5.5" stroke-linejoin="round"/>
+          <polygon points="-120,74 -172,82 -140,126" fill="var(--acid-lime)" stroke="var(--ink)" stroke-width="5.5" stroke-linejoin="round"/>
+          <polygon points="-200,85 -252,85 -226,132" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="5.5" stroke-linejoin="round"/>
+          <polygon points="-280,83 -332,75 -312,124" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="5.5" stroke-linejoin="round"/>
+          <polygon points="-360,70 -410,55 -398,106" fill="var(--electric-purple)" stroke="var(--ink)" stroke-width="5.5" stroke-linejoin="round"/>
+          <polygon points="-438,48 -486,28 -480,80" fill="var(--cyber-cyan)" stroke="var(--ink)" stroke-width="5.5" stroke-linejoin="round"/>
+        </g>
+      </g>
+
+      <!-- =====================================================
+           4. CAKRAWALA GEDUNG KOTA NEO-BRUTALIST (MIDGROUND)
+      ====================================================== -->
+      <!-- Barisan Gedung Lapis Belakang -->
+      <g fill="var(--building-deep)" stroke="var(--ink)" stroke-width="7" stroke-linejoin="round">
+        <rect x="-10" y="540" width="210" height="420"/>
+        <rect x="180" y="485" width="230" height="475"/>
+        <rect x="390" y="575" width="190" height="385"/>
+        <rect x="1340" y="565" width="200" height="395"/>
+        <rect x="1520" y="475" width="230" height="485"/>
+        <rect x="1730" y="535" width="210" height="425"/>
+      </g>
+
+      <!-- Barisan Gedung Utama & Jendela Neon Menyala -->
+      <g fill="var(--building-dark)" stroke="var(--ink)" stroke-width="7" stroke-linejoin="round">
+        <!-- Gedung Kiri 1 -->
+        <rect x="40" y="615" width="220" height="365"/>
+        <!-- Gedung Kiri 2 (Menara) -->
+        <rect x="290" y="535" width="240" height="445"/>
+        <!-- Gedung Kanan 1 (Menara) -->
+        <rect x="1390" y="525" width="240" height="455"/>
+        <!-- Gedung Kanan 2 -->
+        <rect x="1660" y="605" width="220" height="375"/>
+      </g>
+
+      <!-- Jendela Neon Gedung Kiri & Kanan -->
+      <g stroke="var(--ink)" stroke-width="4">
+        <!-- Jendela Gedung Kiri 1 -->
+        <rect class="win-blink-1" x="76" y="655" width="36" height="36" rx="6" fill="var(--neon-yellow)"/>
+        <rect x="132" y="655" width="36" height="36" rx="6" fill="var(--cyber-cyan)"/>
+        <rect class="win-blink-2" x="188" y="655" width="36" height="36" rx="6" fill="var(--neon-yellow)"/>
+        <rect x="76" y="715" width="36" height="36" rx="6" fill="var(--hot-pink)"/>
+        <rect class="win-blink-1" x="132" y="715" width="36" height="36" rx="6" fill="var(--neon-yellow)"/>
+        <rect x="188" y="715" width="36" height="36" rx="6" fill="var(--acid-lime)"/>
+
+        <!-- Jendela Menara Kiri 2 -->
+        <rect x="330" y="580" width="42" height="42" rx="7" fill="var(--acid-lime)"/>
+        <rect class="win-blink-2" x="390" y="580" width="42" height="42" rx="7" fill="var(--neon-yellow)"/>
+        <rect x="450" y="580" width="42" height="42" rx="7" fill="var(--cyber-cyan)"/>
+        <rect class="win-blink-1" x="330" y="645" width="42" height="42" rx="7" fill="var(--neon-yellow)"/>
+        <rect x="390" y="645" width="42" height="42" rx="7" fill="var(--hot-pink)"/>
+        <rect class="win-blink-2" x="450" y="645" width="42" height="42" rx="7" fill="var(--neon-yellow)"/>
+
+        <!-- Jendela Menara Kanan 1 -->
+        <rect class="win-blink-1" x="1430" y="570" width="42" height="42" rx="7" fill="var(--neon-yellow)"/>
+        <rect x="1490" y="570" width="42" height="42" rx="7" fill="var(--hot-pink)"/>
+        <rect class="win-blink-2" x="1550" y="570" width="42" height="42" rx="7" fill="var(--cyber-cyan)"/>
+        <rect x="1430" y="635" width="42" height="42" rx="7" fill="var(--cyber-cyan)"/>
+        <rect class="win-blink-1" x="1490" y="635" width="42" height="42" rx="7" fill="var(--neon-yellow)"/>
+        <rect x="1550" y="635" width="42" height="42" rx="7" fill="var(--acid-lime)"/>
+
+        <!-- Jendela Gedung Kanan 2 -->
+        <rect x="1696" y="645" width="36" height="36" rx="6" fill="var(--neon-yellow)"/>
+        <rect class="win-blink-2" x="1752" y="645" width="36" height="36" rx="6" fill="var(--hot-pink)"/>
+        <rect x="1808" y="645" width="36" height="36" rx="6" fill="var(--neon-yellow)"/>
+        <rect class="win-blink-1" x="1696" y="705" width="36" height="36" rx="6" fill="var(--acid-lime)"/>
+        <rect x="1752" y="705" width="36" height="36" rx="6" fill="var(--cyber-cyan)"/>
+        <rect x="1808" y="705" width="36" height="36" rx="6" fill="var(--neon-yellow)"/>
+      </g>
+
+      <!-- =====================================================
+           5. PANGGUNG ROOFTOP PESTA TAHUN BARU (FOREGROUND CENTER)
+      ====================================================== -->
+      <!-- Lantai & Pagar Balkon Rooftop Penuh -->
+      <g>
+        <!-- Dek Panggung Tengah -->
+        <rect x="460" y="790" width="1000" height="290" rx="28" fill="var(--electric-purple)" stroke="var(--ink)" stroke-width="9"/>
+        <!-- Strip Neon Kuning di Bibir Panggung -->
+        <rect x="460" y="790" width="1000" height="34" rx="14" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="8"/>
+
+        <!-- Lampu-Lampu Panggung Bulat di Bibir Panggung -->
+        <g fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="4">
+          <circle cx="530" cy="807" r="9"/>
+          <circle cx="670" cy="807" r="9"/>
+          <circle cx="810" cy="807" r="9"/>
+          <circle cx="960" cy="807" r="9"/>
+          <circle cx="1110" cy="807" r="9"/>
+          <circle cx="1250" cy="807" r="9"/>
+          <circle cx="1390" cy="807" r="9"/>
+        </g>
+
+        <!-- Trotoar / Balkon Latar Depan Bawah -->
+        <rect x="-10" y="945" width="1940" height="145" fill="var(--sky-mid)" stroke="var(--ink)" stroke-width="9"/>
+        <!-- Garis Strip Kuning-Hitam Trotoar Pesta -->
+        <g fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="5">
+          <rect x="60" y="975" width="140" height="22" rx="11"/>
+          <rect x="260" y="975" width="140" height="22" rx="11"/>
+          <rect x="1520" y="975" width="140" height="22" rx="11"/>
+          <rect x="1720" y="975" width="140" height="22" rx="11"/>
+        </g>
+      </g>
+
+      <!-- SPEAKER PANGGUNG KIRI (BERDENYUT) -->
+      <g transform="translate(565, 680)">
+        <rect x="12" y="12" width="150" height="240" rx="20" fill="var(--ink)"/>
+        <rect x="0" y="0" width="150" height="240" rx="20" fill="var(--cyber-cyan)" stroke="var(--ink)" stroke-width="8"/>
+        <!-- Tweeter Atas -->
+        <circle cx="75" cy="58" r="28" fill="var(--white)" stroke="var(--ink)" stroke-width="6"/>
+        <circle cx="75" cy="58" r="10" fill="var(--ink)"/>
+        <!-- Woofer Bawah Berdenyut -->
+        <g transform="translate(75, 160)">
+          <g class="speaker-woofer">
+            <circle cx="0" cy="0" r="48" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="7"/>
+            <circle cx="0" cy="0" r="20" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="5"/>
+          </g>
+        </g>
+      </g>
+
+      <!-- SPEAKER PANGGUNG KANAN (BERDENYUT) -->
+      <g transform="translate(1205, 680)">
+        <rect x="12" y="12" width="150" height="240" rx="20" fill="var(--ink)"/>
+        <rect x="0" y="0" width="150" height="240" rx="20" fill="var(--cyber-cyan)" stroke="var(--ink)" stroke-width="8"/>
+        <!-- Tweeter Atas -->
+        <circle cx="75" cy="58" r="28" fill="var(--white)" stroke="var(--ink)" stroke-width="6"/>
+        <circle cx="75" cy="58" r="10" fill="var(--ink)"/>
+        <!-- Woofer Bawah Berdenyut -->
+        <g transform="translate(75, 160)">
+          <g class="speaker-woofer">
+            <circle cx="0" cy="0" r="48" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="7"/>
+            <circle cx="0" cy="0" r="20" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="5"/>
+          </g>
+        </g>
+      </g>
+
+      <!-- PUSAT PERAYAAN: BOTOL SPARKLING MELETUP & GELAS BERSULANG -->
+      <g transform="translate(885, 765)">
+        <!-- Percikan Busa & Bintang Saat Gabus Meletup -->
+        <g transform="translate(22, -165)">
+          <g class="foam-burst" stroke="var(--ink)" stroke-width="6" stroke-linecap="round">
+            <line x1="-25" y1="-25" x2="-65" y2="-75"/>
+            <line x1="0" y1="-35" x2="0" y2="-95"/>
+            <line x1="25" y1="-25" x2="65" y2="-75"/>
+            <circle cx="-48" cy="-52" r="12" fill="var(--neon-yellow)"/>
+            <circle cx="48" cy="-52" r="12" fill="var(--acid-lime)"/>
+            <circle cx="0" cy="-75" r="14" fill="var(--white)"/>
+          </g>
+        </g>
+
+        <!-- Gabus Botol Terbang ke Atas -->
+        <g transform="translate(24, -155)">
+          <g class="cork-fly">
+            <rect x="-12" y="-18" width="24" height="32" rx="6" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="5"/>
+            <circle cx="0" cy="-18" r="15" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="5"/>
+          </g>
+        </g>
+
+        <!-- Botol Perayaan Neo-Brutalist -->
+        <g class="bottle-pop-bounce">
+          <!-- Hard Offset Shadow Botol -->
+          <path d="M-42 -35 C-42 -62 -20 -75 -16 -105 V-148 H16 V-105 C20 -75 42 -62 42 -35 V125 C42 138 32 148 18 148 H-18 C-32 148 -42 138 -42 125 Z" fill="var(--ink)" transform="translate(12, 12)"/>
+          <!-- Bodi Botol Hijau Limau -->
+          <path d="M-42 -35 C-42 -62 -20 -75 -16 -105 V-148 H16 V-105 C20 -75 42 -62 42 -35 V125 C42 138 32 148 18 148 H-18 C-32 148 -42 138 -42 125 Z" fill="var(--acid-lime)" stroke="var(--ink)" stroke-width="8" stroke-linejoin="round"/>
+          <!-- Leher Emas & Label Bintang -->
+          <rect x="-16" y="-148" width="32" height="36" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="6"/>
+          <rect x="-32" y="-12" width="64" height="86" rx="10" fill="var(--white)" stroke="var(--ink)" stroke-width="6"/>
+          <polygon points="0,8 7,25 25,25 11,36 16,53 0,43 -16,53 -11,36 -25,25 -7,25" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="4" stroke-linejoin="round"/>
+        </g>
+      </g>
+
+      <!-- DUA GELAS PESTA BERSULANG DI SEBELAH KANAN BOTOL -->
+      <g transform="translate(1055, 815)">
+        <!-- Gelas Kiri -->
+        <g transform="translate(-32, 0)">
+          <g class="toast-l">
+            <path d="M-26 -55 H26 L20 6 C18 22 -18 22 -20 6 Z" fill="var(--white)" stroke="var(--ink)" stroke-width="6.5" stroke-linejoin="round"/>
+            <path d="M-22 -26 H22 L18 4 C16 17 -16 17 -18 4 Z" fill="var(--neon-yellow)"/>
+            <line x1="0" y1="18" x2="0" y2="78" stroke="var(--ink)" stroke-width="7"/>
+            <line x1="-24" y1="78" x2="24" y2="78" stroke="var(--ink)" stroke-width="8" stroke-linecap="round"/>
+          </g>
+        </g>
+
+        <!-- Gelas Kanan -->
+        <g transform="translate(32, 0)">
+          <g class="toast-r">
+            <path d="M-26 -55 H26 L20 6 C18 22 -18 22 -20 6 Z" fill="var(--white)" stroke="var(--ink)" stroke-width="6.5" stroke-linejoin="round"/>
+            <path d="M-22 -26 H22 L18 4 C16 17 -16 17 -18 4 Z" fill="var(--hot-pink)"/>
+            <line x1="0" y1="18" x2="0" y2="78" stroke="var(--ink)" stroke-width="7"/>
+            <line x1="-24" y1="78" x2="24" y2="78" stroke="var(--ink)" stroke-width="8" stroke-linecap="round"/>
+          </g>
+        </g>
+      </g>
+
+      <!-- =====================================================
+           6. HUJAN KONFETI BERWARNA DI SELURUH ADESAN (SEAMLESS)
+      ====================================================== -->
+      <!-- Lapisan Konfeti 1 -->
+      <g class="confetti-fall-1">
+        <rect x="260" y="80" width="24" height="14" rx="4" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="4"/>
+        <polygon points="440,180 458,210 422,210" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="4"/>
+        <circle cx="740" cy="60" r="11" fill="var(--acid-lime)" stroke="var(--ink)" stroke-width="4"/>
+        <rect x="1140" y="140" width="24" height="14" rx="4" fill="var(--cyber-cyan)" stroke="var(--ink)" stroke-width="4"/>
+        <polygon points="1490,90 1508,120 1472,120" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="4"/>
+        <circle cx="1710" cy="190" r="11" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="4"/>
+      </g>
+
+      <!-- Lapisan Konfeti 2 (Offset Vertikal untuk Loop Tanpa Jeda) -->
+      <g class="confetti-fall-2">
+        <circle cx="350" cy="360" r="11" fill="var(--cyber-cyan)" stroke="var(--ink)" stroke-width="4"/>
+        <rect x="640" y="420" width="24" height="14" rx="4" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="4"/>
+        <polygon points="1050,340 1068,370 1032,370" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="4"/>
+        <circle cx="1280" cy="450" r="11" fill="var(--acid-lime)" stroke="var(--ink)" stroke-width="4"/>
+        <rect x="1620" y="380" width="24" height="14" rx="4" fill="var(--electric-purple)" stroke="var(--ink)" stroke-width="4"/>
+      </g>
+
+    </svg>
+  </div>
+
+</body>
+</html>

@@ -1,8 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-// Helper to sanitize keywords: trim, lowercase, remove duplicates, ensure no forbidden words
 const FORBIDDEN_REGEX = /\b(alpha|transparent|green screen|greenscreen|chromakey|chroma key|apple|google|android|iphone|windows|samsung)\b/i;
+const BG_COLOR_REGEX = /(black background|white background|cream background|dark background|green background|color background|plain background|solid background|dark mode|monochrome)/i;
 
 function cleanKeywords(list) {
   const seen = new Set();
@@ -13,6 +13,9 @@ function cleanKeywords(list) {
     if (FORBIDDEN_REGEX.test(k)) {
       throw new Error(`Forbidden keyword detected: "${k}"`);
     }
+    if (BG_COLOR_REGEX.test(k)) {
+      throw new Error(`Background color keyword detected: "${k}"`);
+    }
     if (!seen.has(k)) {
       seen.add(k);
       cleaned.push(k);
@@ -21,470 +24,350 @@ function cleanKeywords(list) {
   return cleaned;
 }
 
-// 27 Assets Definitions
 const assetsData = [
   {
-    filename: 'ai_cloud_pipeline.mp4',
-    title: 'AI Cloud Server Pipeline and Data Processing Infrastructure Loop',
+    filename: 'bullseye_goal_hit.mp4',
+    title: 'Bullseye Target Goal Hit and Arrow Center Achievement Loop',
     notes: 'Code-generated animation (HTML5/CSS/SVG) - not Generative AI; no AI disclosure checkbox required.',
     keywords: [
-      'ai cloud', 'cloud computing', 'server stack', 'data pipeline', 'cloud infrastructure',
-      'artificial intelligence', 'data processing', 'server network', 'cloud migration', 'database storage',
-      'cloud storage', 'big data', 'machine learning', 'tech infrastructure', 'network architecture',
-      'data center', 'backend server', 'cloud service', 'data automation', 'technology background',
-      'digital transformation', 'enterprise cloud', 'saas platform', 'cloud security', 'information technology',
-      'web server', 'data flow', 'network server', 'computing power', 'software architecture',
-      'cloud hosting', 'devops workflow', 'cloud analytics', 'system integration', 'server room',
-      'modern technology', 'cloud platform', 'motion graphic', 'vector animation', '4k animation',
-      'seamless loop', 'graphic resources', 'corporate tech', 'it solutions', 'business presentation',
-      'digital network', 'broadcast design', 'explainer asset', 'clean modern'
+      'bullseye', 'target goal', 'goal hit', 'archery target', 'achievement icon',
+      'success goal', 'aim target', 'dart board', 'center target', 'target board',
+      'score 100', 'goal celebration', 'business objective', 'success metric', 'kpi achievement',
+      'hitting target', 'accurate shot', 'accuracy symbol', 'strategy goal', 'career milestone',
+      'mission accomplished', 'neo brutalism', 'bold outline', 'pop art sticker', 'ui sticker',
+      'content creator asset', 'social media sticker', 'motion graphic', 'vector animation', '4k loop',
+      'seamless loop', 'graphic resources', 'video overlay', 'gamification icon', 'reward badge',
+      'target reached', 'performance goal', 'business success', 'motivation visual', 'victory symbol',
+      'corporate presentation', 'explainer graphic', 'marketing asset', 'creative sticker', 'modern brutalism',
+      'playful sticker', 'visual badge', 'goal complete', 'success icon'
     ]
   },
   {
-    filename: 'ai_node_cloud.mp4',
-    title: 'AI Neural Node Cloud Network and Data Processing Animation Loop',
-    notes: 'Code-generated animation (HTML5/CSS/SVG) - not Generative AI; no AI disclosure checkbox required.',
-    keywords: [
-      'ai node', 'neural network', 'cloud network', 'artificial intelligence', 'machine learning',
-      'data transmission', 'network connection', 'digital node', 'deep learning', 'synaptic network',
-      'cloud intelligence', 'data pulse', 'cyber network', 'node graph', 'interconnected nodes',
-      'technology concept', 'big data', 'algorithm flow', 'complex network', 'futuristic tech',
-      'data processing', 'digital communication', 'information network', 'server node', 'ai model',
-      'science technology', 'virtual network', 'smart system', 'cyber connectivity', 'quantum computing',
-      'network topology', 'graph database', 'high tech', 'data cluster', 'computational intelligence',
-      'seamless loop', '4k loop', 'motion graphic', 'vector design', 'neural compute',
-      'digital connectivity', 'graphic resources', 'tech video', 'video overlay', 'screen blend',
-      'presentation visual', 'editorial asset', 'modern interface', 'cyber space'
-    ]
-  },
-  {
-    filename: 'audio_equalizer_card.mp4',
-    title: 'Neo Brutalism Audio Equalizer Spectrum Music Visualizer Card Loop',
-    notes: 'Code-generated animation (HTML5/CSS/SVG) - not Generative AI; no AI disclosure checkbox required.',
-    keywords: [
-      'audio equalizer', 'music visualizer', 'sound spectrum', 'audio waveform', 'neo brutalism',
-      'sound wave', 'equalizer display', 'audio card', 'music beats', 'frequency visualizer',
-      'sound level', 'volume meter', 'audio track', 'podcast visual', 'audio sticker',
-      'sound track', 'digital audio', 'audio reactive', 'stereo sound', 'music producer',
-      'rhythm animation', 'audio player', 'ui component', 'bold outline', 'modern pop art',
-      'sticker motion', 'sound studio', 'graphic element', 'visual effect', 'retro modern',
-      'content creator', 'social media sticker', 'audio mixing', 'decibel meter', 'equalizer bar',
-      'music festival', 'dj visual', 'audio broadcast', 'motion design', '4k animation',
-      'seamless loop', 'graphic resources', 'video overlay', 'youtube video', 'reels asset',
-      'trendy design', 'vibrant colors', 'contrast card', 'sound engineering'
-    ]
-  },
-  {
-    filename: 'creator_growth_stack.mp4',
-    title: 'Creator Economy Social Media Growth Metric and Engagement Card Loop',
-    notes: 'Code-generated animation (HTML5/CSS/SVG) - not Generative AI; no AI disclosure checkbox required.',
-    keywords: [
-      'creator economy', 'social media growth', 'growth metric', 'engagement card', 'follower count',
-      'content creator', 'social proof', 'analytics card', 'viral post', 'influencer marketing',
-      'audience growth', 'social metrics', 'creator badge', 'profile growth', 'digital marketing',
-      'social network', 'neo brutalism', 'editorial motion', 'marketing dashboard', 'subscriber growth',
-      'social reach', 'viral engagement', 'content strategy', 'conversion rate', 'creator tools',
-      'business metric', 'growth hacking', 'performance card', 'campaign success', 'social campaign',
-      'online audience', 'creator brand', 'social media marketing', 'digital creator', 'brand sponsorship',
-      'streamer overlay', 'motion graphics', '4k loop', 'seamless loop', 'graphic resources',
-      'ui animation', 'trendy aesthetic', 'bold typography', 'paper card', 'video overlay',
-      'corporate presentation', 'explainer video', 'modern graphic', 'business presentation'
-    ]
-  },
-  {
-    filename: 'cyber_data_firewall.mp4',
-    title: 'Cybersecurity Data Firewall Shield Network Protection Motion Loop',
-    notes: 'Code-generated animation (HTML5/CSS/SVG) - not Generative AI; no AI disclosure checkbox required.',
-    keywords: [
-      'cybersecurity', 'data firewall', 'firewall shield', 'network security', 'data protection',
-      'cyber defense', 'information security', 'threat prevention', 'network barrier', 'security gate',
-      'cyber attack defense', 'secure server', 'digital security', 'encryption wall', 'antivirus protection',
-      'cloud defense', 'it security', 'hacker defense', 'safe connection', 'cyber privacy',
-      'network monitor', 'firewall filter', 'server protection', 'data safety', 'enterprise defense',
-      'infosec', 'privacy protection', 'malware barrier', 'secure gateway', 'high tech defense',
-      'motion graphic', 'vector animation', '4k loop', 'seamless loop', 'security protocol',
-      'cyber defense system', 'graphic resources', 'video overlay', 'screen blend', 'cyber visual',
-      'tech background', 'presentation graphic', 'corporate security', 'broadcasting graphic', 'system firewall',
-      'security scanner', 'binary stream', 'secure protocol', 'access control'
-    ]
-  },
-  {
-    filename: 'cyber_firewall_core.mp4',
-    title: 'Cybersecurity Firewall Encryption Core and Server Defense Loop',
-    notes: 'Code-generated animation (HTML5/CSS/SVG) - not Generative AI; no AI disclosure checkbox required.',
-    keywords: [
-      'firewall core', 'cybersecurity', 'encryption core', 'server defense', 'network gateway',
-      'data encryption', 'cyber security', 'secure database', 'it infrastructure', 'network barrier',
-      'digital vault', 'cloud firewall', 'security perimeter', 'threat intelligence', 'data integrity',
-      'cryptographic core', 'secure computing', 'enterprise security', 'system protection', 'access security',
-      'defense matrix', 'cyber guard', 'server shield', 'information protection', 'safe network',
-      'firewall monitor', 'cloud safety', 'it operations', 'devsecops', 'network authentication',
-      'digital fortress', 'security token', 'system defense', 'protocol gateway', 'secure routing',
-      'motion graphics', 'vector animation', '4k loop', 'seamless loop', 'cyber shield',
-      'clean corporate', 'graphic resources', 'corporate video', 'explainer visual', 'tech presentation',
-      'software security', 'enterprise software', 'datacenter security', 'modern interface'
-    ]
-  },
-  {
-    filename: 'data_analytics_growth.mp4',
-    title: 'Data Analytics Business Growth Trend Chart and KPI Dashboard Loop',
-    notes: 'Code-generated animation (HTML5/CSS/SVG) - not Generative AI; no AI disclosure checkbox required.',
-    keywords: [
-      'data analytics', 'business growth', 'growth trend', 'kpi dashboard', 'analytics chart',
-      'bar chart', 'trendline', 'business metrics', 'sales growth', 'market analytics',
-      'data visualization', 'financial forecast', 'revenue growth', 'business intelligence', 'performance dashboard',
-      'corporate report', 'stock analysis', 'investment return', 'economic growth', 'profit chart',
-      'success metric', 'startup growth', 'data reporting', 'quarterly results', 'sales performance',
-      'market expansion', 'roi indicator', 'infographic chart', 'saas analytics', 'digital dashboard',
-      'management metrics', 'executive report', 'business presentation', 'corporate motion', 'vector graphic',
-      '4k animation', 'seamless loop', 'graphic resources', 'market intelligence', 'clean presentation',
-      'explainer asset', 'finance video', 'modern ui', 'corporate branding', 'commercial analysis',
-      'statistical chart', 'progress report', 'strategy visual', 'business intelligence report'
-    ]
-  },
-  {
-    filename: 'ecommerce_checkout.mp4',
-    title: 'Ecommerce Instant Checkout Shopping Cart Payment Confirmation Loop',
-    notes: 'Code-generated animation (HTML5/CSS/SVG) - not Generative AI; no AI disclosure checkbox required.',
-    keywords: [
-      'ecommerce checkout', 'instant checkout', 'shopping cart', 'payment confirmation', 'online shopping',
-      'digital payment', 'checkout process', 'order fulfillment', 'buy now', 'e-commerce store',
-      'cart transaction', 'purchase complete', 'shopping bag', 'retail checkout', 'credit card payment',
-      'payment gateway', 'electronic commerce', 'mobile shopping', 'fast checkout', 'online store',
-      'shopping app', 'order success', 'customer purchase', 'store checkout', 'pos checkout',
-      'shopping cart animation', 'checkout button', 'web shopping', 'digital consumer', 'commercial retail',
-      'marketplace seller', 'shopping badge', 'checkout flow', 'secure transaction', 'payment badge',
-      'motion graphic', 'vector design', '4k loop', 'seamless loop', 'graphic resources',
-      'online shopping app', 'clean corporate', 'explainer animation', 'retail promo', 'social commerce',
-      'e-commerce marketing', 'sales promotion', 'shopping interface', 'modern checkout'
-    ]
-  },
-  {
-    filename: 'ecommerce_flash_promo.mp4',
-    title: 'Neo Brutalism Ecommerce Flash Sale Promo Discount Badge Frame Loop',
-    notes: 'Code-generated animation (HTML5/CSS/SVG) - not Generative AI; no AI disclosure checkbox required.',
-    keywords: [
-      'flash sale', 'promo discount', 'discount badge', 'ecommerce promo', 'sale frame',
-      'neo brutalism', 'special offer', 'limited sale', 'shopping badge', 'clearance offer',
-      'black friday sale', 'flash deal', 'percentage discount', 'hot sale', 'marketing sticker',
-      'promo frame', 'retail offer', 'price cut', 'commercial sticker', 'super sale',
-      'online discount', 'store promotion', 'promotional banner', 'cyber monday', 'exclusive offer',
-      'bargain deal', 'sale campaign', 'trendy sticker', 'bold graphic', 'pop art design',
-      'retail banner', 'social media ad', 'ecommerce marketing', 'shopping event', 'discount label',
-      'motion design', '4k animation', 'seamless loop', 'graphic resources', 'video overlay',
-      'youtube promo', 'reels sticker', 'vibrant graphic', 'special sale offer', 'modern sticker',
-      'sales banner', 'countdown promo', 'retail discount', 'ad campaign'
-    ]
-  },
-  {
-    filename: 'explainer_3_scenes.mp4',
-    title: 'Corporate Editorial Explainer Motion Graphic From Friction to Flow',
-    notes: 'Code-generated animation (HTML5/CSS/SVG) - not Generative AI; no AI disclosure checkbox required.',
-    keywords: [
-      'explainer video', 'editorial motion', 'friction to flow', 'corporate explainer', 'business workflow',
-      'workflow optimization', 'process transformation', 'business productivity', 'digital workflow', 'team collaboration',
-      'work efficiency', 'process improvement', 'problem solution', 'modern corporate', 'business presentation',
-      'saas explainer', 'system automation', 'streamlined process', 'work management', 'task optimization',
-      'corporate storytelling', 'transformation journey', 'strategic business', 'modern workplace', 'process management',
-      'business consulting', 'organizational flow', 'productivity tools', 'enterprise operations', 'company presentation',
-      'brand identity', 'editorial design', 'minimalist aesthetic', 'kinetic layout', 'scene transition',
-      'motion graphics', '4k animation', 'seamless loop', 'graphic resources', 'broadcast quality',
-      'corporate branding', 'storyboard motion', 'commercial video', 'presentation background', 'infographic scene',
-      'workplace innovation', 'software workflow', 'smooth transition', 'professional motion'
-    ]
-  },
-  {
-    filename: 'fintech_cashless_flow.mp4',
-    title: 'Fintech Cashless Money Transfer and Digital Banking Flow Loop',
-    notes: 'Code-generated animation (HTML5/CSS/SVG) - not Generative AI; no AI disclosure checkbox required.',
-    keywords: [
-      'fintech', 'cashless payment', 'money transfer', 'digital banking', 'online finance',
-      'mobile payment', 'financial technology', 'cashless economy', 'p2p transfer', 'digital wallet',
-      'electronic money', 'bank transfer', 'smart banking', 'wealth management', 'currency exchange',
-      'virtual payment', 'finance app', 'contactless payment', 'instant transfer', 'digital transactions',
-      'modern banking', 'fintech startup', 'payment solutions', 'financial inclusion', 'crypto currency',
-      'automated transaction', 'monetary flow', 'digital commerce', 'banking interface', 'financial services',
-      'money exchange', 'e-wallet transfer', 'transaction network', 'financial security', 'online banking',
-      'motion graphics', 'vector animation', '4k loop', 'seamless loop', 'graphic resources',
-      'mobile banking flow', 'clean corporate', 'explainer asset', 'business video', 'finance presentation',
-      'fintech solution', 'smart wallet', 'banking innovation', 'digital economy'
-    ]
-  },
-  {
-    filename: 'fintech_qr_gateway.mp4',
-    title: 'Fintech QR Code Payment Scan and Contactless POS Gateway Loop',
-    notes: 'Code-generated animation (HTML5/CSS/SVG) - not Generative AI; no AI disclosure checkbox required.',
-    keywords: [
-      'qr code payment', 'qr scan', 'contactless payment', 'pos gateway', 'fintech payment',
-      'mobile scanner', 'point of sale', 'retail checkout', 'quick response code', 'barcode scan',
-      'smartphone payment', 'contactless transaction', 'instant payment', 'digital receipt', 'pos terminal',
-      'merchant payment', 'cashless retail', 'qr code scanner', 'mobile transaction', 'smart retail',
-      'fintech solutions', 'payment verified', 'in store checkout', 'tap and go', 'digital money',
-      'cashless shopping', 'scan to pay', 'payment confirmation', 'electronic pos', 'mobile banking app',
-      'retail technology', 'modern payment', 'fast transaction', 'secure scan', 'contactless checkout',
-      'motion graphics', 'vector design', '4k animation', 'seamless loop', 'contactless pos system',
-      'graphic resources', 'clean presentation', 'explainer graphic', 'commercial retail', 'payment system',
-      'financial interface', 'smart checkout', 'digital economy', 'pos system'
-    ]
-  },
-  {
-    filename: 'fintech_tap_flow.mp4',
-    title: 'Fintech Contactless Card Tap Payment NFC POS Terminal Flow Loop',
-    notes: 'Code-generated animation (HTML5/CSS/SVG) - not Generative AI; no AI disclosure checkbox required.',
-    keywords: [
-      'contactless payment', 'card tap', 'nfc payment', 'pos terminal', 'fintech transaction',
-      'credit card tap', 'smart payment', 'contactless checkout', 'rfid tap', 'mobile terminal',
-      'electronic payment', 'merchant terminal', 'contactless reader', 'tap to pay', 'point of sale',
-      'cashless payment', 'fast checkout', 'instant transaction', 'payment accepted', 'secure payment',
-      'digital transaction', 'card reader', 'fintech technology', 'wireless payment', 'nfc terminal',
-      'store checkout', 'financial terminal', 'smart card', 'debit card tap', 'retail payment',
-      'contactless wave', 'banking terminal', 'secure nfc', 'modern pos', 'futuristic fintech',
-      'motion graphic', 'vector animation', '4k loop', 'seamless loop', 'card payment',
-      'pos transaction', 'graphic resources', 'video overlay', 'screen blend', 'cyber financial',
-      'commercial video', 'presentation graphic', 'business tech', 'banking system'
-    ]
-  },
-  {
-    filename: 'global_logistics_route.mp4',
-    title: 'Global Logistics Supply Chain Shipping Route and Cargo Map Loop',
-    notes: 'Code-generated animation (HTML5/CSS/SVG) - not Generative AI; no AI disclosure checkbox required.',
-    keywords: [
-      'global logistics', 'supply chain', 'shipping route', 'cargo map', 'freight tracking',
-      'international shipping', 'worldwide delivery', 'transportation network', 'cargo route', 'logistics network',
-      'global distribution', 'freight forwarding', 'container shipping', 'supply network', 'trade route',
-      'route optimization', 'fleet tracking', 'maritime cargo', 'air freight', 'delivery logistics',
-      'import export', 'global commerce', 'tracking checkpoint', 'logistics management', 'distribution center',
-      'warehouse supply', 'intermodal shipping', 'international trade', 'cargo vessel', 'tracking system',
-      'supply chain management', 'transport route', 'global map', 'network nodes', 'courier service',
-      'motion graphics', 'vector animation', '4k loop', 'seamless loop', 'graphic resources',
-      'global transport network', 'clean corporate', 'explainer video', 'business logistics', 'enterprise freight',
-      'corporate presentation', 'commercial transport', 'smart logistics', 'supply route'
-    ]
-  },
-  {
-    filename: 'green_energy_battery.mp4',
-    title: 'Green Energy Renewable Battery Storage and Clean Power Meter Loop',
-    notes: 'Code-generated animation (HTML5/CSS/SVG) - not Generative AI; no AI disclosure checkbox required.',
-    keywords: [
-      'green energy', 'renewable battery', 'clean power', 'battery storage', 'eco electricity',
-      'solar power', 'wind energy', 'energy storage system', 'renewable electricity', 'clean technology',
-      'sustainable energy', 'battery cell', 'green tech', 'power grid', 'smart battery',
-      'electric power', 'carbon neutral', 'energy transition', 'esg sustainability', 'eco power',
-      'battery charging', 'green electricity', 'renewable power', 'energy conservation', 'environmental tech',
-      'sustainable future', 'power accumulation', 'cleantech battery', 'clean energy meter', 'alternative energy',
-      'solar storage', 'green generation', 'sustainable development', 'energy efficiency', 'smart grid',
-      'motion graphics', 'vector animation', '4k loop', 'seamless loop', 'graphic resources',
-      'sustainable technology', 'clean corporate', 'explainer graphic', 'sustainability video', 'esg report',
-      'corporate ecology', 'climate solution', 'green ecosystem', 'renewable power cell'
-    ]
-  },
-  {
-    filename: 'healthtech_diagnostics.mp4',
-    title: 'HealthTech Smart Telemedicine Diagnostics and Vital ECG Pulse Loop',
-    notes: 'Code-generated animation (HTML5/CSS/SVG) - not Generative AI; no AI disclosure checkbox required.',
-    keywords: [
-      'healthtech', 'smart diagnostics', 'telemedicine', 'ecg pulse', 'vital signs',
-      'digital healthcare', 'medical technology', 'heartbeat monitor', 'patient monitoring', 'smart medical',
-      'biotech diagnostics', 'health card', 'telehealth clinic', 'medical telemetry', 'heart rate',
-      'cardiac monitor', 'clinical healthcare', 'hospital tech', 'vital sensor', 'smart clinic',
-      'remote diagnostics', 'health analytics', 'medical interface', 'telemedicine app', 'patient care',
-      'pulse waveform', 'digital diagnostics', 'medical dashboard', 'biometric health', 'e-health solution',
-      'preventive healthcare', 'cardiology tech', 'connected health', 'wellness monitoring', 'healthcare software',
-      'motion graphics', 'vector animation', '4k loop', 'seamless loop', 'graphic resources',
-      'telehealth service', 'clean clinical', 'explainer video', 'medical presentation', 'corporate healthcare',
-      'pharmaceutical tech', 'smart hospital', 'vital signs monitor', 'modern healthcare'
-    ]
-  },
-  {
-    filename: 'liquid_silk_dither_1.mp4',
-    title: 'Liquid Silk 1 Bit Dither Retro Fluid Topography Wave Loop',
+    filename: 'celestial_meridian.mp4',
+    title: 'Celestial Meridian Rings Astrolabe and Armillary Sphere Loop',
     notes: 'Code-generated animation (HTML5 Canvas) - not Generative AI; no AI disclosure checkbox required.',
     keywords: [
-      'liquid silk', 'dither wave', '1 bit dither', 'fluid topography', 'retro halftone',
-      'pixelated fluid', 'dithered silk', 'bitmap aesthetic', 'generative wave', 'topographic flow',
-      'kinetic fluid', 'flowing fabric', 'retro pixel art', 'organic ripple', 'vintage digital',
-      'silk simulation', 'dither pattern', 'contour line', 'topography map', 'procedural fluid',
-      'cyberpunk texture', 'lo-fi aesthetic', 'halftone gradient', 'wave simulation', 'mesh fabric',
-      'fluid dynamics', 'kinetic wave', 'abstract background', 'motion art', 'generative art',
-      'creative coding', 'computational art', 'math art', 'retro visual', 'experimental motion',
-      'seamless loop', '4k loop', 'fluid simulation', 'graphic resources', 'video overlay',
-      'screen blend', 'vj loop', 'concert backdrop', 'music video visual', 'dark aesthetic',
-      'digital wave', 'digital fabric', 'canvas animation', 'fluid loop'
+      'celestial meridian', 'astrolabe', 'armillary sphere', 'meridian rings', 'celestial coordinates',
+      'astronomy graphic', 'celestial navigation', 'equatorial ring', 'astronomical instrument', 'spherical coordinate',
+      'swiss editorial', 'scientific illustration', 'astronomical chart', 'stellar navigation', 'planetary sphere',
+      'equator ring', 'latitude longitude', 'cartographic grid', 'astronomical ring', 'golden stars',
+      'vintage astronomy', 'compass rose', 'celestial globe', 'cosmic geometry', 'scientific cartography',
+      'stargazing instrument', 'horology wheel', 'geodesic ring', 'navigational tool', 'zenith ring',
+      'astronomy motion', 'motion graphics', 'canvas animation', '4k loop', 'seamless loop',
+      'graphic resources', 'video overlay', 'technical drawing', 'infographic animation', 'screen blend',
+      'documentary visual', 'historical navigation', 'editorial graphic', 'astronomy chart', 'academic visual',
+      'clean design', 'cosmic mechanics', 'celestial sphere', 'astronomy visual'
     ]
   },
   {
-    filename: 'liquid_silk_dither_2.mp4',
-    title: 'Liquid Silk 1 Bit Halftone Dither Fabric Mesh Ripple Wave Loop',
+    filename: 'disco_party_toast.mp4',
+    title: 'Disco Mirror Ball and Champagne Toast Glasses Celebration Loop',
+    notes: 'Code-generated animation (HTML5/CSS/SVG) - not Generative AI; no AI disclosure checkbox required.',
+    keywords: [
+      'disco ball', 'champagne toast', 'cheers toast', 'party celebration', 'wine glasses',
+      'disco party', 'nightclub party', 'new year toast', 'celebration toast', 'cocktail toast',
+      'clinking glasses', 'sparkling mirror ball', 'champagne splash', 'festive toast', 'club dance',
+      'dj disco', 'holiday celebration', 'sparkling stars', 'weekend party', 'nightlife visual',
+      'party drinks', 'toast clink', 'dance festival', 'celebratory cheers', 'neo brutalism',
+      'pop art sticker', 'bold outline', 'party sticker', 'content creator', 'social media asset',
+      'youtube overlay', 'reels asset', 'vibrant party', 'event celebration', 'fun party',
+      'motion graphics', 'vector animation', '4k loop', 'seamless loop', 'graphic resources',
+      'video overlay', 'modern brutalism', 'party graphic', 'festive visual', 'new year party',
+      'music festival', 'entertainment visual', 'toast celebration', 'cheerful toast'
+    ]
+  },
+  {
+    filename: 'earth_venus_epicycle.mp4',
+    title: 'Earth Venus Orbital Resonance Epicycle Astronomical Orrery Loop',
     notes: 'Code-generated animation (HTML5 Canvas) - not Generative AI; no AI disclosure checkbox required.',
     keywords: [
-      'liquid silk', 'halftone dither', 'dither mesh', 'fabric ripple', 'fluid wave',
-      '1 bit art', 'generative silk', 'flowing topography', 'retro dither', 'pixel texture',
-      'fabric simulation', 'silk drape', 'organic fluid', 'procedural wave', 'kinetic ripple',
-      'halftone screen', 'vintage computer art', 'digital cloth', 'topographic mesh', 'abstract surface',
-      'curved topography', 'contour ripple', 'wave pattern', 'generative pattern', 'lo-fi motion',
-      'retro shader', 'bitmapped liquid', 'creative animation', 'computational graphics', 'particle mesh',
-      'ambient visual', 'kinetic fabric', 'visual loop', 'screen background', 'topographic ripple',
-      'seamless loop', '4k loop', 'generative mesh', 'graphic resources', 'video overlay',
-      'screen blend', 'vj backdrop', 'music visual', 'artistic background', 'canvas graphic',
-      'experimental loop', 'fluid motion', 'retro modern', 'dither surface'
+      'orbital resonance', 'earth venus', 'epicycle orrery', 'astronomical orrery', 'celestial mechanics',
+      'orbital epicycle', 'planetary orbit', 'sacred geometry', 'celestial flower', 'pentagram orbit',
+      'astronomy simulation', 'swiss editorial', 'mathematical orbit', 'planetary resonance', 'astronomical geometry',
+      'solar system', 'celestial mathematics', 'cosmic harmony', 'orbit trace', 'astronomy motion',
+      'gravitational dance', 'planetary motion', 'scientific visualization', 'orbital mechanics', 'astronomical diagram',
+      'celestial motion', 'orbital period', 'keplerian orbit', 'physics simulation', 'astronomy graphics',
+      'motion design', 'canvas animation', '4k loop', 'seamless loop', 'graphic resources',
+      'video overlay', 'screen blend', 'educational visual', 'documentary asset', 'infographic motion',
+      'harmonic orbit', 'geometric mandala', 'scientific art', 'cosmic rhythm', 'planet tracking',
+      'astrophysics visual', 'clean technical', 'astronomy loop', 'orbital geometry'
     ]
   },
   {
-    filename: 'loading_checklist_card.mp4',
-    title: 'Neo Brutalism Loading Progress Bar and Task Checklist Card Loop',
-    notes: 'Code-generated animation (HTML5/CSS/SVG) - not Generative AI; no AI disclosure checkbox required.',
+    filename: 'equirectangular_proj.mp4',
+    title: 'Equirectangular World Map Projection and Solar Terminator Loop',
+    notes: 'Code-generated animation (HTML5 Canvas) - not Generative AI; no AI disclosure checkbox required.',
     keywords: [
-      'loading checklist', 'progress bar', 'task checklist', 'neo brutalism', 'ui card',
-      'completed tasks', 'loading animation', 'task manager', 'to do list', 'checkmark animation',
-      'project status', 'productivity card', 'checklist item', 'progress indicator', 'ui element',
-      'bold black outline', 'modern sticker', 'workflow card', 'status card', 'task completed',
-      'app component', 'system status', 'loading bar', 'pop art ui', 'digital sticker',
-      'success checkmark', 'onboarding card', 'milestone complete', 'project progress', 'software card',
-      'creative ui', 'interactive card', 'task verification', 'goal completed', 'trendy brutalism',
-      'motion graphics', 'vector animation', '4k loop', 'seamless loop', 'graphic resources',
-      'video overlay', 'content creator', 'social media sticker', 'youtube asset', 'reels overlay',
-      'vibrant card', 'flat design', 'playful interface', 'modern brutalism'
+      'equirectangular projection', 'world map', 'solar terminator', 'day night line', 'global map',
+      'cartography map', 'city night lights', 'earth projection', 'subsolar point', 'geodesic grid',
+      'cartographic telemetry', 'global geography', 'latitude longitude', 'world continents', 'd3 geo',
+      'swiss editorial', 'scientific cartography', 'earth illumination', 'global timezone', 'geographical map',
+      'satellite map', 'international map', 'equirectangular grid', 'solar declination', 'night city lights',
+      'geodesic telemetry', 'global monitoring', 'world atlas', 'country borders', 'cartography motion',
+      'motion graphics', 'canvas animation', '4k loop', 'seamless loop', 'graphic resources',
+      'video overlay', 'screen blend', 'infographic map', 'documentary graphic', 'global intelligence',
+      'news broadcast', 'earth telemetry', 'geographic data', 'cartography design', 'world overview',
+      'global daylight', 'clean infographic', 'world cartography', 'earth map loop'
     ]
   },
   {
-    filename: 'mobile_tap_checkout.mp4',
-    title: 'Mobile One Tap Checkout and Order Fulfillment Smartphone Flow Loop',
+    filename: 'exploding_party_popper.mp4',
+    title: 'Party Popper Confetti Explosion and Celebratory Starburst Loop',
     notes: 'Code-generated animation (HTML5/CSS/SVG) - not Generative AI; no AI disclosure checkbox required.',
     keywords: [
-      'mobile checkout', 'one tap checkout', 'order fulfillment', 'smartphone checkout', 'mobile commerce',
-      'e-commerce app', 'digital purchase', 'express checkout', 'buy now button', 'package dispatch',
-      'online ordering', 'mobile cart', 'delivery tracking', 'store fulfillment', 'instant order',
-      'smartphone payment', 'mobile app commerce', 'fast delivery', 'mobile shopping bag', 'customer checkout',
-      'retail logistics', 'order processing', 'shipping fulfillment', 'mobile store', 'shopping convenience',
-      'digital consumer', 'app order', 'touch checkout', 'm-commerce', 'ecommerce platform',
-      'mobile payment flow', 'shopping interface', 'courier dispatch', 'smart shopping', 'express delivery',
-      'motion graphics', 'vector animation', '4k loop', 'seamless loop', 'mobile order',
-      'touch payment', 'graphic resources', 'video overlay', 'screen blend', 'cyber commerce',
-      'presentation visual', 'commercial video', 'mobile app visual', 'digital retail'
+      'party popper', 'confetti explosion', 'party cracker', 'confetti burst', 'celebration popper',
+      'new year popper', 'festive confetti', 'surprise celebration', 'confetti blast', 'party surprise',
+      'colorful confetti', 'birthday popper', 'holiday party', 'starburst sparkle', 'celebration burst',
+      'ribbon stream', 'event celebration', 'party cracker popper', 'carnival confetti', 'cheering party',
+      'neo brutalism', 'bold outline', 'pop art sticker', 'party sticker', 'content creator sticker',
+      'social media asset', 'youtube overlay', 'reels sticker', 'vibrant colors', 'festive sticker',
+      'fun celebration', 'motion design', 'vector animation', '4k loop', 'seamless loop',
+      'graphic resources', 'video overlay', 'modern brutalism', 'congratulations asset', 'victory burst',
+      'party graphic', 'celebratory graphic', 'anniversary sticker', 'joyful celebration', 'party streamer',
+      'festive explosion', 'confetti shower', 'popper animation', 'celebration sticker'
     ]
   },
   {
-    filename: 'retro_os_popup_cursor.mp4',
-    title: 'Retro Computer OS Dialog Popup Window and Mouse Cursor Click Loop',
-    notes: 'Code-generated animation (HTML5/CSS/SVG) - not Generative AI; no AI disclosure checkbox required.',
+    filename: 'great_circle_arcs.mp4',
+    title: 'Great Circle Flight Arcs and Orthographic Rotating Globe Loop',
+    notes: 'Code-generated animation (HTML5 Canvas) - not Generative AI; no AI disclosure checkbox required.',
     keywords: [
-      'retro os', 'dialog popup', 'popup window', 'mouse cursor', 'cursor click',
-      'neo brutalism', 'vintage operating system', 'retro desktop', 'pixel cursor', 'system alert',
-      'computer window', 'modal dialog', '90s computer', 'vintage user interface', 'nostalgia tech',
-      'error popup', 'confirmation box', 'ok button', 'classic desktop', 'pixelated ui',
-      'retro software', 'computer prompt', 'window frame', 'bevel border', 'vintage aesthetic',
-      'lo-fi tech', 'system message', 'warning dialog', 'retro graphic', 'operating system window',
-      'retro web', 'creative sticker', 'content creator asset', 'social media card', 'retro interface',
-      'motion graphics', 'vector animation', '4k loop', 'seamless loop', 'graphic resources',
-      'video overlay', 'youtube sticker', 'reels overlay', 'retro desktop interface', 'nostalgic design',
-      'classic computing', 'vintage prompt', 'quirky graphic', 'editorial asset'
+      'great circle arcs', 'rotating globe', 'orthographic projection', 'flight routes', 'global logistics',
+      'geodesic arcs', 'airline routes', 'global connectivity', 'telemetry hud', 'worldwide network',
+      'flight tracking', 'global shipping', 'aviation routes', 'hub cities', 'intercontinental flight',
+      'orthographic globe', 'swiss editorial', 'scientific cartography', 'global transport', 'air cargo routes',
+      'travel network', 'geodesic flight', 'world geography', 'earth rotation', 'continent outline',
+      'air traffic control', 'flight paths', 'global navigation', 'radar protractor', 'international transit',
+      'motion graphics', 'canvas animation', '4k loop', 'seamless loop', 'graphic resources',
+      'video overlay', 'screen blend', 'corporate logistics', 'infographic visual', 'news broadcast',
+      'supply chain tracking', 'telemetry display', 'aviation graphics', 'business travel', 'worldwide transit',
+      'cartographic globe', 'clean modern', 'global aviation', 'earth network'
     ]
   },
   {
-    filename: 'security_padlock_card.mp4',
-    title: 'Neo Brutalism Security Padlock Protection Badge and Keyhole Loop',
+    filename: 'growth_pillars_coin.mp4',
+    title: 'Growth Pillars Bar Chart and Spinning Gold Dollar Coin Loop',
     notes: 'Code-generated animation (HTML5/CSS/SVG) - not Generative AI; no AI disclosure checkbox required.',
     keywords: [
-      'security padlock', 'padlock badge', 'keyhole lock', 'neo brutalism', 'cyber security',
-      'protection badge', 'lock icon', 'data lock', 'security sticker', 'safety badge',
-      'privacy protection', 'account security', 'secure status', 'password protection', 'auth badge',
-      'access locked', 'encryption badge', 'bold black outline', 'pop art security', 'safety card',
-      'system lockdown', 'secure login', 'shield lock', 'security indicator', 'security verification',
-      'digital safety', 'protection icon', 'heavy padlock', 'ui security badge', 'padlock protection',
-      'safe vault', 'private data', 'cyber protection', 'security guarantee', 'auth lock',
-      'motion graphics', 'vector animation', '4k loop', 'seamless loop', 'graphic resources',
-      'video overlay', 'content creator sticker', 'social media asset', 'youtube card', 'reels visual',
-      'vibrant yellow', 'flat sticker', 'high contrast', 'playful security'
+      'growth pillars', 'gold coin', 'bar chart', 'financial growth', 'isometric chart',
+      'dollar coin', 'business success', 'rising chart', 'profit growth', 'sales growth',
+      '2.5d isometric', 'revenue trend', 'investment success', 'economic progress', 'finance infographic',
+      'success metric', 'wealth accumulation', 'money growth', 'quarterly growth', 'financial progress',
+      'stock increase', 'business intelligence', 'corporate metrics', 'market expansion', 'roi growth',
+      'isometric bar', 'neo brutalism', 'bold outline', 'ui element', 'content creator asset',
+      'social media graphic', 'motion graphics', 'vector animation', '4k loop', 'seamless loop',
+      'graphic resources', 'video overlay', 'presentation visual', 'explainer video', 'corporate finance',
+      'modern brutalism', 'finance sticker', 'commercial banking', 'capital investment', 'growth trend',
+      'progress report', 'wealth symbol', 'financial asset', 'business growth loop'
     ]
   },
   {
-    filename: 'smart_agri_iot_farming.html'.replace('.html', '.mp4'),
-    title: 'Smart Agriculture IoT Crop Sensor Telemetry and Drone Farming Loop',
+    filename: 'midnight_carnival.mp4',
+    title: 'Midnight Carnival Amusement Ferris Wheel and Festive Lights Loop',
     notes: 'Code-generated animation (HTML5/CSS/SVG) - not Generative AI; no AI disclosure checkbox required.',
     keywords: [
-      'smart agriculture', 'iot farming', 'crop sensor', 'sensor telemetry', 'agritech',
-      'precision farming', 'agricultural drone', 'soil moisture sensor', 'smart farming', 'farm automation',
-      'sustainable agriculture', 'crop monitoring', 'digital agriculture', 'farm telemetry', 'automated irrigation',
-      'smart greenhouse', 'rural tech', 'agricultural data', 'field monitoring', 'agritech solutions',
-      'eco farming', 'food production tech', 'crop health', 'harvest technology', 'green farming',
-      'smart agritech', 'iot sensor node', 'farm management', 'agricultural science', 'climate farming',
-      'precision agriculture', 'satellite farming', 'soil telemetry', 'smart irrigation', 'agribusiness tech',
-      'motion graphics', 'vector animation', '4k loop', 'seamless loop', 'graphic resources',
-      'agricultural technology', 'clean corporate', 'explainer visual', 'sustainability video', 'esg report',
-      'corporate agribusiness', 'environmental technology', 'rural innovation', 'farm ecosystem'
+      'midnight carnival', 'ferris wheel', 'amusement park', 'carnival festival', 'fairground wheel',
+      'carnival lights', 'funfair festival', 'rotating ferris wheel', 'carnival celebration', 'amusement fair',
+      'holiday carnival', 'fairground ride', 'observation wheel', 'carnival marquee', 'carnival flags',
+      'night carnival', 'amusement celebration', 'festival lights', 'fair attractions', 'carnival banner',
+      'festival midway', 'carnival rides', 'family amusement', 'entertainment park', 'carnival fun',
+      'neo brutalism', 'pop art illustration', 'bold outline', 'festive scene', 'motion design',
+      'vector animation', '4k animation', 'seamless loop', 'graphic resources', 'video overlay',
+      'event celebration', 'amusement visual', 'carnival graphic', 'party atmosphere', 'festival mood',
+      'funfair celebration', 'nightlife attraction', 'cheerful carnival', 'broadcasting design', 'scenic celebration',
+      'festival backdrop', 'retro carnival', 'festive amusement', 'carnival animation'
     ]
   },
   {
-    filename: 'solar_microgrid_hub.mp4',
-    title: 'Solar Microgrid Clean Energy Circular Battery Storage Hub Loop',
+    filename: 'midnight_countdown.mp4',
+    title: 'Midnight Countdown Clock Striking Twelve New Year Party Loop',
     notes: 'Code-generated animation (HTML5/CSS/SVG) - not Generative AI; no AI disclosure checkbox required.',
     keywords: [
-      'solar microgrid', 'clean energy', 'circular battery', 'energy hub', 'battery storage',
-      'solar power', 'renewable microgrid', 'power distribution', 'smart grid', 'cleantech energy',
-      'photovoltaic system', 'energy storage hub', 'solar power plant', 'green electricity', 'decentralized energy',
-      'solar generator', 'power management', 'circular energy', 'sustainable grid', 'clean power hub',
-      'zero emission power', 'eco power grid', 'solar cells', 'battery cluster', 'renewable hub',
-      'smart power distribution', 'energy transition', 'esg cleantech', 'solar network', 'power accumulator',
-      'future energy', 'clean infrastructure', 'carbon neutral grid', 'solar farm hub', 'green microgrid',
-      'motion graphics', 'vector animation', '4k loop', 'seamless loop', 'solar technology',
-      'clean power grid', 'graphic resources', 'video overlay', 'screen blend', 'cyber clean tech',
-      'presentation visual', 'energy explainer', 'renewable visual', 'modern energy'
+      'midnight countdown', 'countdown clock', 'clock striking twelve', 'new year countdown', 'midnight timer',
+      'clock face', 'hour hand twelve', 'seconds ticking', 'party countdown', 'ticking clock',
+      'event countdown', 'celebration clock', 'new year eve', 'midnight celebration', 'holiday timer',
+      'urgency clock', 'limited time timer', 'clock pendulum', 'starburst sparkle', 'clock dial',
+      'ticking dial', 'deadline clock', 'watch face', 'festive countdown', 'party timer',
+      'neo brutalism', 'bold outline', 'pop art sticker', 'party sticker', 'content creator asset',
+      'social media sticker', 'youtube overlay', 'reels asset', 'motion graphics', 'vector animation',
+      '4k loop', 'seamless loop', 'graphic resources', 'video overlay', 'modern brutalism',
+      'event celebration', 'party graphic', 'new year visual', 'festival timer', 'tick tock clock',
+      'time urgency', 'holiday countdown', 'striking midnight', 'countdown animation'
     ]
   },
   {
-    filename: 'spinning_coin_25d.mp4',
-    title: 'Neo Brutalism 2.5D Spinning Gold Dollar Coin Sticker Icon Loop',
+    filename: 'new_year_celebration.mp4',
+    title: 'New Year Celebration Festive Party Horns and Confetti Scene Loop',
     notes: 'Code-generated animation (HTML5/CSS/SVG) - not Generative AI; no AI disclosure checkbox required.',
     keywords: [
-      'spinning coin', 'gold coin', 'dollar coin', 'neo brutalism', 'coin sticker',
-      'rotating coin', 'currency icon', 'money animation', 'gold token', 'cash coin',
-      'coin flip', 'finance sticker', 'wealth symbol', 'pop art coin', 'crypto coin',
-      'banking sticker', 'bold black outline', 'sticker motion', 'star burst sparkle', 'playful coin',
-      'drop shadow coin', '2.5d coin', '3d coin spin', 'monetary token', 'digital dollar',
-      'saving money', 'investment coin', 'treasure coin', 'jackpot coin', 'commerce sticker',
-      'content creator', 'social media sticker', 'youtube asset', 'reels overlay', 'gamification icon',
-      'motion graphics', 'vector animation', '4k loop', 'seamless loop', 'graphic resources',
-      'video overlay', 'vibrant yellow', 'contrast sticker', 'modern brutalism', 'trendy sticker',
-      'fun financial', 'reward token', 'lucky coin', 'animated dollar'
+      'new year celebration', 'new year party', 'festive celebration', 'party horns', 'celebration confetti',
+      'holiday festival', 'happy celebration', 'party confetti', 'new year eve', 'party streamers',
+      'celebration banner', 'holiday party', 'festive horns', 'party celebration', 'event celebration',
+      'confetti shower', 'cheerful party', 'holiday cheer', 'toast celebration', 'festive gathering',
+      'joyful celebration', 'party trumpet', 'celebratory mood', 'party atmosphere', 'holiday festive',
+      'neo brutalism', 'bold outline', 'pop art scene', 'full scene animation', 'content creator asset',
+      'social media video', 'motion graphics', 'vector animation', '4k animation', 'seamless loop',
+      'graphic resources', 'video overlay', 'vibrant party', 'event visual', 'celebration graphic',
+      'entertainment video', 'holiday greeting', 'festive event', 'cheering party', 'festive backdrop',
+      'new year graphics', 'broadcast design', 'party night', 'celebration visual'
     ]
   },
   {
-    filename: 'starburst_badge_promo.mp4',
-    title: 'Neo Brutalism Starburst Special Offer Sale Discount Badge Loop',
+    filename: 'new_year_dj_festival.mp4',
+    title: 'New Year DJ Festival Electronic Concert Stage and Crowd Loop',
     notes: 'Code-generated animation (HTML5/CSS/SVG) - not Generative AI; no AI disclosure checkbox required.',
     keywords: [
-      'starburst badge', 'special offer', 'discount badge', 'sale sticker', 'neo brutalism',
-      'promo badge', 'flash sale', 'retail sticker', 'shopping badge', 'clearance badge',
-      'super sale', 'hot deal', 'promotional starburst', 'bold sticker', 'bargain sticker',
-      'black friday badge', 'cyber monday sale', 'commercial badge', 'offer sticker', 'pop art starburst',
-      'bold black outline', 'explosive badge', 'sale icon', 'exclusive deal', 'shopping promotion',
-      'discount tag', 'store sale', 'marketing badge', 'campaign sticker', 'retail promo',
-      'content creator sticker', 'social media ad', 'youtube overlay', 'reels sticker', 'trendy brutalism',
-      'motion design', 'vector graphic', '4k animation', 'seamless loop', 'graphic resources',
-      'video overlay', 'vibrant pink', 'contrast badge', 'modern sticker', 'e-commerce asset',
-      'ad sticker', 'retail discount', 'limited sale', 'attention grabber'
+      'dj festival', 'concert crowd', 'music festival', 'electronic concert', 'dj stage',
+      'stage lights', 'rave party', 'electronic dance music', 'concert lights', 'crowd hands',
+      'party festival', 'dance festival', 'club party', 'speaker towers', 'festival stage',
+      'laser lights', 'edm festival', 'live concert', 'music performance', 'strobe lights',
+      'crowd cheering', 'dance club', 'dj performance', 'nightclub event', 'live event',
+      'sound stage', 'neo brutalism', 'bold outline', 'pop art concert', 'full scene motion',
+      'content creator asset', 'social media video', 'motion graphics', 'vector animation', '4k loop',
+      'seamless loop', 'graphic resources', 'video overlay', 'music video visual', 'vj loop',
+      'concert backdrop', 'event visual', 'nightlife festival', 'festival atmosphere', 'electronic beat',
+      'live dj set', 'entertainment stage', 'stage performance', 'concert visual'
     ]
   },
   {
-    filename: 'swinging_price_tag.mp4',
-    title: 'Neo Brutalism Swinging Retail Price Tag and Discount Label Loop',
+    filename: 'new_year_night_party.mp4',
+    title: 'New Year Night Party Club Dancing Silhouettes and Spotlights Loop',
     notes: 'Code-generated animation (HTML5/CSS/SVG) - not Generative AI; no AI disclosure checkbox required.',
     keywords: [
-      'swinging price tag', 'price tag', 'discount label', 'retail tag', 'neo brutalism',
-      'hanging price tag', 'sale label', 'shopping tag', 'swinging tag', 'store tag',
-      'promo label', 'pendulum swing', 'merchandise tag', 'coupon label', 'clearance tag',
-      'retail label', 'commercial tag', 'bargain tag', 'special price', 'shopping label',
-      'bold black outline', 'sticker label', 'pop art tag', 'ecommerce tag', 'product label',
-      'sale promotion', 'clothing tag', 'hanging string', 'kinetic tag', 'trendy sticker',
-      'content creator', 'social media sticker', 'youtube asset', 'reels overlay', 'marketing tag',
-      'motion graphics', 'vector animation', '4k loop', 'seamless loop', 'graphic resources',
-      'video overlay', 'vibrant colors', 'contrast tag', 'modern brutalism', 'commercial sale',
-      'ad label', 'retail promotion', 'store clearance', 'playful tag'
+      'night party', 'party club', 'dancing silhouettes', 'nightclub party', 'spotlight lights',
+      'party dancers', 'club dance', 'disco night', 'nightlife event', 'cocktail bar',
+      'party celebration', 'dance floor', 'club music', 'neon spotlights', 'party crowd',
+      'evening party', 'bar lounge', 'celebration night', 'holiday night party', 'party rhythm',
+      'dance club', 'lounge party', 'festive night', 'weekend nightlife', 'cheering dancers',
+      'neo brutalism', 'bold outline', 'pop art party', 'full scene animation', 'content creator asset',
+      'social media video', 'motion graphics', 'vector animation', '4k loop', 'seamless loop',
+      'graphic resources', 'video overlay', 'music visual', 'nightlife entertainment', 'party atmosphere',
+      'festive visual', 'entertainment graphic', 'dance party', 'vibrant club', 'celebratory dance',
+      'event party', 'night celebration', 'social party', 'nightclub visual'
+    ]
+  },
+  {
+    filename: 'noise_cartography_4d.mp4',
+    title: 'Topographic Isolines 4D Noise Cartography Elevation Contours Loop',
+    notes: 'Code-generated animation (HTML5 Canvas) - not Generative AI; no AI disclosure checkbox required.',
+    keywords: [
+      'topographic isolines', 'noise cartography', 'elevation contours', 'bathymetric isolines', 'simplex noise',
+      'topography map', 'contour lines', 'terrain elevation', 'cartographic isolines', 'geological contour',
+      'swiss editorial', 'scientific cartography', 'topographic survey', 'geomorphology map', 'elevation map',
+      'procedural terrain', '4d noise', 'vector topography', 'depth contours', 'geographic contours',
+      'land elevation', 'terrain map', 'mathematical contour', 'cartography lines', 'topographic relief',
+      'abstract topography', 'generative noise', 'topographic grid', 'altitude lines', 'scientific visualization',
+      'motion graphics', 'canvas animation', '4k loop', 'seamless loop', 'graphic resources',
+      'video overlay', 'screen blend', 'infographic visual', 'technical drawing', 'documentary asset',
+      'cartographic texture', 'procedural noise', 'clean infographic', 'surveying map', 'geographic elevation',
+      'topography texture', 'landscape contour', 'geodesic relief', 'topography visual'
+    ]
+  },
+  {
+    filename: 'popart_firework_burst.mp4',
+    title: 'Pop Art Geometric Firework Explosion and Starburst Spark Loop',
+    notes: 'Code-generated animation (HTML5/CSS/SVG) - not Generative AI; no AI disclosure checkbox required.',
+    keywords: [
+      'geometric firework', 'firework explosion', 'pop art firework', 'starburst spark', 'celebration firework',
+      'new year firework', 'firework burst', 'exploding fireworks', 'pyrotechnic burst', 'festive fireworks',
+      'holiday sparkler', 'sparkling starburst', 'colorful explosion', 'firework display', 'sky fireworks',
+      'pyrotechnics display', 'holiday celebration', 'festival firework', 'event firework', 'firework sparks',
+      'salute firework', 'celebratory sparks', 'festive pyrotechnics', 'spectacular fireworks', 'night firework',
+      'neo brutalism', 'bold outline', 'pop art sticker', 'party sticker', 'content creator sticker',
+      'social media asset', 'youtube overlay', 'reels sticker', 'motion design', 'vector animation',
+      '4k loop', 'seamless loop', 'graphic resources', 'video overlay', 'modern brutalism',
+      'event celebration', 'party graphic', 'celebration visual', 'holiday pyrotechnics', 'burst animation',
+      'sparkling firework', 'festive salute', 'firework animation', 'firework visual'
+    ]
+  },
+  {
+    filename: 'retro_os_celebration.mp4',
+    title: 'Retro OS Celebration Dialog Window and Animated Cursor Click Loop',
+    notes: 'Code-generated animation (HTML5/CSS/SVG) - not Generative AI; no AI disclosure checkbox required.',
+    keywords: [
+      'retro os', 'celebration window', 'dialog popup', 'mouse cursor', 'cursor click',
+      'operating system popup', 'vintage computer', '90s user interface', 'system celebration', 'congratulations dialog',
+      'modal window', 'pixel cursor', 'computer alert', 'classic desktop', 'window frame',
+      'ok button', 'confetti popup', 'retro desktop', 'nostalgic computer', 'pixelated ui',
+      'retro software', 'system prompt', 'vintage aesthetic', 'lo-fi tech', 'alert message',
+      'software popup', 'creative sticker', 'neo brutalism', 'bold outline', 'pop art ui',
+      'content creator asset', 'social media sticker', 'youtube overlay', 'reels sticker', 'motion graphics',
+      'vector animation', '4k loop', 'seamless loop', 'graphic resources', 'video overlay',
+      'modern brutalism', 'nostalgic design', 'quirky graphic', 'celebration card', 'computer window',
+      'retro interface', 'vintage prompt', 'playful tech', 'retro computing visual'
+    ]
+  },
+  {
+    filename: 'rocket_to_the_stars.mp4',
+    title: 'Rocket Ship Launch into Starry Sky and Startup Booster Loop',
+    notes: 'Code-generated animation (HTML5/CSS/SVG) - not Generative AI; no AI disclosure checkbox required.',
+    keywords: [
+      'rocket ship', 'rocket launch', 'startup booster', 'space rocket', 'rocket blast off',
+      'spaceship launch', 'rocket propulsion', 'rocket flame', 'starry sky', 'space exploration',
+      'ambition booster', 'business launch', 'product launch', 'startup growth', 'mission launch',
+      'space craft', 'satellite rocket', 'space travel', 'astronomical rocket', 'launch vehicle',
+      'rocket takeoff', 'exponential growth', 'success launch', 'innovation rocket', 'future tech',
+      'neo brutalism', 'bold outline', 'pop art sticker', 'rocket sticker', 'content creator asset',
+      'social media sticker', 'youtube overlay', 'reels sticker', 'motion graphics', 'vector animation',
+      '4k loop', 'seamless loop', 'graphic resources', 'video overlay', 'modern brutalism',
+      'business presentation', 'explainer graphic', 'motivational asset', 'venture capital', 'startup presentation',
+      'career takeoff', 'achievement symbol', 'rocket animation', 'launch visual'
+    ]
+  },
+  {
+    filename: 'stairway_to_trophy.mp4',
+    title: 'Stairway to Golden Championship Trophy and Success Progress Loop',
+    notes: 'Code-generated animation (HTML5/CSS/SVG) - not Generative AI; no AI disclosure checkbox required.',
+    keywords: [
+      'stairway to trophy', 'championship trophy', 'golden trophy', 'success staircase', 'trophy cup',
+      'first place award', 'career progress', 'winner trophy', 'stairway steps', 'achievement stairs',
+      'goal accomplishment', 'victory trophy', 'champion cup', 'success milestone', 'career advancement',
+      'climbing stairs', 'ladder of success', 'award celebration', 'winning prize', 'gold award',
+      'recognition trophy', 'leadership ladder', 'business milestone', 'growth steps', 'achievement ladder',
+      'neo brutalism', 'bold outline', 'pop art sticker', 'success sticker', 'content creator asset',
+      'social media sticker', 'youtube overlay', 'reels sticker', 'motion graphics', 'vector animation',
+      '4k loop', 'seamless loop', 'graphic resources', 'video overlay', 'modern brutalism',
+      'gamification icon', 'motivational graphic', 'corporate presentation', 'explainer visual', 'leadership progress',
+      'staircase progress', 'winner award', 'trophy sticker', 'success icon'
+    ]
+  },
+  {
+    filename: 'summit_flag_window.mp4',
+    title: 'Mountain Summit Victory Flag and Peak Achievement Milestone Loop',
+    notes: 'Code-generated animation (HTML5/CSS/SVG) - not Generative AI; no AI disclosure checkbox required.',
+    keywords: [
+      'mountain summit', 'victory flag', 'peak achievement', 'mountain peak', 'summit flag',
+      'goal reached', 'mountain top', 'waving flag', 'alpine summit', 'climbing achievement',
+      'highest peak', 'mission accomplished', 'leadership summit', 'business pinnacle', 'mountain climbing',
+      'rocky summit', 'triumphant flag', 'success milestone', 'reaching summit', 'career peak',
+      'mountain milestone', 'expedition goal', 'conquering peak', 'top of mountain', 'finish line',
+      'neo brutalism', 'bold outline', 'pop art sticker', 'achievement sticker', 'content creator asset',
+      'social media sticker', 'youtube overlay', 'reels sticker', 'motion graphics', 'vector animation',
+      '4k loop', 'seamless loop', 'graphic resources', 'video overlay', 'modern brutalism',
+      'motivational asset', 'corporate presentation', 'explainer graphic', 'success symbol', 'peak performance',
+      'flag on mountain', 'alpine goal', 'victory symbol', 'summit visual'
+    ]
+  },
+  {
+    filename: 'visionary_compass.mp4',
+    title: 'Visionary Navigational Compass Rose and Strategic Direction Loop',
+    notes: 'Code-generated animation (HTML5/CSS/SVG) - not Generative AI; no AI disclosure checkbox required.',
+    keywords: [
+      'visionary compass', 'navigational compass', 'compass rose', 'compass needle', 'strategic direction',
+      'spinning compass', 'cardinal directions', 'magnetic compass', 'navigation tool', 'guiding compass',
+      'orientation compass', 'compass pointer', 'maritime compass', 'true north', 'strategic guidance',
+      'business compass', 'visionary guidance', 'finding direction', 'decision making', 'pathfinder compass',
+      'leadership direction', 'compass bearings', 'wayfinding tool', 'future direction', 'strategic vision',
+      'neo brutalism', 'bold outline', 'pop art sticker', 'compass sticker', 'content creator asset',
+      'social media sticker', 'youtube overlay', 'reels sticker', 'motion graphics', 'vector animation',
+      '4k loop', 'seamless loop', 'graphic resources', 'video overlay', 'modern brutalism',
+      'corporate strategy', 'explainer visual', 'guidance symbol', 'business vision', 'leadership compass',
+      'directional indicator', 'strategic roadmap', 'navigation graphic', 'compass loop'
     ]
   }
 ];
 
-// Verify keyword count, unique, and clean
+// Verification
 for (const a of assetsData) {
   a.keywords = cleanKeywords(a.keywords);
   if (a.keywords.length !== 49) {
@@ -499,24 +382,20 @@ for (const a of assetsData) {
   if (a.filename.length > 30) {
     throw new Error(`Asset ${a.filename} filename exceeds 30 chars: "${a.filename}" (${a.filename.length})`);
   }
+  const htmlPath = path.join('assets', a.filename.replace('.mp4', '.html'));
+  if (!fs.existsSync(htmlPath)) {
+    throw new Error(`Asset file missing in assets/: ${htmlPath}`);
+  }
 }
 
-// Build standard CSV
+// Write standard CSV
 const header = 'Filename,Title,Keywords,Category,Releases\n';
-const rows = assetsData.map(a => {
-  const kwJoined = a.keywords.join(', ');
-  return `${a.filename},"${a.title}","${kwJoined}",8,`;
-});
-const standardCsv = header + rows.join('\n') + '\n';
-fs.writeFileSync('metadata/adobe_stock_metadata.csv', standardCsv, 'utf8');
+const rows = assetsData.map(a => `${a.filename},"${a.title}","${a.keywords.join(', ')}",8,`);
+fs.writeFileSync('metadata/adobe_stock_metadata.csv', header + rows.join('\n') + '\n', 'utf8');
 console.log('Saved metadata/adobe_stock_metadata.csv');
 
-// Build CSV with Notes
-const headerWithNotes = 'Filename,Title,Keywords,Category,Releases,Notes\n';
-const rowsWithNotes = assetsData.map(a => {
-  const kwJoined = a.keywords.join(', ');
-  return `${a.filename},"${a.title}","${kwJoined}",8,,"${a.notes}"`;
-});
-const withNotesCsv = headerWithNotes + rowsWithNotes.join('\n') + '\n';
-fs.writeFileSync('metadata/adobe_stock_metadata_with_notes.csv', withNotesCsv, 'utf8');
+// Write with notes CSV
+const headerNotes = 'Filename,Title,Keywords,Category,Releases,Notes\n';
+const rowsNotes = assetsData.map(a => `${a.filename},"${a.title}","${a.keywords.join(', ')}",8,,"${a.notes}"`);
+fs.writeFileSync('metadata/adobe_stock_metadata_with_notes.csv', headerNotes + rowsNotes.join('\n') + '\n', 'utf8');
 console.log('Saved metadata/adobe_stock_metadata_with_notes.csv');

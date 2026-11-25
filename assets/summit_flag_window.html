@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Neo-Brutalism Aspirations 02: Summit & Flag Window (Green Screen) - 6s Loop</title>
+  <style>
+    :root {
+      --bg-base: #00FF00;
+      --ink: #111111;
+      --electric-purple: #C084FC;
+      --neon-yellow: #FDE047;
+      --acid-lime: #A3E635;
+      --cyber-cyan: #38BDF8;
+      --hot-pink: #FB7185;
+      --white: #FFFFFF;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-base);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    .canvas {
+      width: 100vw;
+      max-width: 1920px;
+      aspect-ratio: 16 / 9;
+      background-color: var(--bg-base);
+      overflow: hidden;
+    }
+
+    /* =====================================================
+       MASTER SEAMLESS LOOP (6 DETIK)
+       Semua siklus sinkron: 6s, 3s, 1.5s
+    ===================================================== */
+
+    /* 1. Kartu Melayang & Miring Dinamis (6s) */
+    .hero-card-float {
+      animation: cardFloat 6s ease-in-out infinite;
+    }
+    @keyframes cardFloat {
+      0%, 100% { transform: translateY(0px) rotate(-2.5deg); }
+      50% { transform: translateY(-16px) rotate(-0.5deg); }
+    }
+
+    /* 2. Bendera Hijau Limau Berkibar di Puncak Gunung (Siklus 1.5s = 4x per loop) */
+    .summit-flag-wave {
+      animation: waveFlag 1.5s ease-in-out infinite;
+    }
+    @keyframes waveFlag {
+      0%, 100% { transform: skewY(0deg) scaleX(1); }
+      35% { transform: skewY(-7deg) scaleX(0.94); }
+      70% { transform: skewY(5deg) scaleX(1.03); }
+    }
+
+    /* 3. Awan Geometris Melintas di Belakang Puncak (6s) */
+    .cloud-drift-left {
+      animation: driftCloudL 6s ease-in-out infinite;
+    }
+    .cloud-drift-right {
+      animation: driftCloudR 6s ease-in-out infinite;
+    }
+    @keyframes driftCloudL {
+      0%, 100% { transform: translateX(0px); }
+      50% { transform: translateX(24px); }
+    }
+    @keyframes driftCloudR {
+      0%, 100% { transform: translateX(0px); }
+      50% { transform: translateX(-24px); }
+    }
+
+    /* 4. Percikan Bintang Kemenangan Saat Progres Penuh (Siklus 3s = 2x per loop) */
+    .summit-sparks {
+      animation: burstSummit 3s ease-out infinite;
+    }
+    @keyframes burstSummit {
+      0%, 36% { transform: scale(0.3); opacity: 0; }
+      45% { transform: scale(1.05); opacity: 1; }
+      72%, 100% { transform: scale(1.35); opacity: 0; }
+    }
+
+    /* 5. Progress Bar Pencapaian Bawah Terisi Penuh (Siklus 3s) */
+    .goal-bar-fill {
+      transform-origin: 0px 0px;
+      animation: fillSummitBar 3s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+    }
+    @keyframes fillSummitBar {
+      0%, 10% { transform: scaleX(0.18); fill: var(--cyber-cyan); }
+      42%, 86% { transform: scaleX(1); fill: var(--acid-lime); }
+      96%, 100% { transform: scaleX(0.18); fill: var(--cyber-cyan); }
+    }
+
+    /* 6. Lencana Bintang di Bar Kontrol Membal Saat Tercapai (Siklus 3s) */
+    .goal-badge-pop {
+      animation: popGoalStar 3s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    @keyframes popGoalStar {
+      0%, 38%, 90%, 100% { transform: scale(0.85) rotate(0deg); fill: var(--white); }
+      46%, 84% { transform: scale(1.14) rotate(15deg); fill: var(--acid-lime); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="canvas">
+    <svg viewBox="0 0 1920 1080" width="100%" height="100%">
+      <defs>
+        <!-- ClipPath Layar Viewport Putih agar Gunung & Awan Terpotong Rapi -->
+        <clipPath id="mountainViewportClip">
+          <rect x="-211" y="-181" width="422" height="327" rx="20"/>
+        </clipPath>
+      </defs>
+
+      <!-- Latar Green Screen Murni -->
+      <rect width="1920" height="1080" fill="var(--bg-base)"/>
+
+      <!-- =====================================================
+           SINGLE HERO ITEM: SUMMIT & FLAG WINDOW (PUSAT)
+      ====================================================== -->
+      <g transform="translate(960, 540)">
+        <g class="hero-card-float">
+          <!-- Bayangan Keras Tanpa Blur (Hard Offset Shadow) -->
+          <rect x="-242" y="-292" width="520" height="620" rx="28" fill="var(--ink)"/>
+
+          <!-- Bodi Utama Kartu (Ungu Elektrik) -->
+          <rect x="-260" y="-310" width="520" height="620" rx="28" fill="var(--electric-purple)" stroke="var(--ink)" stroke-width="9"/>
+
+          <!-- Header Bar Putih di Bagian Atas Kartu -->
+          <path d="M-255 -282 C-255 -298 -242 -305 -232 -305 H232 C242 -305 255 -298 255 -282 V-232 H-255 Z" fill="var(--white)"/>
+          <line x1="-260" y1="-232" x2="260" y2="-232" stroke="var(--ink)" stroke-width="9"/>
+
+          <!-- Aksen Pill Hitam & Tombol Sudut di Header -->
+          <rect x="-215" y="-278" width="145" height="20" rx="10" fill="var(--ink)"/>
+          <circle cx="176" cy="-268" r="10" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="4"/>
+          <circle cx="212" cy="-268" r="10" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="4"/>
+
+          <!-- Layar Viewport Putih di Tengah Kartu -->
+          <rect x="-215" y="-185" width="430" height="335" rx="24" fill="var(--white)" stroke="var(--ink)" stroke-width="8"/>
+
+          <!-- ISI PEMANDANGAN PUNCAK GUNUNG DI DALAM VIEWPORT -->
+          <g clip-path="url(#mountainViewportClip)">
+            <!-- Matahari / Lingkaran Cahaya Kuning Neon di Latar -->
+            <circle cx="-118" cy="-106" r="36" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="6"/>
+
+            <!-- Awan Geometris Kiri -->
+            <g transform="translate(-125, -62)">
+              <g class="cloud-drift-left">
+                <path d="M-44 16 H48 A15 15 0 0 0 48 -14 A22 22 0 0 0 8 -24 A18 18 0 0 0 -26 -11 A14 14 0 0 0 -44 16 Z" fill="var(--cyber-cyan)" stroke="var(--ink)" stroke-width="5" stroke-linejoin="round"/>
+              </g>
+            </g>
+
+            <!-- Awan Geometris Kanan -->
+            <g transform="translate(125, -94)">
+              <g class="cloud-drift-right">
+                <path d="M-38 14 H42 A13 13 0 0 0 42 -12 A19 19 0 0 0 6 -20 A16 16 0 0 0 -22 -9 A12 12 0 0 0 -38 14 Z" fill="var(--white)" stroke="var(--ink)" stroke-width="5" stroke-linejoin="round"/>
+              </g>
+            </g>
+
+            <!-- Puncak Gunung Sekunder (Kiri Belakang - Cyber Cyan) -->
+            <polygon points="-245,155 -105,-12 35,155" fill="var(--cyber-cyan)" stroke="var(--ink)" stroke-width="8" stroke-linejoin="round"/>
+            <!-- Tudung Salju Gunung Kiri -->
+            <polygon points="-105,-12 -144,35 -122,26 -105,42 -86,26 -66,35" fill="var(--white)" stroke="var(--ink)" stroke-width="6" stroke-linejoin="round"/>
+
+            <!-- Percikan Kemenangan di Puncak Utama (x=36, y=-118) -->
+            <g transform="translate(36, -118)">
+              <g class="summit-sparks" stroke="var(--ink)" stroke-width="5.5" stroke-linecap="round">
+                <line x1="-42" y1="-22" x2="-64" y2="-36"/>
+                <line x1="68" y1="-24" x2="90" y2="-38"/>
+                <line x1="-48" y1="14" x2="-72" y2="18"/>
+                <line x1="74" y1="12" x2="96" y2="16"/>
+              </g>
+            </g>
+
+            <!-- Tiang & Bendera Hijau Limau di Puncak Tertinggi (x=36, y=-46) -->
+            <g transform="translate(36, -46)">
+              <!-- Bendera Segitiga Berkibar dari Poros Tiang (0, -78) -->
+              <g transform="translate(0, -78)">
+                <g class="summit-flag-wave">
+                  <polygon points="0,0 74,22 0,44" fill="var(--acid-lime)" stroke="var(--ink)" stroke-width="6.5" stroke-linejoin="round"/>
+                </g>
+              </g>
+              <!-- Tiang Bendera Hitam Tebal -->
+              <line x1="0" y1="12" x2="0" y2="-84" stroke="var(--ink)" stroke-width="8" stroke-linecap="round"/>
+              <circle cx="0" cy="-86" r="7" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="4.5"/>
+            </g>
+
+            <!-- Puncak Gunung Utama (Kanan Depan - Hot Pink) -->
+            <polygon points="-115,155 36,-46 195,155" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="8" stroke-linejoin="round"/>
+            <!-- Tudung Salju Puncak Utama -->
+            <polygon points="36,-46 -12,18 14,6 36,24 58,6 84,18" fill="var(--white)" stroke="var(--ink)" stroke-width="6.5" stroke-linejoin="round"/>
+          </g>
+
+          <!-- Bingkai Ulang Viewport agar Garis Tepi Hitam Tetap Tajam di Atas Gunung -->
+          <rect x="-215" y="-185" width="430" height="335" rx="24" fill="none" stroke="var(--ink)" stroke-width="8"/>
+
+          <!-- Bar Kontrol Bawah Kuning Neon -->
+          <rect x="-215" y="182" width="430" height="84" rx="22" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="8"/>
+
+          <!-- Lencana Bintang Pencapaian di Kiri -->
+          <g transform="translate(-165, 224)">
+            <g class="goal-badge-pop">
+              <circle cx="0" cy="0" r="24" fill="var(--white)" stroke="var(--ink)" stroke-width="6"/>
+              <polygon points="0,-13 4,-4 13,-4 6,2 8,11 0,6 -8,11 -6,2 -13,-4 -4,-4" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="3" stroke-linejoin="round"/>
+            </g>
+          </g>
+
+          <!-- Track & Progress Bar Pencapaian Puncak di Kanan -->
+          <rect x="-118" y="211" width="295" height="26" rx="13" fill="var(--white)" stroke="var(--ink)" stroke-width="5"/>
+          <g transform="translate(-112, 217)">
+            <rect class="goal-bar-fill" x="0" y="0" width="283" height="14" rx="7" fill="var(--cyber-cyan)"/>
+          </g>
+        </g>
+      </g>
+
+    </svg>
+  </div>
+
+</body>
+</html>

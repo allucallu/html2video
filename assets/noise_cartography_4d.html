@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>4K Topographic & Bathymetric Isolines — 4D Noise Cartography</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background-color: #000000;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    canvas {
+      width: 100vw;
+      height: 100vh;
+      object-fit: contain;
+      background-color: #000000;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas" width="3840" height="2160"></canvas>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d', { alpha: false });
+
+    // =========================================================================
+    // 1. KONFIGURASI 4K & DETERMINISTIC LOOP
+    // =========================================================================
+    const WIDTH = 3840;
+    const HEIGHT = 2160;
+    const FPS = 60;
+    const DURATION_SEC = 20; // Siklus tenang & organik: 20 detik (1200 frame @ 60fps)
+    const TOTAL_FRAMES = FPS * DURATION_SEC;
+
+    // Area Peta Topografi 2:1 di tengah bingkai 4K
+    const MAP_W = 3240;
+    const MAP_H = 1620;
+    const MAP_X = (WIDTH - MAP_W) / 2;       // 300px
+    const MAP_Y = (HEIGHT - MAP_H) / 2 + 12; // 282px
+
+    // Resolusi Grid Marching Squares (180x90 sel = 18px per sel di 4K, sangat halus)
+    const COLS = 180;
+    const ROWS = 90;
+    const CELL_W = MAP_W / COLS;
+    const CELL_H = MAP_H / ROWS;
+
+    // Parameter 4D Noise Loop
+    const NOISE_SCALE = 2.35;    // Skala spasial pegunungan & lembah
+    const LOOP_RADIUS = 0.42;    // Radius lingkaran waktu di dimensi 3 & 4 (makin kecil makin tenang)
+    const ELEV_SCALE = 1150;     // Rentang elevasi dalam meter (-700m s.d. +800m)
+
+    // Level Kontur (Setiap 100m dari -600m hingga +700m)
+    const CONTOUR_LEVELS = [];
+    for (let m = -600; m <= 700; m += 100) {
+      CONTOUR_LEVELS.push(m);
+    }
+
+    // Buffer Medan Skalar (Float32Array untuk performa maksimal)
+    const field = new Float32Array((COLS + 1) * (ROWS + 1));
+
+    // =========================================================================
+    // 2. MESIN 4D PERLIN GRADIENT NOISE (100% DETERMINISTIK)
+    // =========================================================================
+    function createSeededPermutation(seed) {
+      const p = new Uint8Array(256);
+      for (let i = 0; i < 256; i++) p[i] = i;
+
+      // Mulberry32 PRNG
+      let s = seed >>> 0;
+      for (let i = 255; i > 0; i--) {
+        s = (s + 0x6D2B79F5) >>> 0;
+        let t = Math.imul(s ^ (s >>> 15), 1 | s);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        const r = ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        const j = Math.floor(r * (i + 1));
+        const tmp = p[i];
+        p[i] = p[j];
+        p[j] = tmp;
+      }
+
+      const perm = new Uint8Array(512);
+      for (let i = 0; i < 512; i++) perm[i] = p[i & 255];
+      return perm;
+    }
+
+    const PERM = createSeededPermutation(202604);
+
+    function fade(t) {
+      return t * t * t * (t * (t * 6 - 15) + 10);
+    }
+
+    function lerp(a, b, t) {
+      return a + t * (b - a);
+    }
+
+    function grad4(hash, x, y, z, w) {
+      const h = hash & 31;
+      const a = h < 24 ? x : y;
+      const b = h < 16 ? y : z;
+      const c = h < 8 ? z : w;
+      return ((h & 1) ? -a : a) + ((h & 2) ? -b : b) + ((h & 4) ? -c : c);
+    }
+
+    function noise4D(x, y, z, w) {
+      const X = Math.floor(x) & 255;
+      const Y = Math.floor(y) & 255;
+      const Z = Math.floor(z) & 255;
+      const W = Math.floor(w) & 255;
+
+      const xf = x - Math.floor(x);
+      const yf = y - Math.floor(y);
+      const zf = z - Math.floor(z);
+      const wf = w - Math.floor(w);
+
+      const u = fade(xf);
+      const v = fade(yf);
+      const s = fade(zf);
+      const r = fade(wf);
+
+      const p = PERM;
+      const A = p[X] + Y;
+      const B = p[X + 1] + Y;
+      const AA = p[A] + Z;
+      const AB = p[A + 1] + Z;
+      const BA = p[B] + Z;
+      const BB = p[B + 1] + Z;
+
+      const AAA = p[AA] + W;
+      const AAB = p[AA + 1] + W;
+      const ABA = p[AB] + W;
+      const ABB = p[AB + 1] + W;
+      const BAA = p[BA] + W;
+      const BAB = p[BA + 1] + W;
+      const BBA = p[BB] + W;
+      const BBB = p[BB + 1] + W;
+
+      const x000 = lerp(grad4(p[AAA], xf, yf, zf, wf), grad4(p[BAA], xf - 1, yf, zf, wf), u);
+      const x100 = lerp(grad4(p[ABA], xf, yf - 1, zf, wf), grad4(p[BBA], xf - 1, yf - 1, zf, wf), u);
+      const x010 = lerp(grad4(p[AAB], xf, yf, zf - 1, wf), grad4(p[BAB], xf - 1, yf, zf - 1, wf), u);
+      const x110 = lerp(grad4(p[ABB], xf, yf - 1, zf - 1, wf), grad4(p[BBB], xf - 1, yf - 1, zf - 1, wf), u);
+
+      const x001 = lerp(grad4(p[AAA + 1], xf, yf, zf, wf - 1), grad4(p[BAA + 1], xf - 1, yf, zf, wf - 1), u);
+      const x101 = lerp(grad4(p[ABA + 1], xf, yf - 1, zf, wf - 1), grad4(p[BBA + 1], xf - 1, yf - 1, zf, wf - 1), u);
+      const x011 = lerp(grad4(p[AAB + 1], xf, yf, zf - 1, wf - 1), grad4(p[BAB + 1], xf - 1, yf, zf - 1, wf - 1), u);
+      const x111 = lerp(grad4(p[ABB + 1], xf, yf - 1, zf - 1, wf - 1), grad4(p[BBB + 1], xf - 1, yf - 1, zf - 1, wf - 1), u);
+
+      const y00 = lerp(x000, x100, v);
+      const y10 = lerp(x010, x110, v);
+      const y01 = lerp(x001, x101, v);
+      const y11 = lerp(x011, x111, v);
+
+      const z0 = lerp(y00, y10, s);
+      const z1 = lerp(y01, y11, s);
+
+      return lerp(z0, z1, r);
+    }
+
+    // FBM 2-Oktaf untuk detail organik alami tanpa noise kasar
+    function computeField(progress) {
+      const angle = progress * Math.PI * 2;
+      const z1 = Math.cos(angle) * LOOP_RADIUS;
+      const w1 = Math.sin(angle) * LOOP_RADIUS;
+      const z2 = Math.cos(angle) * (LOOP_RADIUS * 1.8) + 11.3;
+      const w2 = Math.sin(angle) * (LOOP_RADIUS * 1.8) + 7.1;
+
+      const stride = COLS + 1;
+      for (let j = 0; j <= ROWS; j++) {
+        const ny = (j / ROWS) * NOISE_SCALE;
+        const rowOffset = j * stride;
+        for (let i = 0; i <= COLS; i++) {
+          // Rasio 2:1 dijaga agar kontur proporsional (tidak gepeng)
+          const nx = (i / COLS) * (NOISE_SCALE * 2.0);
+
+          const n1 = noise4D(nx, ny, z1, w1);
+          const n2 = noise4D(nx * 2.15 + 5.2, ny * 2.15 + 1.7, z2, w2) * 0.36;
+          // Sedikit bias positif agar komposisi daratan & batimetri seimbang
+          field[rowOffset + i] = (n1 + n2 + 0.05) * ELEV_SCALE;
+        }
+      }
+    }
+
+    // =========================================================================
+    // 3. LAPISAN VISUAL KARTOGRAFI
+    // =========================================================================
+
+    // Lapisan 1: Grid Referensi Kartografi & Garis Irisan Penampang A-A'
+    function drawReferenceGrid() {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(MAP_X, MAP_Y, MAP_W, MAP_H);
+      ctx.clip();
+
+      // Grid Sektor Ultra-Halus (12 kolom x 6 baris)
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.045)';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      for (let c = 1; c < 12; c++) {
+        const x = MAP_X + (c / 12) * MAP_W;
+        ctx.moveTo(x, MAP_Y);
+        ctx.lineTo(x, MAP_Y + MAP_H);
+      }
+      for (let r = 1; r < 6; r++) {
+        const y = MAP_Y + (r / 6) * MAP_H;
+        ctx.moveTo(MAP_X, y);
+        ctx.lineTo(MAP_X + MAP_W, y);
+      }
+      ctx.stroke();
+
+      // Tanda Bidik (+) di Persimpangan Grid
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.24)';
+      ctx.lineWidth = 1.6;
+      const tick = 7;
+      ctx.beginPath();
+      for (let c = 1; c < 12; c++) {
+        for (let r = 1; r < 6; r++) {
+          const x = MAP_X + (c / 12) * MAP_W;
+          const y = MAP_Y + (r / 6) * MAP_H;
+          ctx.moveTo(x - tick, y);
+          ctx.lineTo(x + tick, y);
+          ctx.moveTo(x, y - tick);
+          ctx.lineTo(x, y + tick);
+        }
+      }
+      ctx.stroke();
+
+      // Garis Irisan Penampang Melintang A — A' di Tengah Peta
+      const transectY = MAP_Y + MAP_H / 2;
+      ctx.save();
+      ctx.setLineDash([12, 10]);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)';
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(MAP_X, transectY);
+      ctx.lineTo(MAP_X + MAP_W, transectY);
+      ctx.stroke();
+      ctx.restore();
+
+      // Penanda Label A & A' pada Tepi Garis Irisan
+      ctx.fillStyle = '#000000';
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = 1.8;
+      ctx.fillRect(MAP_X + 14, transectY - 16, 32, 32);
+      ctx.strokeRect(MAP_X + 14, transectY - 16, 32, 32);
+      ctx.fillRect(MAP_X + MAP_W - 46, transectY - 16, 32, 32);
+      ctx.strokeRect(MAP_X + MAP_W - 46, transectY - 16, 32, 32);
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '700 20px "SF Mono", "JetBrains Mono", "Consolas", monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('A', MAP_X + 30, transectY + 1);
+      ctx.fillText("A'", MAP_X + MAP_W - 30, transectY + 1);
+
+      ctx.restore();
+    }
+
+    // Lapisan 2: Ekstraksi & Render Isolines via Marching Squares
+    function drawContourLevel(level, strokeStyle, lineWidth, dashPattern) {
+      const stride = COLS + 1;
+
+      ctx.save();
+      if (dashPattern) ctx.setLineDash(dashPattern);
+      ctx.strokeStyle = strokeStyle;
+      ctx.lineWidth = lineWidth;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+
+      for (let j = 0; j < ROWS; j++) {
+        const y0 = MAP_Y + j * CELL_H;
+        const y1 = y0 + CELL_H;
+        const row0 = j * stride;
+        const row1 = row0 + stride;
+
+        for (let i = 0; i < COLS; i++) {
+          const tl = field[row0 + i];
+          const tr = field[row0 + i + 1];
+          const br = field[row1 + i + 1];
+          const bl = field[row1 + i];
+
+          let idx = 0;
+          if (tl >= level) idx |= 8;
+          if (tr >= level) idx |= 4;
+          if (br >= level) idx |= 2;
+          if (bl >= level) idx |= 1;
+
+          if (idx === 0 || idx === 15) continue;
+
+          const x0 = MAP_X + i * CELL_W;
+          const x1 = x0 + CELL_W;
+
+          // Interpolasi Linier Tepi Sel
+          const tTop = (level - tl) / (tr - tl || 1e-6);
+          const tRight = (level - tr) / (br - tr || 1e-6);
+          const tBottom = (level - bl) / (br - bl || 1e-6);
+          const tLeft = (level - tl) / (bl - tl || 1e-6);
+
+          const topX = x0 + tTop * CELL_W;
+          const rightY = y0 + tRight * CELL_H;
+          const bottomX = x0 + tBottom * CELL_W;
+          const leftY = y0 + tLeft * CELL_H;
+
+          switch (idx) {
+            case 1:
+            case 14:
+              ctx.moveTo(x0, leftY);
+              ctx.lineTo(bottomX, y1);
+              break;
+            case 2:
+            case 13:
+              ctx.moveTo(bottomX, y1);
+              ctx.lineTo(x1, rightY);
+              break;
+            case 3:
+            case 12:
+              ctx.moveTo(x0, leftY);
+              ctx.lineTo(x1, rightY);
+              break;
+            case 4:
+            case 11:
+              ctx.moveTo(topX, y0);
+              ctx.lineTo(x1, rightY);
+              break;
+            case 5: {
+              const avg = (tl + tr + br + bl) * 0.25;
+              if (avg >= level) {
+                ctx.moveTo(x0, leftY);
+                ctx.lineTo(topX, y0);
+                ctx.moveTo(bottomX, y1);
+                ctx.lineTo(x1, rightY);
+              } else {
+                ctx.moveTo(x0, leftY);
+                ctx.lineTo(bottomX, y1);
+                ctx.moveTo(topX, y0);
+                ctx.lineTo(x1, rightY);
+              }
+              break;
+            }
+            case 6:
+            case 9:
+              ctx.moveTo(topX, y0);
+              ctx.lineTo(bottomX, y1);
+              break;
+            case 7:
+            case 8:
+              ctx.moveTo(x0, leftY);
+              ctx.lineTo(topX, y0);
+              break;
+            case 10: {
+              const avg = (tl + tr + br + bl) * 0.25;
+              if (avg >= level) {
+                ctx.moveTo(x0, leftY);
+                ctx.lineTo(bottomX, y1);
+                ctx.moveTo(topX, y0);
+                ctx.lineTo(x1, rightY);
+              } else {
+                ctx.moveTo(x0, leftY);
+                ctx.lineTo(topX, y0);
+                ctx.moveTo(bottomX, y1);
+                ctx.lineTo(x1, rightY);
+              }
+              break;
+            }
+          }
+        }
+      }
+
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawAllContours() {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(MAP_X, MAP_Y, MAP_W, MAP_H);
+      ctx.clip();
+
+      CONTOUR_LEVELS.forEach((level) => {
+        if (level === 0) {
+          // Datum 0m (Garis Pantai): Pendar halus + inti putih tajam
+          drawContourLevel(0, 'rgba(255, 255, 255, 0.16)', 10, null);
+          drawContourLevel(0, '#FFFFFF', 2.6, null);
+        } else if (level > 0) {
+          // Topografi Daratan (Solid)
+          const isIndex = level % 200 === 0;
+          const alpha = isIndex ? 0.72 + (level / 1400) * 0.25 : 0.34;
+          const width = isIndex ? 2.1 : 1.4;
+          drawContourLevel(level, `rgba(255, 255, 255, ${Math.min(1, alpha)})`, width, null);
+        } else {
+          // Batimetri Kedalaman Laut (Putus-putus Teknis)
+          const isIndex = Math.abs(level) % 200 === 0;
+          const alpha = isIndex ? 0.38 : 0.20;
+          const width = isIndex ? 1.7 : 1.3;
+          const dash = isIndex ? [7, 8] : [3, 9];
+          drawContourLevel(level, `rgba(255, 255, 255, ${alpha})`, width, dash);
+        }
+      });
+
+      ctx.restore();
+    }
+
+    // Lapisan 3: Deteksi & Penanda Puncak (Summit) serta Palung (Trench) Dinamis
+    function drawExtremaMarkers() {
+      const stride = COLS + 1;
+      const peaks = [];
+      const trenches = [];
+
+      // Pindai titik ekstrem lokal (hindari tepi bingkai agar label tidak terpotong)
+      for (let j = 5; j < ROWS - 5; j++) {
+        for (let i = 6; i < COLS - 6; i++) {
+          const val = field[j * stride + i];
+          if (val < 320 && val > -280) continue;
+
+          let isMax = val >= 320;
+          let isMin = val <= -280;
+
+          // Bandingkan dengan lingkungan 5x5 untuk puncak/palung sejati
+          for (let dy = -2; dy <= 2 && (isMax || isMin); dy++) {
+            for (let dx = -2; dx <= 2; dx++) {
+              if (dx === 0 && dy === 0) continue;
+              const nVal = field[(j + dy) * stride + (i + dx)];
+              if (nVal >= val) isMax = false;
+              if (nVal <= val) isMin = false;
+            }
+          }
+
+          if (isMax) {
+            peaks.push({ x: MAP_X + i * CELL_W, y: MAP_Y + j * CELL_H, val });
+          } else if (isMin) {
+            trenches.push({ x: MAP_X + i * CELL_W, y: MAP_Y + j * CELL_H, val });
+          }
+        }
+      }
+
+      // Urutkan berdasarkan nilai paling ekstrem & saring jarak minimum agar tetap rapi
+      function filterByDistance(list, maxCount, minDistPx) {
+        const selected = [];
+        for (const item of list) {
+          if (selected.length >= maxCount) break;
+          const tooClose = selected.some(
+            (s) => Math.hypot(s.x - item.x, s.y - item.y) < minDistPx
+          );
+          if (!tooClose) selected.push(item);
+        }
+        return selected;
+      }
+
+      peaks.sort((a, b) => b.val - a.val);
+      trenches.sort((a, b) => a.val - b.val);
+
+      const topPeaks = filterByDistance(peaks, 5, 420);
+      const deepTrenches = filterByDistance(trenches, 4, 420);
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(MAP_X, MAP_Y, MAP_W, MAP_H);
+      ctx.clip();
+
+      // Gambar Penanda Puncak (Segitiga Triangulasi Putih)
+      topPeaks.forEach((p) => {
+        const fade = Math.min(1, (p.val - 320) / 140);
+        ctx.save();
+        ctx.globalAlpha = fade;
+
+        // Simbol Segitiga Triangulasi
+        ctx.fillStyle = '#000000';
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y - 11);
+        ctx.lineTo(p.x + 10, p.y + 7);
+        ctx.lineTo(p.x - 10, p.y + 7);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Titik pusat
+        ctx.fillStyle = '#FFFFFF';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y + 1, 2.2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Pill Label Elevasi
+        const label = `+${Math.round(p.val)}m`;
+        ctx.font = '600 19px "SF Mono", "JetBrains Mono", "Consolas", monospace';
+        const tw = ctx.measureText(label).width;
+        const lx = p.x + 16;
+        const ly = p.y - 14;
+
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.82)';
+        ctx.fillRect(lx - 6, ly - 13, tw + 12, 26);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+        ctx.lineWidth = 1.2;
+        ctx.strokeRect(lx - 6, ly - 13, tw + 12, 26);
+
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, lx, ly + 1);
+
+        ctx.restore();
+      });
+
+      // Gambar Penanda Palung Laut (Reticle Silang & Nilai Negatif)
+      deepTrenches.forEach((t) => {
+        const fade = Math.min(1, (-t.val - 280) / 140);
+        ctx.save();
+        ctx.globalAlpha = fade * 0.8;
+
+        ctx.strokeStyle = '#CCCCCC';
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        ctx.moveTo(t.x - 7, t.y - 7);
+        ctx.lineTo(t.x + 7, t.y + 7);
+        ctx.moveTo(t.x + 7, t.y - 7);
+        ctx.lineTo(t.x - 7, t.y + 7);
+        ctx.stroke();
+
+        const label = `${Math.round(t.val)}m`;
+        ctx.font = '500 18px "SF Mono", "JetBrains Mono", "Consolas", monospace';
+        const tw = ctx.measureText(label).width;
+        const lx = t.x + 14;
+        const ly = t.y;
+
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.78)';
+        ctx.fillRect(lx - 5, ly - 12, tw + 10, 24);
+        ctx.fillStyle = '#AAAAAA';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, lx, ly + 1);
+
+        ctx.restore();
+      });
+
+      ctx.restore();
+    }
+
+    // Lapisan 4: Bingkai Kartografi (Neatline & Ticks Koordinat UTM)
+    function drawCartographicFrame() {
+      const BAND = 10;
+      ctx.save();
+
+      // Bingkai Dalam & Luar
+      ctx.strokeStyle = '#777777';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(MAP_X, MAP_Y, MAP_W, MAP_H);
+      ctx.strokeRect(MAP_X - BAND, MAP_Y - BAND, MAP_W + BAND * 2, MAP_H + BAND * 2);
+
+      // Segmen Skala Tepi Horizontal (12 sektor)
+      const segW = MAP_W / 12;
+      for (let i = 0; i < 12; i++) {
+        ctx.fillStyle = i % 2 === 0 ? '#CCCCCC' : '#141414';
+        ctx.fillRect(MAP_X + i * segW, MAP_Y - BAND, segW, BAND);
+        ctx.fillRect(MAP_X + i * segW, MAP_Y + MAP_H, segW, BAND);
+      }
+
+      // Segmen Skala Tepi Vertikal (6 sektor)
+      const segH = MAP_H / 6;
+      for (let i = 0; i < 6; i++) {
+        ctx.fillStyle = i % 2 === 0 ? '#CCCCCC' : '#141414';
+        ctx.fillRect(MAP_X - BAND, MAP_Y + i * segH, BAND, segH);
+        ctx.fillRect(MAP_X + MAP_W, MAP_Y + i * segH, BAND, segH);
+      }
+
+      // Sudut Putih Solid
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(MAP_X - BAND, MAP_Y - BAND, BAND, BAND);
+      ctx.fillRect(MAP_X + MAP_W, MAP_Y - BAND, BAND, BAND);
+      ctx.fillRect(MAP_X - BAND, MAP_Y + MAP_H, BAND, BAND);
+      ctx.fillRect(MAP_X + MAP_W, MAP_Y + MAP_H, BAND, BAND);
+
+      // Label Grid UTM Mikro (Atas & Kiri)
+      ctx.fillStyle = '#777777';
+      ctx.font = '500 18px "SF Mono", "JetBrains Mono", "Consolas", monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      for (let c = 0; c <= 12; c += 2) {
+        const x = MAP_X + (c / 12) * MAP_W;
+        ctx.fillText(`E-${String(420 + c * 10).padStart(3, '0')}`, x, MAP_Y - BAND - 12);
+      }
+
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      for (let r = 0; r <= 6; r += 2) {
+        const y = MAP_Y + (r / 6) * MAP_H;
+        ctx.fillText(`N-${String(920 - r * 10).padStart(3, '0')}`, MAP_X - BAND - 16, y);
+      }
+
+      ctx.restore();
+    }
+
+    // Lapisan 5: Header Swiss Editorial, Profil Penampang A-A', & Skala Bar
+    function drawTelemetryHUD(progress) {
+      const headerY = MAP_Y - 82;
+      const footerY = MAP_Y + MAP_H + 74;
+
+      ctx.save();
+
+      // --- HEADER KIRI: Judul & Spesifikasi ---
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '700 34px "Helvetica Neue", "Inter", Arial, sans-serif';
+      ctx.fillText('TOPOGRAPHIC ISOLINES', MAP_X - 10, headerY);
+
+      ctx.fillStyle = '#777777';
+      ctx.font = '500 22px "SF Mono", "JetBrains Mono", "Consolas", monospace';
+      ctx.fillText('  //  BATHYMETRY & ELEVATION CONTOURS  •  INTERVAL 100M', MAP_X + 430, headerY);
+
+      // --- HEADER KANAN: Grafik Profil Penampang Melintang A — A' ---
+      const profW = 620;
+      const profH = 66;
+      const profX = MAP_X + MAP_W + 10 - profW;
+      const profY = MAP_Y - 122;
+
+      // Label Profil
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#888888';
+      ctx.font = '500 18px "SF Mono", "JetBrains Mono", "Consolas", monospace';
+      ctx.fillText("TRANSECT PROFILE A–A'", profX - 22, profY + 26);
+      ctx.fillStyle = '#555555';
+      ctx.fillText('DATUM 0m MSL', profX - 22, profY + 50);
+
+      // Bingkai Grafik Profil
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(profX, profY, profW, profH);
+
+      // Garis Datum 0m di Grafik Profil
+      const zeroY = profY + profH * 0.54;
+      ctx.save();
+      ctx.setLineDash([4, 6]);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)';
+      ctx.beginPath();
+      ctx.moveTo(profX, zeroY);
+      ctx.lineTo(profX + profW, zeroY);
+      ctx.stroke();
+      ctx.restore();
+
+      // Plot Irisan Elevasi Sepanjang Baris Tengah Peta
+      const midRow = Math.floor(ROWS / 2);
+      const stride = COLS + 1;
+      ctx.beginPath();
+      for (let i = 0; i <= COLS; i++) {
+        const val = field[midRow * stride + i];
+        const px = profX + (i / COLS) * profW;
+        const clamped = Math.max(-700, Math.min(800, val));
+        const py = zeroY - (clamped / 800) * (profH * 0.48);
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = 2.0;
+      ctx.stroke();
+
+      // --- FOOTER KIRI: Skala Bar Kartografi & Arah Utara ---
+      const sbX = MAP_X - 10;
+      const sbY = footerY - 14;
+      const segLen = 90;
+
+      for (let s = 0; s < 4; s++) {
+        ctx.fillStyle = s % 2 === 0 ? '#FFFFFF' : '#181818';
+        ctx.fillRect(sbX + s * segLen, sbY, segLen, 8);
+      }
+      ctx.strokeStyle = '#888888';
+      ctx.lineWidth = 1.4;
+      ctx.strokeRect(sbX, sbY, segLen * 4, 8);
+
+      ctx.fillStyle = '#888888';
+      ctx.font = '500 18px "SF Mono", "JetBrains Mono", "Consolas", monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText('0', sbX, sbY + 28);
+      ctx.textAlign = 'center';
+      ctx.fillText('5', sbX + segLen, sbY + 28);
+      ctx.fillText('10', sbX + segLen * 2, sbY + 28);
+      ctx.fillText('20 KM', sbX + segLen * 4, sbY + 28);
+
+      // Legenda Garis di samping Skala Bar
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#777777';
+      ctx.font = '500 20px "SF Mono", "JetBrains Mono", "Consolas", monospace';
+      ctx.fillText('─── ELEVATION (+m)     ┅┅┅ BATHYMETRY (-m)     ▲ SUMMIT', sbX + 440, footerY + 2);
+
+      // --- FOOTER KANAN: Fase 4D Morph & Progress Bar ---
+      const phaseDeg = (progress * 360).toFixed(1).padStart(5, '0');
+      const barW = 360;
+      const barH = 6;
+      const barX = MAP_X + MAP_W + 10 - barW;
+      const barY = footerY - 10;
+
+      ctx.fillStyle = '#222222';
+      ctx.fillRect(barX, barY, barW, barH);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(barX, barY, barW * progress, barH);
+
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#999999';
+      ctx.font = '500 20px "SF Mono", "JetBrains Mono", "Consolas", monospace';
+      ctx.fillText(`PHASE ${phaseDeg}°`, barX - 22, footerY + 2);
+
+      ctx.restore();
+    }
+
+    // =========================================================================
+    // 4. FUNGSI RENDER DETERMINISTIK & LOOP
+    // =========================================================================
+    function render(progress) {
+      // Background Hitam Murni (#000000 - Luma Safe)
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+      computeField(progress);
+      drawReferenceGrid();
+      drawAllContours();
+      drawExtremaMarkers();
+      drawCartographicFrame();
+      drawTelemetryHUD(progress);
+    }
+
+    window.assetReady = true;
+
+    // Hook Global untuk Render Frame-by-Frame (Playwright / FFmpeg / Remotion)
+    window.renderFrame = function (frameIndex, totalFrames = TOTAL_FRAMES) {
+      const progress = (frameIndex % totalFrames) / totalFrames;
+      render(progress);
+    };
+
+    // Preview Real-Time di Browser
+    let startTime = null;
+    function animate(timestamp) {
+      if (!startTime) startTime = timestamp;
+      const elapsedSec = (timestamp - startTime) / 1000;
+      const progress = (elapsedSec % DURATION_SEC) / DURATION_SEC;
+
+      render(progress);
+      requestAnimationFrame(animate);
+    }
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>

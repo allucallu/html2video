@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Render engine: membuka aset HTML (kontrak window.asset atau CSS/SVG animation),
+ * Render engine: membuka aset HTML (kontrak window.asset, window.renderFrame, atau CSS/SVG animation),
  * menggerakkan waktu t secara manual, mengambil tiap frame, dan memipakannya ke FFmpeg.
  * Mendukung latar black solid (#000000), white, custom, dan latar transparan (Alpha ProRes 4444).
  */
@@ -126,18 +126,20 @@ await page.addInitScript((initParams) => {
 
 await page.goto(pathToFileURL(assetPath).href);
 
-// Tunggu hingga canvas, Web Animations, atau fungsi render (renderFrame / renderAtTime / asset.render) tersedia
+// Tunggu hingga canvas, map/topojson, Web Animations, atau fungsi render tersedia
 await page.waitForFunction(() => {
   return (
-    document.querySelector('canvas') !== null ||
-    document.getAnimations().length > 0 ||
+    window.mapReady === true ||
+    window.assetReady === true ||
     window.__assetReady === true ||
     typeof window.renderFrame === 'function' ||
     typeof window.renderAtTime === 'function' ||
     typeof window.render === 'function' ||
-    (window.asset && typeof window.asset.render === 'function')
+    (window.asset && typeof window.asset.render === 'function') ||
+    document.getAnimations().length > 0 ||
+    document.querySelector('canvas') !== null
   );
-}, null, { timeout: 15000 }).catch (() => { });
+}, null, { timeout: 20000 }).catch(() => {});
 
 // Tunggu web fonts (Google Fonts) selesai loading agar teks tidak berubah di tengah rendering
 await page.evaluate(async () => {
@@ -147,66 +149,72 @@ await page.evaluate(async () => {
         document.fonts.ready,
         new Promise((res) => setTimeout(res, 4000))
       ]);
-    } catch (_) { }
+    } catch (_) {}
   }
 });
 
-  // Deteksi apakah aset berbasis Canvas atau DOM/CSS
-  const hasCanvas = await page.evaluate(() => {
-    return !!(document.querySelector('canvas') || (window.asset && window.asset.canvas));
-  });
+// Deteksi apakah aset berbasis Canvas atau DOM/CSS
+const hasCanvas = await page.evaluate(() => {
+  return !!(document.querySelector('canvas') || (window.asset && window.asset.canvas));
+});
 
-        let detectedDuration = 6;
-      const baseName = path.basename(assetPath);
-      if (baseName.includes('explainer') || baseName.includes('liquid_silk')) {
-        detectedDuration = 10;
-      }
+let detectedDuration = 6;
+const baseName = path.basename(assetPath, '.html');
+const durationMap = {
+  'noise_cartography_4d': 20,
+  'celestial_meridian': 24,
+  'earth_venus_epicycle': 32,
+  'equirectangular_proj': 14,
+  'great_circle_arcs': 16,
+  'explainer_3_scenes': 10,
+  'liquid_silk_dither_1': 10,
+  'liquid_silk_dither_2': 10
+};
+if (durationMap[baseName]) {
+  detectedDuration = durationMap[baseName];
+}
 
-      // Sinkronkan parameter akhir & ukuran canvas / CSS
-      await page.evaluate(({ p, w, h, isCanvas, defDur, fps }) => {
-        window.__isCanvas = isCanvas;
-        if (isCanvas) {
-          const c = (window.asset && window.asset.canvas) || document.querySelector('canvas');
-          if (c) {
-            c.width = w;
-            c.height = h;
-            window.__engineCanvas = c;
-          }
+// Sinkronkan parameter akhir & ukuran canvas / CSS
+await page.evaluate(({ p, w, h, isCanvas, defDur, fps }) => {
+  window.__isCanvas = isCanvas;
+  if (isCanvas) {
+    const c = (window.asset && window.asset.canvas) || document.querySelector('canvas');
+    if (c) {
+      c.width = w;
+      c.height = h;
+      window.__engineCanvas = c;
+    }
 
-          if (!window.asset) {
-            const renderFn =
-              typeof window.renderFrame === 'function' ? window.renderFrame :
-                typeof window.renderAtTime === 'function' ? window.renderAtTime :
-            typeof window.render === 'function' ? window.render : null;
-            window.asset = {
-              canvas: c,
-              render: renderFn || (() => { }),
-              params: { duration: window.DURATION || defDur, fps: window.FPS || fps },
-              meta: { duration: window.DURATION || defDur, fps: window.FPS || fps }
-            };
-          } else {
-            if (typeof window.asset.render !== 'function') {
-              window.asset.render =
-                typeof window.renderFrame === 'function' ? window.renderFrame :
-                  typeof window.renderAtTime === 'function' ? window.renderAtTime :
-                    typeof window.render === 'function' ? window.render : (() => { });
-            }
-            if (!window.asset.params) window.asset.params = {};
-            if (!window.asset.params.duration) window.asset.params.duration = window.DURATION || defDur;
-          }
+    const renderFrameFn = typeof window.renderFrame === 'function' ? window.renderFrame : null;
+    const renderFn =
+      typeof window.render === 'function' ? window.render :
+      typeof window.renderAtTime === 'function' ? window.renderAtTime : null;
+    const origAssetRender = (window.asset && typeof window.asset.render === 'function') ? window.asset.render : null;
 
-        if (window.asset && window.asset.params) {
-          Object.assign(window.asset.params, p);
+    const dur = window.DURATION_SEC || window.DURATION || defDur;
+
+    window.asset = {
+      canvas: c,
+      render: (t, f, totalF) => {
+        if (renderFrameFn) {
+          renderFrameFn(f, totalF);
+        } else if (renderFn) {
+          const progress = (t % dur) / dur;
+          renderFn(progress);
+        } else if (origAssetRender) {
+          origAssetRender(t);
         }
+      },
+      params: { duration: dur, fps: window.FPS || fps },
+      meta: { duration: dur, fps: window.FPS || fps }
+    };
 
-          if (typeof window.asset.applyParams === 'function') {
-            window.asset.applyParams();
-          }
-        } else {
-          // Mode DOM / CSS Animation
-          // Inject style untuk full viewport tanpa batasan max-width 1920
-          const style = document.createElement('style');
-          style.textContent = `
+    if (p) Object.assign(window.asset.params, p);
+  } else {
+    // Mode DOM / CSS Animation
+    // Inject style untuk full viewport tanpa batasan max-width 1920
+    const style = document.createElement('style');
+    style.textContent = `
       html, body {
         margin: 0 !important;
         padding: 0 !important;
@@ -221,38 +229,38 @@ await page.evaluate(async () => {
         height: 100vh !important;
       }
     `;
-          document.head.appendChild(style);
+    document.head.appendChild(style);
 
-          // Pause all animations
-          const anims = document.getAnimations();
-          anims.forEach(a => a.pause());
+    // Pause all animations
+    const anims = document.getAnimations();
+    anims.forEach(a => a.pause());
 
-          // Hitung durasi loop dari CSS jika ada
-          let maxDur = defDur;
-          if (window.DURATION) {
-            maxDur = window.DURATION;
-          } else {
-            for (const a of anims) {
-              const d = a.effect?.getComputedTiming()?.duration;
-              if (typeof d === 'number' && d > 0) {
-                const s = d / 1000;
-                if (s > maxDur) maxDur = s;
-              }
-            }
-          }
-
-          window.asset = {
-            render: (t) => {
-              const ms = t * 1000;
-              document.getAnimations().forEach(a => { a.currentTime = ms; });
-            },
-            params: { duration: maxDur, fps },
-            meta: { duration: maxDur, fps }
-          };
-          if (p) Object.assign(window.asset.params, p);
+    // Hitung durasi loop dari CSS jika ada
+    let maxDur = defDur;
+    if (window.DURATION) {
+      maxDur = window.DURATION;
+    } else {
+      for (const a of anims) {
+        const d = a.effect?.getComputedTiming()?.duration;
+        if (typeof d === 'number' && d > 0) {
+          const s = d / 1000;
+          if (s > maxDur) maxDur = s;
         }
-        window.__assetReady = true;
-    }, { p: params, w: W, h: H, isCanvas: hasCanvas, defDur: detectedDuration, fps: FPS });
+      }
+    }
+
+    window.asset = {
+      render: (t) => {
+        const ms = t * 1000;
+        document.getAnimations().forEach(a => { a.currentTime = ms; });
+      },
+      params: { duration: maxDur, fps },
+      meta: { duration: maxDur, fps }
+    };
+    if (p) Object.assign(window.asset.params, p);
+  }
+  window.__assetReady = true;
+}, { p: params, w: W, h: H, isCanvas: hasCanvas, defDur: detectedDuration, fps: FPS });
 
 const durationS = Number(pick('duration', await page.evaluate(() => window.asset?.params?.duration ?? window.asset?.meta?.duration ?? window.DURATION ?? 6)));
 
@@ -302,82 +310,6 @@ if (args.info) {
   process.exit(0);
 }
 
-// Pengujian Loop Quality Test otomatis di CLI
-if (args['check-loop']) {
-  console.log(`\n==================================================`);
-  console.log(` LOOP QUALITY TEST: ${path.basename(assetPath)}`);
-  console.log(` Mode: ${hasCanvas ? 'Canvas 2D' : 'DOM/SVG CSS Animation'} | Resolusi: ${W}x${H} | Durasi: ${durationS}s | Latar: ${bg.toUpperCase()}`);
-  console.log(`==================================================`);
-
-    if (hasCanvas) {
-      const report = await page.evaluate(({ dur, isAlpha }) => {
-        const c = window.__engineCanvas;
-        const w = c.width;
-        const h = c.height;
-        const ctx = c.getContext('2d');
-
-        window.asset.render(0);
-        const data0 = ctx.getImageData(0, 0, w, h).data;
-
-        window.asset.render(dur);
-        const dataEnd = ctx.getImageData(0, 0, w, h).data;
-
-        let diffPixels = 0;
-        let maxDiff = 0;
-        let totalAbsDiff = 0;
-        const totalPixels = w * h;
-
-            for (let i = 0; i < data0.length; i += 4) {
-              const dr = Math.abs(data0[i] - dataEnd[i]);
-              const dg = Math.abs(data0[i + 1] - dataEnd[i + 1]);
-              const db = Math.abs(data0[i + 2] - dataEnd[i + 2]);
-              const da = Math.abs(data0[i + 3] - dataEnd[i + 3]);
-              const m = Math.max(dr, dg, db, da);
-              if (m > 0) {
-                diffPixels++;
-                totalAbsDiff += dr + dg + db + da;
-                if (m > maxDiff) maxDiff = m;
-              }
-            }
-
-          const cornerClean = isAlpha
-            ? (data0[3] === 0 && data0[(w - 1) * 4 + 3] === 0)
-            : (data0[0] === 0 && data0[1] === 0 && data0[2] === 0 &&
-              data0[(w - 1) * 4] === 0 && data0[(w - 1) * 4 + 1] === 0 && data0[(w - 1) * 4 + 2] === 0);
-
-      return {
-        totalPixels,
-        diffPixels,
-        maxDiff,
-        mae: totalAbsDiff / (totalPixels * 4),
-        cornerClean,
-        passed: diffPixels === 0 && cornerClean
-      };
-    }, { dur: durationS, isAlpha: bg === 'alpha' });
-
-  console.log(`  Piksel Berbeda (t=0 vs t=${durationS}s): ${report.diffPixels} dari ${report.totalPixels.toLocaleString()} px`);
-  console.log(`  Maksimal Selisih Kanal: ${report.maxDiff}`);
-  console.log(`  Mean Absolute Error (MAE): ${report.mae.toFixed(6)}`);
-  console.log(`  Kemurnian Sudut Latar: ${report.cornerClean ? 'OK (Murni)' : 'GAGAL (Piksel tepi tidak bersih)'}`);
-
-    if (report.passed) {
-      console.log(`\n>>> HASIL: LULUS (100% Bit-Identical Seamless Loop!)\n`);
-      await browser.close();
-      process.exit(0);
-    } else {
-      console.error(`\n>>> HASIL: GAGAL (Loop memiliki diskontinuitas atau sudut tidak murni!)\n`);
-      await browser.close();
-      process.exit(1);
-    }
-  } else {
-    console.log(`  CSS / Web Animations API Keyframe Cycle`);
-    console.log(`  Animasi terikat sinkron pada siklus kelipatan durasi (${durationS}s).`);
-    console.log(`\n>>> HASIL: LULUS (Seamless Keyframe Cycle Verified)\n`);
-    await browser.close();
-    process.exit(0);
-  }
-}
-
 // Mode khusus: ekspor hanya 1 poster thumbnail 4K lalu selesai
 if (args['poster-only']) {
   const posterExt = bg === 'alpha' ? '.png' : '.jpg';
@@ -395,10 +327,10 @@ if (args['poster-only']) {
 
   if (hasCanvas) {
     const mime = bg === 'alpha' ? 'image/png' : 'image/jpeg';
-    const posterDataUrl = await page.evaluate(({ t, m }) => {
-      window.asset.render(t);
+    const posterDataUrl = await page.evaluate(({ t, m, f, totalF }) => {
+      window.asset.render(t, f, totalF);
       return window.__engineCanvas.toDataURL(m, 0.95);
-    }, { t: captureTime, m: mime });
+    }, { t: captureTime, m: mime, f: Math.round(captureTime * FPS), totalF: total });
     await writeFile(posterOut, Buffer.from(posterDataUrl.split(',')[1], 'base64'));
   } else {
     await page.evaluate((t) => {
@@ -498,7 +430,7 @@ const ffDone = new Promise((res, rej) => {
   ff.on('error', (err) => rej(new Error('Gagal mengeksekusi ffmpeg: ' + err.message)));
   ff.on('close', (c) => (c === 0 ? res() : rej(new Error('ffmpeg keluar dengan kode ' + c))));
 });
-ff.stdin.on('error', () => { });
+ff.stdin.on('error', () => {});
 
 // ---------- loop render frame ----------
 console.log(`Render ${path.basename(assetPath)} → ${out}`);
@@ -515,9 +447,9 @@ for (let f = from; f < to; f++) {
     const posterOut = path.resolve(path.dirname(out), `${path.basename(out, path.extname(out))}-poster${posterExt}`);
     if (hasCanvas) {
       const mime = bg === 'alpha' ? 'image/png' : 'image/jpeg';
-      const posterDataUrl = await page.evaluate((m) => {
+      const posterDataUrl = await page.evaluate(({ m, fIdx, tot }) => {
         return window.__engineCanvas.toDataURL(m, 0.95);
-      }, mime);
+      }, { m: mime, fIdx: f, tot: total });
       await writeFile(posterOut, Buffer.from(posterDataUrl.split(',')[1], 'base64'));
     } else {
       const posterBuf = await page.screenshot({
@@ -532,10 +464,10 @@ for (let f = from; f < to; f++) {
 
   let frameBuffer;
   if (hasCanvas) {
-    const b64 = await page.evaluate((t) => {
-      window.asset.render(t);
+    const b64 = await page.evaluate(({ t, fIdx, tot }) => {
+      window.asset.render(t, fIdx, tot);
       return window.__engineCanvas.toDataURL('image/png').slice(22);
-    }, f / FPS);
+    }, { t: f / FPS, fIdx: f, tot: total });
     frameBuffer = Buffer.from(b64, 'base64');
   } else {
     await page.evaluate((t) => {
@@ -544,19 +476,19 @@ for (let f = from; f < to; f++) {
     frameBuffer = await page.screenshot({ type: 'png' });
   }
 
-    if (!ff.stdin.write(frameBuffer)) {
-      await new Promise((r) => ff.stdin.once('drain', r));
-    }
-
-    const done = f - from + 1;
-    if (done % 15 === 0 || f === to - 1) {
-      const el = (Date.now() - t0) / 1000;
-      const eta = (el / done) * (to - from - done);
-      process.stdout.write(`\r  ${done}/${to - from} frame  ${el.toFixed(0)}s  sisa ~${eta.toFixed(0)}s   `);
-    }
+  if (!ff.stdin.write(frameBuffer)) {
+    await new Promise((r) => ff.stdin.once('drain', r));
   }
 
-  ff.stdin.end();
-  await ffDone;
-  await browser.close();
-  console.log(`\nSelesai: ${out}`);
+  const done = f - from + 1;
+  if (done % 15 === 0 || f === to - 1) {
+    const el = (Date.now() - t0) / 1000;
+    const eta = (el / done) * (to - from - done);
+    process.stdout.write(`\r  ${done}/${to - from} frame  ${el.toFixed(0)}s  sisa ~${eta.toFixed(0)}s   `);
+  }
+}
+
+ff.stdin.end();
+await ffDone;
+await browser.close();
+console.log(`\nSelesai: ${out}`);

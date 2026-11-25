@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Neo-Brutalism New Year 03: Pop-Art Geometric Firework (Green Screen) - 6s Loop</title>
+  <style>
+    :root {
+      --bg-base: #00FF00;
+      --ink: #111111;
+      --neon-yellow: #FDE047;
+      --hot-pink: #FB7185;
+      --cyber-cyan: #38BDF8;
+      --acid-lime: #A3E635;
+      --electric-purple: #C084FC;
+      --white: #FFFFFF;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-base);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    .canvas {
+      width: 100vw;
+      max-width: 1920px;
+      aspect-ratio: 16 / 9;
+      background-color: var(--bg-base);
+      overflow: hidden;
+    }
+
+    /* =====================================================
+       MASTER SEAMLESS LOOP (6 DETIK)
+       Semua siklus sinkron: 6s, 3s
+    ===================================================== */
+
+    /* 1. Rotasi Perlahan Keseluruhan Kembang Api (6s) */
+    .firework-slow-turn {
+      animation: turnSlow 6s linear infinite;
+    }
+    @keyframes turnSlow {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(45deg); }
+    }
+
+    /* 2. Ledakan Inti Starburst di Tengah (Siklus 3s = 2x per loop) */
+    .core-starburst-pop {
+      animation: burstCore 3s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    @keyframes burstCore {
+      0%, 100% { transform: scale(0.22) rotate(0deg); }
+      14% { transform: scale(0.14) rotate(-12deg); }
+      28% { transform: scale(1.12) rotate(8deg); }
+      45%, 76% { transform: scale(1) rotate(0deg); }
+      90% { transform: scale(0.35) rotate(-8deg); }
+    }
+
+    /* 3. Pancaran 8 Sinar Utama Melesat Keluar (Siklus 3s) */
+    .ray-shoot {
+      animation: shootRays 3s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+    }
+    @keyframes shootRays {
+      0%, 16% {
+        transform: translateY(0px) scaleY(0.15);
+        opacity: 0;
+      }
+      24% {
+        opacity: 1;
+      }
+      46% {
+        transform: translateY(-195px) scaleY(1.08);
+        opacity: 1;
+      }
+      76% {
+        transform: translateY(-215px) scaleY(0.95);
+        opacity: 1;
+      }
+      90%, 100% {
+        transform: translateY(-245px) scaleY(0.1);
+        opacity: 0;
+      }
+    }
+
+    /* 4. Partikel Satelit Diagonal (Lingkaran & Segitiga) (Siklus 3s) */
+    .satellite-shoot {
+      animation: shootSatellites 3s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+    }
+    @keyframes shootSatellites {
+      0%, 18% {
+        transform: translateY(0px) scale(0) rotate(0deg);
+        opacity: 0;
+      }
+      26% {
+        opacity: 1;
+      }
+      50% {
+        transform: translateY(-265px) scale(1.1) rotate(135deg);
+        opacity: 1;
+      }
+      78% {
+        transform: translateY(-285px) scale(1) rotate(180deg);
+        opacity: 1;
+      }
+      92%, 100% {
+        transform: translateY(-315px) scale(0) rotate(225deg);
+        opacity: 0;
+      }
+    }
+
+    /* 5. Garis Ledakan Komik Luar (Siklus 3s) */
+    .outer-comic-lines {
+      animation: flashComicLines 3s ease-out infinite;
+    }
+    @keyframes flashComicLines {
+      0%, 20% { transform: scale(0.55); opacity: 0; }
+      32% { transform: scale(1.05); opacity: 1; }
+      65% { transform: scale(1.18); opacity: 1; }
+      84%, 100% { transform: scale(1.32); opacity: 0; }
+    }
+
+    /* 6. Bintang Kilau Sudut Berkedip Kontra-Ritme (Siklus 3s) */
+    .sparkle-a {
+      animation: twinkleA 3s ease-in-out infinite;
+    }
+    .sparkle-b {
+      animation: twinkleB 3s ease-in-out infinite;
+    }
+    @keyframes twinkleA {
+      0%, 100% { transform: scale(1) rotate(0deg); }
+      50% { transform: scale(0.4) rotate(45deg); }
+    }
+    @keyframes twinkleB {
+      0%, 100% { transform: scale(0.4) rotate(-45deg); }
+      50% { transform: scale(1) rotate(0deg); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="canvas">
+    <svg viewBox="0 0 1920 1080" width="100%" height="100%">
+      <!-- Latar Green Screen Murni -->
+      <rect width="1920" height="1080" fill="var(--bg-base)"/>
+
+      <!-- =====================================================
+           DEKORASI KILAU SUDUT (SAFE ZONE)
+      ====================================================== -->
+      <g transform="translate(610, 270)">
+        <g class="sparkle-a">
+          <path d="M0 -42 C4 -11 11 -4 42 0 C11 4 4 11 0 42 C-4 11 -11 4 -42 0 C-11 -4 -4 -11 0 -42 Z" fill="var(--white)" stroke="var(--ink)" stroke-width="7" stroke-linejoin="round"/>
+        </g>
+      </g>
+
+      <g transform="translate(1310, 810)">
+        <g class="sparkle-b">
+          <path d="M0 -44 C4 -12 12 -4 44 0 C12 4 4 12 0 44 C-4 12 -12 4 -44 0 C-12 -4 -4 -12 0 -44 Z" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="7" stroke-linejoin="round"/>
+        </g>
+      </g>
+
+      <!-- =====================================================
+           SINGLE HERO ITEM: POP-ART GEOMETRIC FIREWORK (PUSAT)
+      ====================================================== -->
+      <g transform="translate(960, 540)">
+        <g class="firework-slow-turn">
+
+          <!-- 1. GARIS LEDAKAN KOMIK LUAR -->
+          <g class="outer-comic-lines" stroke="var(--ink)" stroke-width="9" stroke-linecap="round">
+            <line x1="0" y1="-325" x2="0" y2="-380"/>
+            <line x1="230" y1="-230" x2="270" y2="-270"/>
+            <line x1="325" y1="0" x2="380" y2="0"/>
+            <line x1="230" y1="230" x2="270" y2="270"/>
+            <line x1="0" y1="325" x2="0" y2="380"/>
+            <line x1="-230" y1="230" x2="-270" y2="270"/>
+            <line x1="-325" y1="0" x2="-380" y2="0"/>
+            <line x1="-230" y1="-230" x2="-270" y2="-270"/>
+          </g>
+
+          <!-- 2. DELAPAN PANCARAN SINAR UTAMA (0°, 45°, 90°, 135°, 180°, 225°, 270°, 315°) -->
+          <!-- Sinar 0° (Atas - Cyber Cyan) -->
+          <g transform="rotate(0)">
+            <g class="ray-shoot">
+              <rect x="-11" y="-56" width="30" height="106" rx="15" fill="var(--ink)"/>
+              <rect x="-17" y="-62" width="30" height="106" rx="15" fill="var(--cyber-cyan)" stroke="var(--ink)" stroke-width="8"/>
+            </g>
+          </g>
+
+          <!-- Sinar 45° (Kanan Atas - Acid Lime) -->
+          <g transform="rotate(45)">
+            <g class="ray-shoot">
+              <rect x="-11" y="-56" width="30" height="106" rx="15" fill="var(--ink)"/>
+              <rect x="-17" y="-62" width="30" height="106" rx="15" fill="var(--acid-lime)" stroke="var(--ink)" stroke-width="8"/>
+            </g>
+          </g>
+
+          <!-- Sinar 90° (Kanan - Neon Yellow) -->
+          <g transform="rotate(90)">
+            <g class="ray-shoot">
+              <rect x="-11" y="-56" width="30" height="106" rx="15" fill="var(--ink)"/>
+              <rect x="-17" y="-62" width="30" height="106" rx="15" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="8"/>
+            </g>
+          </g>
+
+          <!-- Sinar 135° (Kanan Bawah - Electric Purple) -->
+          <g transform="rotate(135)">
+            <g class="ray-shoot">
+              <rect x="-11" y="-56" width="30" height="106" rx="15" fill="var(--ink)"/>
+              <rect x="-17" y="-62" width="30" height="106" rx="15" fill="var(--electric-purple)" stroke="var(--ink)" stroke-width="8"/>
+            </g>
+          </g>
+
+          <!-- Sinar 180° (Bawah - Cyber Cyan) -->
+          <g transform="rotate(180)">
+            <g class="ray-shoot">
+              <rect x="-11" y="-56" width="30" height="106" rx="15" fill="var(--ink)"/>
+              <rect x="-17" y="-62" width="30" height="106" rx="15" fill="var(--cyber-cyan)" stroke="var(--ink)" stroke-width="8"/>
+            </g>
+          </g>
+
+          <!-- Sinar 225° (Kiri Bawah - Acid Lime) -->
+          <g transform="rotate(225)">
+            <g class="ray-shoot">
+              <rect x="-11" y="-56" width="30" height="106" rx="15" fill="var(--ink)"/>
+              <rect x="-17" y="-62" width="30" height="106" rx="15" fill="var(--acid-lime)" stroke="var(--ink)" stroke-width="8"/>
+            </g>
+          </g>
+
+          <!-- Sinar 270° (Kiri - Neon Yellow) -->
+          <g transform="rotate(270)">
+            <g class="ray-shoot">
+              <rect x="-11" y="-56" width="30" height="106" rx="15" fill="var(--ink)"/>
+              <rect x="-17" y="-62" width="30" height="106" rx="15" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="8"/>
+            </g>
+          </g>
+
+          <!-- Sinar 315° (Kiri Atas - Electric Purple) -->
+          <g transform="rotate(315)">
+            <g class="ray-shoot">
+              <rect x="-11" y="-56" width="30" height="106" rx="15" fill="var(--ink)"/>
+              <rect x="-17" y="-62" width="30" height="106" rx="15" fill="var(--electric-purple)" stroke="var(--ink)" stroke-width="8"/>
+            </g>
+          </g>
+
+          <!-- 3. DELAPAN PARTIKEL SATELIT ANTAR-SINAR (22.5° OFFSET) -->
+          <!-- Satelit 22.5°: Lingkaran Hot Pink -->
+          <g transform="rotate(22.5)">
+            <g class="satellite-shoot">
+              <circle cx="6" cy="6" r="22" fill="var(--ink)"/>
+              <circle cx="0" cy="0" r="22" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="7"/>
+            </g>
+          </g>
+
+          <!-- Satelit 67.5°: Segitiga Neon Yellow -->
+          <g transform="rotate(67.5)">
+            <g class="satellite-shoot">
+              <polygon points="6,-24 30,22 -18,22" fill="var(--ink)"/>
+              <polygon points="0,-30 24,16 -24,16" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="7" stroke-linejoin="round"/>
+            </g>
+          </g>
+
+          <!-- Satelit 112.5°: Lingkaran Cyber Cyan -->
+          <g transform="rotate(112.5)">
+            <g class="satellite-shoot">
+              <circle cx="6" cy="6" r="22" fill="var(--ink)"/>
+              <circle cx="0" cy="0" r="22" fill="var(--cyber-cyan)" stroke="var(--ink)" stroke-width="7"/>
+            </g>
+          </g>
+
+          <!-- Satelit 157.5°: Segitiga Acid Lime -->
+          <g transform="rotate(157.5)">
+            <g class="satellite-shoot">
+              <polygon points="6,-24 30,22 -18,22" fill="var(--ink)"/>
+              <polygon points="0,-30 24,16 -24,16" fill="var(--acid-lime)" stroke="var(--ink)" stroke-width="7" stroke-linejoin="round"/>
+            </g>
+          </g>
+
+          <!-- Satelit 202.5°: Lingkaran Hot Pink -->
+          <g transform="rotate(202.5)">
+            <g class="satellite-shoot">
+              <circle cx="6" cy="6" r="22" fill="var(--ink)"/>
+              <circle cx="0" cy="0" r="22" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="7"/>
+            </g>
+          </g>
+
+          <!-- Satelit 247.5°: Segitiga Neon Yellow -->
+          <g transform="rotate(247.5)">
+            <g class="satellite-shoot">
+              <polygon points="6,-24 30,22 -18,22" fill="var(--ink)"/>
+              <polygon points="0,-30 24,16 -24,16" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="7" stroke-linejoin="round"/>
+            </g>
+          </g>
+
+          <!-- Satelit 292.5°: Lingkaran Cyber Cyan -->
+          <g transform="rotate(292.5)">
+            <g class="satellite-shoot">
+              <circle cx="6" cy="6" r="22" fill="var(--ink)"/>
+              <circle cx="0" cy="0" r="22" fill="var(--cyber-cyan)" stroke="var(--ink)" stroke-width="7"/>
+            </g>
+          </g>
+
+          <!-- Satelit 337.5°: Segitiga Acid Lime -->
+          <g transform="rotate(337.5)">
+            <g class="satellite-shoot">
+              <polygon points="6,-24 30,22 -18,22" fill="var(--ink)"/>
+              <polygon points="0,-30 24,16 -24,16" fill="var(--acid-lime)" stroke="var(--ink)" stroke-width="7" stroke-linejoin="round"/>
+            </g>
+          </g>
+
+          <!-- 4. INTI STARBURST KEMBANG API DI TENGAH -->
+          <g class="core-starburst-pop">
+            <!-- Hard Offset Shadow Hitam -->
+            <g transform="translate(12, 14)">
+              <polygon points="0,-128 28,-86 84,-104 78,-48 128,-22 92,22 114,76 58,76 42,128 0,92 -42,128 -58,76 -114,76 -92,22 -128,-22 -78,-48 -84,-104 -28,-86" fill="var(--ink)"/>
+            </g>
+
+            <!-- Starburst Utama Hot Pink -->
+            <polygon points="0,-128 28,-86 84,-104 78,-48 128,-22 92,22 114,76 58,76 42,128 0,92 -42,128 -58,76 -114,76 -92,22 -128,-22 -78,-48 -84,-104 -28,-86" fill="var(--hot-pink)" stroke="var(--ink)" stroke-width="9" stroke-linejoin="round"/>
+
+            <!-- Lingkaran Inti Kuning Neon -->
+            <circle cx="0" cy="0" r="56" fill="var(--neon-yellow)" stroke="var(--ink)" stroke-width="8"/>
+
+            <!-- Bintang Putih di Pusat -->
+            <polygon points="0,-30 8,-9 30,-9 12,4 19,25 0,12 -19,25 -12,4 -30,-9 -8,-9" fill="var(--white)" stroke="var(--ink)" stroke-width="5" stroke-linejoin="round"/>
+          </g>
+
+        </g>
+      </g>
+
+    </svg>
+  </div>
+
+</body>
+</html>

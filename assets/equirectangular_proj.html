@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>4K Solar Terminator — Swiss Editorial Cartography</title>
+  <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background-color: #000000;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    canvas {
+      width: 100vw;
+      height: 100vh;
+      object-fit: contain;
+      background-color: #000000;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas" width="3840" height="2160"></canvas>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d', { alpha: false });
+
+    // =========================================================================
+    // 1. KONFIGURASI 4K & DETERMINISTIC LOOP
+    // =========================================================================
+    const WIDTH = 3840;
+    const HEIGHT = 2160;
+    const FPS = 60;
+    const DURATION_SEC = 14; // 1 siklus 24 jam = 14 detik (840 frame)
+    const TOTAL_FRAMES = FPS * DURATION_SEC;
+
+    // Area Peta Equirectangular 2:1 di tengah kanvas 4K
+    const MAP_W = 3240;
+    const MAP_H = 1620;
+    const MAP_X = (WIDTH - MAP_W) / 2;   // 300px
+    const MAP_Y = (HEIGHT - MAP_H) / 2 + 12; // 282px
+
+    // Deklinasi Matahari (23.44° = Solstice Juni untuk kurva terminator dramatis)
+    const SOLAR_DECL_DEG = 23.44;
+
+    // Proyeksi Equirectangular Presisi (D3 Geo)
+    const projection = d3.geoEquirectangular()
+      .fitExtent([[MAP_X, MAP_Y], [MAP_X + MAP_W, MAP_Y + MAP_H]], { type: 'Sphere' });
+    const geoPath = d3.geoPath(projection, ctx);
+
+    // Daftar Kota Global Utama [Lon, Lat, Bobot Ukuran] untuk Efek Night Lights
+    const MAJOR_CITIES = [
+      [-74.0, 40.7, 1.3], [-118.2, 34.0, 1.1], [-87.6, 41.8, 1.0], [-122.4, 37.7, 0.9],
+      [-99.1, 19.4, 1.2], [-79.3, 43.6, 0.9], [-80.1, 25.7, 0.8], [-95.3, 29.7, 0.9],
+      [-46.6, -23.5, 1.2], [-43.1, -22.9, 1.0], [-58.3, -34.6, 1.1], [-70.6, -33.4, 0.9],
+      [-77.0, -12.0, 0.9], [-74.0, 4.7, 0.9],
+      [-0.1, 51.5, 1.3], [2.3, 48.8, 1.3], [13.4, 52.5, 1.1], [-3.7, 40.4, 1.1],
+      [12.4, 41.9, 1.0], [4.9, 52.3, 1.0], [28.9, 41.0, 1.2], [37.6, 55.7, 1.3],
+      [30.5, 50.4, 0.9], [18.0, 59.3, 0.8], [21.0, 52.2, 0.9], [9.1, 45.4, 1.0],
+      [31.2, 30.0, 1.3], [3.3, 6.5, 1.1], [28.0, -26.2, 1.0], [18.4, -33.9, 0.9],
+      [36.8, -1.2, 0.9], [-7.5, 33.5, 0.9],
+      [55.2, 25.2, 1.2], [46.6, 24.7, 1.0], [51.3, 35.6, 1.1], [72.8, 19.0, 1.3],
+      [77.2, 28.6, 1.3], [77.5, 12.9, 1.1], [88.3, 22.5, 1.1], [67.0, 24.8, 1.1],
+      [100.5, 13.7, 1.2], [103.8, 1.3, 1.2], [106.8, -6.2, 1.3], [112.7, -7.2, 1.0],
+      [119.4, -5.1, 0.8], [120.9, 14.5, 1.1], [106.6, 10.8, 1.0],
+      [116.4, 39.9, 1.3], [121.4, 31.2, 1.4], [114.1, 22.3, 1.3], [113.2, 23.1, 1.2],
+      [104.0, 30.6, 1.0], [126.9, 37.5, 1.3], [139.6, 35.6, 1.4], [135.5, 34.6, 1.2],
+      [121.5, 25.0, 1.1],
+      [151.2, -33.8, 1.1], [144.9, -37.8, 1.0], [153.0, -27.4, 0.9], [115.8, -31.9, 0.8],
+      [174.7, -36.8, 0.8]
+    ];
+
+    // =========================================================================
+    // 2. POLA TEKSTUR ARSIRAN (MICRO-STIPPLE MATRIX UNTUK AREA MALAM)
+    // =========================================================================
+    function createStipplePattern(spacing, dotSize, dotAlpha) {
+      const pCanvas = document.createElement('canvas');
+      pCanvas.width = spacing;
+      pCanvas.height = spacing;
+      const pCtx = pCanvas.getContext('2d');
+
+      pCtx.fillStyle = `rgba(255, 255, 255, ${dotAlpha})`;
+      pCtx.fillRect(0, 0, dotSize, dotSize);
+      pCtx.fillRect(spacing / 2, spacing / 2, dotSize, dotSize);
+
+      return ctx.createPattern(pCanvas, 'repeat');
+    }
+
+    const patternNautical = createStipplePattern(14, 1.6, 0.14);
+    const patternDeepNight = createStipplePattern(10, 1.8, 0.18);
+
+    // Variabel Data Peta
+    let landGeo = null;
+    let bordersGeo = null;
+    window.mapReady = false;
+
+    // Utilitas Smoothstep
+    function smoothstep(edge0, edge1, x) {
+      const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+      return t * t * (3 - 2 * t);
+    }
+
+    // Normalisasi Bujur ke rentang [-180, 180]
+    function wrapLon(lon) {
+      return ((lon + 180) % 360 + 360) % 360 - 180;
+    }
+
+    // =========================================================================
+    // 3. LAPISAN VISUAL KARTOGRAFI
+    // =========================================================================
+
+    // Lapisan 1: Grid Halus, Garis Tropis, dan Tanda Bidik (+) 30°
+    function drawMapGrid() {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(MAP_X, MAP_Y, MAP_W, MAP_H);
+      ctx.clip();
+
+      // Grid Utama Ultra-Tipis setiap 15°
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.055)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      for (let lon = -165; lon <= 165; lon += 15) {
+        const [x] = projection([lon, 0]);
+        ctx.moveTo(x, MAP_Y);
+        ctx.lineTo(x, MAP_Y + MAP_H);
+      }
+      for (let lat = -75; lat <= 75; lat += 15) {
+        const [, y] = projection([0, lat]);
+        ctx.moveTo(MAP_X, y);
+        ctx.lineTo(MAP_X + MAP_W, y);
+      }
+      ctx.stroke();
+
+      // Ekuator & Meridian Utama (Sedikit lebih tegas)
+      const [primeX, eqY] = projection([0, 0]);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.moveTo(MAP_X, eqY);
+      ctx.lineTo(MAP_X + MAP_W, eqY);
+      ctx.moveTo(primeX, MAP_Y);
+      ctx.lineTo(primeX, MAP_Y + MAP_H);
+      ctx.stroke();
+
+      // Garis Putus-putus Tropis (±23.44°) & Lingkaran Kutub (±66.56°)
+      const specialLats = [
+        { lat: 66.56, label: 'ARCTIC CIRCLE 66.5°N' },
+        { lat: 23.44, label: 'TROPIC OF CANCER 23.4°N' },
+        { lat: -23.44, label: 'TROPIC OF CAPRICORN 23.4°S' },
+        { lat: -66.56, label: 'ANTARCTIC CIRCLE 66.5°S' }
+      ];
+
+      ctx.save();
+      ctx.setLineDash([6, 12]);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+      ctx.lineWidth = 1.5;
+      ctx.font = '500 17px "SF Mono", "JetBrains Mono", "Consolas", monospace';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'bottom';
+
+      specialLats.forEach(({ lat, label }) => {
+        const [, y] = projection([0, lat]);
+        ctx.beginPath();
+        ctx.moveTo(MAP_X, y);
+        ctx.lineTo(MAP_X + MAP_W, y);
+        ctx.stroke();
+        ctx.fillText(label, MAP_X + 18, y - 6);
+      });
+      ctx.restore();
+
+      // Tanda Bidik Presisi (+) di Setiap Pertemuan 30°
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)';
+      ctx.lineWidth = 1.8;
+      const tick = 7;
+      ctx.beginPath();
+      for (let lon = -150; lon <= 150; lon += 30) {
+        for (let lat = -60; lat <= 60; lat += 30) {
+          const [x, y] = projection([lon, lat]);
+          ctx.moveTo(x - tick, y);
+          ctx.lineTo(x + tick, y);
+          ctx.moveTo(x, y - tick);
+          ctx.lineTo(x, y + tick);
+        }
+      }
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    // Lapisan 2: Daratan Asli (Natural Earth) dengan Estetika Monokrom Tajam
+    function drawLandmasses() {
+      if (!landGeo) return;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(MAP_X, MAP_Y, MAP_W, MAP_H);
+      ctx.clip();
+
+      // Isian Daratan Siang (Terang Matte Halus)
+      ctx.beginPath();
+      geoPath(landGeo);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.14)';
+      ctx.fill();
+
+      // Batas Negara Internal (Ultra-Tipis)
+      if (bordersGeo) {
+        ctx.beginPath();
+        geoPath(bordersGeo);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+      }
+
+      // Garis Pantai Utama (Tajam & Bersih)
+      ctx.beginPath();
+      geoPath(landGeo);
+      ctx.strokeStyle = '#E6E6E6';
+      ctx.lineWidth = 2.0;
+      ctx.lineJoin = 'round';
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    // Lapisan 3: Bayangan Malam Berlapis (Twilight Bands) & Garis Terminator
+    function drawSolarTerminator(subsolarLon) {
+      const antisolarLon = wrapLon(subsolarLon + 180);
+      const antisolarLat = -SOLAR_DECL_DEG;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(MAP_X, MAP_Y, MAP_W, MAP_H);
+      ctx.clip();
+
+      // 4 Lapisan Astronomis: 0° (Terminator), -6° (Civil), -12° (Nautical), -18° (Astronomical)
+      const bands = [
+        { radius: 90, fill: 'rgba(0, 0, 0, 0.44)', pattern: null },
+        { radius: 84, fill: 'rgba(0, 0, 0, 0.28)', pattern: patternNautical },
+        { radius: 78, fill: 'rgba(0, 0, 0, 0.24)', pattern: null },
+        { radius: 72, fill: 'rgba(0, 0, 0, 0.22)', pattern: patternDeepNight }
+      ];
+
+      bands.forEach((b) => {
+        const circleGeo = d3.geoCircle()
+          .center([antisolarLon, antisolarLat])
+          .radius(b.radius)();
+
+        ctx.beginPath();
+        geoPath(circleGeo);
+        ctx.fillStyle = b.fill;
+        ctx.fill();
+
+        if (b.pattern) {
+          ctx.fillStyle = b.pattern;
+          ctx.fill();
+        }
+      });
+
+      // Garis Putus-putus Zona Senja (-6° & -12°)
+      [84, 78].forEach((radius, idx) => {
+        const twilightLine = d3.geoCircle()
+          .center([antisolarLon, antisolarLat])
+          .radius(radius)();
+
+        ctx.save();
+        ctx.setLineDash(idx === 0 ? [8, 10] : [3, 10]);
+        ctx.beginPath();
+        geoPath(twilightLine);
+        ctx.strokeStyle = idx === 0 ? 'rgba(255, 255, 255, 0.28)' : 'rgba(255, 255, 255, 0.14)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.restore();
+      });
+
+      // Garis Utama Solar Terminator (0°) dengan Pendar Halus (Luma-Safe)
+      const mainTerminator = d3.geoCircle()
+        .center([antisolarLon, antisolarLat])
+        .radius(90)();
+
+      // Outer Glow Tipis
+      ctx.beginPath();
+      geoPath(mainTerminator);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
+      ctx.lineWidth = 14;
+      ctx.stroke();
+
+      // Core Line Ultra-Tajam
+      ctx.beginPath();
+      geoPath(mainTerminator);
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = 2.6;
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    // Lapisan 4: Cahaya Kota Dinamis (Menyala Saat Memasuki Zona Malam)
+    function drawNightCityLights(subsolarLon) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(MAP_X, MAP_Y, MAP_W, MAP_H);
+      ctx.clip();
+
+      const sunCoord = [subsolarLon, SOLAR_DECL_DEG];
+      const halfPi = Math.PI / 2;
+
+      MAJOR_CITIES.forEach(([lon, lat, weight]) => {
+        // Jarak sudut dalam radian dari Subsolar Point (> 90° = Malam)
+        const distRad = d3.geoDistance([lon, lat], sunCoord);
+        // Transisi halus antara 89° hingga 97° (memasuki senja menuju malam)
+        const nightIntensity = smoothstep(halfPi - 0.02, halfPi + 0.13, distRad);
+
+        if (nightIntensity <= 0.01) return;
+
+        const [x, y] = projection([lon, lat]);
+        const glowRadius = 16 * weight;
+
+        // Halo lembut monokrom perak-putih
+        const grad = ctx.createRadialGradient(x, y, 0, x, y, glowRadius);
+        grad.addColorStop(0, `rgba(255, 255, 255, ${0.85 * nightIntensity})`);
+        grad.addColorStop(0.3, `rgba(255, 255, 255, ${0.28 * nightIntensity})`);
+        grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(x, y, glowRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Inti titik kota tajam
+        ctx.fillStyle = `rgba(255, 255, 255, ${nightIntensity})`;
+        ctx.beginPath();
+        ctx.arc(x, y, 2.4 * weight, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      ctx.restore();
+    }
+
+    // Lapisan 5: Indikator Subsolar (Siang) & Antisolar (Tengah Malam)
+    function drawSolarMarkers(subsolarLon) {
+      const antisolarLon = wrapLon(subsolarLon + 180);
+      const [sunX, sunY] = projection([subsolarLon, SOLAR_DECL_DEG]);
+      const [antiX, antiY] = projection([antisolarLon, -SOLAR_DECL_DEG]);
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(MAP_X, MAP_Y, MAP_W, MAP_H);
+      ctx.clip();
+
+      // --- A. SUBSOLAR POINT (ZENITH MATAHARI) ---
+      // Garis penuntun vertikal & horizontal tipis
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(sunX, MAP_Y);
+      ctx.lineTo(sunX, MAP_Y + MAP_H);
+      ctx.moveTo(MAP_X, sunY);
+      ctx.lineTo(MAP_X + MAP_W, sunY);
+      ctx.stroke();
+
+      // Cincin Reticle Presisi
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.arc(sunX, sunY, 22, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(sunX, sunY, 40, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // 4 Garis Sinar Matahari Minimalis (Crosshair Ticks)
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2].forEach((a) => {
+        ctx.moveTo(sunX + Math.cos(a) * 28, sunY + Math.sin(a) * 28);
+        ctx.lineTo(sunX + Math.cos(a) * 48, sunY + Math.sin(a) * 48);
+      });
+      ctx.stroke();
+
+      // Titik Inti
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.arc(sunX, sunY, 5.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Label Koordinat Subsolar (Otomatis geser ke kiri jika dekat tepi kanan)
+      const alignRight = sunX > MAP_X + MAP_W - 420;
+      const labelOffsetX = alignRight ? -56 : 56;
+      ctx.font = '600 20px "SF Mono", "JetBrains Mono", "Consolas", monospace';
+      ctx.textAlign = alignRight ? 'right' : 'left';
+      ctx.textBaseline = 'middle';
+
+      const lonFormatted = subsolarLon >= 0
+        ? `${subsolarLon.toFixed(1).padStart(5, '0')}°E`
+        : `${Math.abs(subsolarLon).toFixed(1).padStart(5, '0')}°W`;
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText('SUBSOLAR ZENITH', sunX + labelOffsetX, sunY - 14);
+      ctx.fillStyle = '#AAAAAA';
+      ctx.fillText(`${SOLAR_DECL_DEG.toFixed(2)}°N  ${lonFormatted}`, sunX + labelOffsetX, sunY + 14);
+
+      // --- B. ANTISOLAR POINT (TENGAH MALAM) ---
+      ctx.save();
+      ctx.setLineDash([5, 6]);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.arc(antiX, antiY, 22, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+      ctx.beginPath();
+      ctx.arc(antiX, antiY, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      const antiAlignRight = antiX > MAP_X + MAP_W - 340;
+      const antiOffsetX = antiAlignRight ? -34 : 34;
+      ctx.font = '500 18px "SF Mono", "JetBrains Mono", "Consolas", monospace';
+      ctx.textAlign = antiAlignRight ? 'right' : 'left';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+      ctx.fillText('ANTISOLAR // 00:00', antiX + antiOffsetX, antiY);
+
+      ctx.restore();
+    }
+
+    // Lapisan 6: Bingkai Kartografi Klasik (Zebra Neatline) & Skala Derajat
+    function drawCartographicFrame() {
+      const BAND = 12; // Ketebalan bingkai skala zebra
+
+      ctx.save();
+
+      // Bingkai Dalam & Luar
+      ctx.strokeStyle = '#777777';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(MAP_X, MAP_Y, MAP_W, MAP_H);
+      ctx.strokeRect(MAP_X - BAND, MAP_Y - BAND, MAP_W + BAND * 2, MAP_H + BAND * 2);
+
+      // Segmen Zebra Horizontal (Setiap 15° = 24 segmen)
+      const segW = MAP_W / 24;
+      for (let i = 0; i < 24; i++) {
+        const x = MAP_X + i * segW;
+        if (i % 2 === 0) {
+          ctx.fillStyle = '#D4D4D4';
+          ctx.fillRect(x, MAP_Y - BAND, segW, BAND);
+          ctx.fillRect(x, MAP_Y + MAP_H, segW, BAND);
+        } else {
+          ctx.fillStyle = '#161616';
+          ctx.fillRect(x, MAP_Y - BAND, segW, BAND);
+          ctx.fillRect(x, MAP_Y + MAP_H, segW, BAND);
+        }
+      }
+
+      // Segmen Zebra Vertikal (Setiap 15° = 12 segmen)
+      const segH = MAP_H / 12;
+      for (let i = 0; i < 12; i++) {
+        const y = MAP_Y + i * segH;
+        if (i % 2 === 0) {
+          ctx.fillStyle = '#D4D4D4';
+          ctx.fillRect(MAP_X - BAND, y, BAND, segH);
+          ctx.fillRect(MAP_X + MAP_W, y, BAND, segH);
+        } else {
+          ctx.fillStyle = '#161616';
+          ctx.fillRect(MAP_X - BAND, y, BAND, segH);
+          ctx.fillRect(MAP_X + MAP_W, y, BAND, segH);
+        }
+      }
+
+      // Kotak Sudut Solid
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(MAP_X - BAND, MAP_Y - BAND, BAND, BAND);
+      ctx.fillRect(MAP_X + MAP_W, MAP_Y - BAND, BAND, BAND);
+      ctx.fillRect(MAP_X - BAND, MAP_Y + MAP_H, BAND, BAND);
+      ctx.fillRect(MAP_X + MAP_W, MAP_Y + MAP_H, BAND, BAND);
+
+      // Label Derajat Bujur (Atas)
+      ctx.fillStyle = '#888888';
+      ctx.font = '500 20px "SF Mono", "JetBrains Mono", "Consolas", monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      for (let lon = -180; lon <= 180; lon += 30) {
+        const [x] = projection([lon, 0]);
+        const txt = lon === 0 ? '000°' : lon > 0 ? `${String(lon).padStart(3, '0')}°E` : `${String(Math.abs(lon)).padStart(3, '0')}°W`;
+        ctx.fillText(txt, x, MAP_Y - BAND - 14);
+      }
+
+      // Label Derajat Lintang (Kiri & Kanan)
+      ctx.textBaseline = 'middle';
+      for (let lat = -60; lat <= 60; lat += 30) {
+        const [, y] = projection([0, lat]);
+        const txt = lat === 0 ? '00°' : lat > 0 ? `${lat}°N` : `${Math.abs(lat)}°S`;
+        ctx.textAlign = 'right';
+        ctx.fillText(txt, MAP_X - BAND - 18, y);
+        ctx.textAlign = 'left';
+        ctx.fillText(txt, MAP_X + MAP_W + BAND + 18, y);
+      }
+
+      ctx.restore();
+    }
+
+    // Lapisan 7: Header & Footer Swiss Editorial + Progress Bar 24 Jam
+    function drawTelemetryHUD(progress) {
+      const totalSeconds = Math.floor(progress * 86400) % 86400;
+      const hrs = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
+      const mins = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
+
+      const headerY = MAP_Y - 88;
+      const footerY = MAP_Y + MAP_H + 74;
+
+      ctx.save();
+
+      // Header Kiri: Judul Utama & Sub-label
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '700 34px "Helvetica Neue", "Inter", Arial, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillText('SOLAR TERMINATOR', MAP_X - 12, headerY);
+
+      ctx.fillStyle = '#777777';
+      ctx.font = '500 24px "SF Mono", "JetBrains Mono", "Consolas", monospace';
+      ctx.fillText('  //  EQUIRECTANGULAR PROJECTION  •  WGS84', MAP_X + 350, headerY);
+
+      // Header Kanan: Waktu UTC Real-Time & Deklinasi
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#888888';
+      ctx.font = '500 24px "SF Mono", "JetBrains Mono", "Consolas", monospace';
+      ctx.fillText(`DECL +${SOLAR_DECL_DEG.toFixed(2)}°   |   SOLAR TIME `, MAP_X + MAP_W - 140, headerY);
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '700 30px "SF Mono", "JetBrains Mono", "Consolas", monospace';
+      ctx.fillText(`${hrs}:${mins} UTC`, MAP_X + MAP_W + 12, headerY);
+
+      // Footer Kiri: Legenda Lapisan Twilight
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#777777';
+      ctx.font = '500 20px "SF Mono", "JetBrains Mono", "Consolas", monospace';
+      ctx.fillText('BANDS:  0° HORIZON   •   -6° CIVIL   •   -12° NAUTICAL   •   -18° ASTRONOMICAL', MAP_X - 12, footerY);
+
+      // Footer Kanan: Progress Bar Siklus 24H Minimalis
+      const barW = 460;
+      const barH = 6;
+      const barX = MAP_X + MAP_W + 12 - barW;
+      const barY = footerY - 11;
+
+      ctx.fillStyle = '#222222';
+      ctx.fillRect(barX, barY, barW, barH);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(barX, barY, barW * progress, barH);
+
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#999999';
+      ctx.fillText('24H CYCLE', barX - 20, footerY);
+
+      ctx.restore();
+    }
+
+    // =========================================================================
+    // 4. FUNGSI RENDER DETERMINISTIK & LOOP
+    // =========================================================================
+    function render(progress) {
+      // Background Hitam Murni (#000000 - Luma Safe)
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+      // Matahari bergerak mulus dari Timur (+180°) ke Barat (-180°)
+      const subsolarLon = 180 - progress * 360;
+
+      drawMapGrid();
+      drawLandmasses();
+      drawSolarTerminator(subsolarLon);
+      drawNightCityLights(subsolarLon);
+      drawSolarMarkers(subsolarLon);
+      drawCartographicFrame();
+      drawTelemetryHUD(progress);
+    }
+
+    // Hook Global untuk Ekspor Frame-by-Frame (Playwright / FFmpeg / Remotion)
+    window.renderFrame = function (frameIndex, totalFrames = TOTAL_FRAMES) {
+      const progress = (frameIndex % totalFrames) / totalFrames;
+      render(progress);
+    };
+
+    // Muat Data Peta Natural Earth 110m (Land & Country Borders)
+    fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
+      .then((res) => res.json())
+      .then((world) => {
+        landGeo = topojson.feature(world, world.objects.land);
+        bordersGeo = topojson.mesh(world, world.objects.countries, (a, b) => a !== b);
+        window.mapReady = true;
+
+        // Mulai Preview Real-Time 60 FPS
+        let startTime = null;
+        function animate(timestamp) {
+          if (!startTime) startTime = timestamp;
+          const elapsedSec = (timestamp - startTime) / 1000;
+          const progress = (elapsedSec % DURATION_SEC) / DURATION_SEC;
+
+          render(progress);
+          requestAnimationFrame(animate);
+        }
+        requestAnimationFrame(animate);
+      });
+  </script>
+</body>
+</html>
